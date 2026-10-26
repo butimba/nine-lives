@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nine Lives · panel</title>
+<meta name="robots" content="noindex" />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css?v=1" />
+<style>
+  body { user-select: text; -webkit-user-select: text; }
+  .t-wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+  .t-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 12px; }
+  .pcard { background: var(--card); border: 1.5px solid var(--line); border-radius: 18px; padding: 14px; }
+  .pcard h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
+  .pcard .mini { width: 54px; }
+  .bar { height: 8px; background: rgba(0,0,0,.35); border-radius: 99px; overflow: hidden; }
+  .bar i { display: block; height: 100%; }
+  .sk { display: grid; grid-template-columns: 1fr 60px 40px; gap: 6px; align-items: center; font-size: 13px; margin: 3px 0; }
+  .warn { color: #ffb3bd; font-size: 13px; }
+  pre { white-space: pre-wrap; font-size: 12px; background: rgba(0,0,0,.3); padding: 10px; border-radius: 10px; max-height: 260px; overflow: auto; }
+  textarea { width: 100%; min-height: 80px; background: rgba(0,0,0,.3); color: var(--ink); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; font: inherit; }
+</style>
+</head>
+<body>
+<div class="t-wrap" id="t"></div>
+<script type="module">
+import CONFIG from "./config.js";
+import * as cloud from "./js/cloud.js";
+import { loginHash, esc } from "./js/util.js";
+import { report, reportText } from "./js/engine.js";
+import { migrate, levelInfo } from "./js/state.js";
+import { catSVG } from "./js/art.js";
+import ROSTER from "./data/roster.js";
+
+const root = document.getElementById("t");
+const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch {} };
+
+if (ls("nl:teacher") !== "1") {
+  root.innerHTML = `<div class="card" style="max-width:340px;margin:12vh auto;display:grid;gap:10px"><h2>👩‍🏫 Panel nauczyciela</h2><input type="password" placeholder="PIN" inputmode="numeric"/><button class="btn go">Wejdź</button></div>`;
+  root.querySelector("button").onclick = () => { if (root.querySelector("input").value === CONFIG.teacherPin) { ls("nl:teacher", "1"); location.reload(); } };
+} else main();
+
+async function main() {
+  const names = (ls("nl:names") || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const byHash = Object.fromEntries(names.map((n) => [loginHash(n), n]));
+  root.innerHTML = `<h1>👩‍🏫 Nine Lives — postępy</h1>
+    <div class="card"><label>Loginy Twoich uczniów (po przecinku, zapisuje się tylko w tej przeglądarce):</label>
+      <input class="names" value="${esc(names.join(", "))}" placeholder="lucja, matylda, nina, bruno"/>
+      <div class="row"><button class="btn ghost save-n">Zapisz</button><button class="btn go all">📋 Kopiuj raport wszystkich (dla Claude'a)</button></div></div>
+    <div class="t-grid"></div>
+    <div class="card" style="margin-top:12px"><b>Bez chmury?</b> Wklej kod zapisu ucznia (Ustawienia → Dla nauczyciela → Kopiuj kod zapisu):<textarea class="code"></textarea><button class="btn ghost load-code">Pokaż</button></div>`;
+  root.querySelector(".save-n").onclick = () => { ls("nl:names", root.querySelector(".names").value); location.reload(); };
+  const grid = root.querySelector(".t-grid");
+  const texts = [];
+  const show = (save, label) => {
+    const prof = ROSTER.players[save.id] || ROSTER.default;
+    const r = report(save, prof);
+    texts.push(reportText(save, prof, label));
+    const card = document.createElement("div"); card.className = "pcard";
+    const days = Math.round((Date.now() - (save.updatedAt || 0)) / 86400000);
+    card.innerHTML = `<h3><span class="mini">${catSVG(save.equipped.skin, save.equipped.hat)}</span>${esc(label)} <small>(${esc(save.catName || "")})</small></h3>
+      <div>Lv ${levelInfo(save.xp).lvl} · piętro ${save.tower.best} · seria 🔥${save.streak.count} · ${days === 0 ? "grał(a) dziś" : `ostatnio ${days} dni temu`}</div>
+      <div>7 dni: <b>${r.weekAnswers}</b> odpowiedzi, celność <b>${r.weekAcc ?? "–"}%</b> · złote karty ${r.gold}/${r.seen} · cienie ${r.shadows}</div>
+      <h4 style="margin:10px 0 4px">Umiejętności</h4>
+      ${r.skills.map((s) => `<div class="sk"><span>${esc(s.name)}</span><div class="bar"><i style="width:${s.m}%;background:${s.m < 45 ? "#ff5d6c" : s.m < 75 ? "#ffcf3f" : "#3ddc84"}"></i></div><small>${s.m}%</small></div>`).join("")}
+      ${r.conf.length ? `<h4 style="margin:10px 0 4px">Wzorce błędów</h4>${r.conf.map((c) => `<div class="warn">• ${esc(c.pl)}</div>`).join("")}` : ""}
+      ${r.weakItems.length ? `<h4 style="margin:10px 0 4px">Najsłabsze</h4><div style="font-size:13px">${r.weakItems.slice(0, 6).map((w) => `${esc(w.label)} (${w.acc}%)`).join(" · ")}</div>` : ""}`;
+    grid.append(card);
+  };
+  root.querySelector(".all").onclick = () => { navigator.clipboard.writeText(texts.join("\n\n---\n\n")); root.querySelector(".all").textContent = "Skopiowane ✔"; };
+  root.querySelector(".load-code").onclick = () => {
+    try { const s = migrate(JSON.parse(decodeURIComponent(escape(atob(root.querySelector(".code").value.trim()))))); show(s, byHash[s.id] || s.catName || s.id); } catch (e) { alert("Zły kod"); }
+  };
+  if (cloud.enabled()) {
+    try {
+      const rows = await cloud.listAll();
+      for (const row of rows) show(migrate(row.data), byHash[row.id] || `gracz ${row.id}`);
+      if (!rows.length) grid.innerHTML = `<p class="sub">Nikt jeszcze nie grał.</p>`;
+    } catch (e) { grid.innerHTML = `<p class="warn">Nie mogę połączyć się z bazą: ${esc(e.message)}</p>`; }
+  }
+}
+</script>
+</body>
+</html>
