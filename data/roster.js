@@ -51,6 +51,28 @@ export default {
     "v:food"
    ],
    "noReading": true
+  },
+  "nxqpf3": {
+   "voice": false,
+   "tester": true,
+   "focus": [
+    "ps_3s",
+    "ps_neg",
+    "ps_q",
+    "pc",
+    "pc_vs_ps",
+    "be",
+    "have_got",
+    "can",
+    "there",
+    "plural",
+    "v:animals",
+    "v:food",
+    "v:colors",
+    "v:numbers",
+    "v:actions"
+   ],
+   "duo": null
   }
  },
  "default": {

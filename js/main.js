@@ -1,5 +1,5 @@
 import { h, esc, normLogin, loginHash, sleep, today } from "./util.js";
-import { loadSave, persist, getSave, levelInfo, talentPoints, exportCode } from "./state.js";
+import { loadSave, persist, getSave, levelInfo, talentPoints, exportCode, freshSave } from "./state.js";
 import { catSVG, makeMonster, monsterSVG, biomeForFloor, rngFrom } from "./art.js";
 import { runGame } from "./battle.js";
 import { sfx, setAudio, startMusic, stopMusic, speak } from "./audio.js";
@@ -367,9 +367,16 @@ function settings() {
     <label>Imię kota <input class="cn" value="${esc(save.catName)}" maxlength="14"/></label>
     <p class="sub">Grasz jako: <b>${esc(loginName)}</b> ${cloud.enabled() ? "· zapis w chmurze ☁️" : "· zapis na tym urządzeniu"}</p>
     <div class="row"><button class="btn ghost logout">Wyloguj</button><button class="btn ghost teacher">👩‍🏫 Dla nauczyciela</button></div>
+    ${profile.tester ? `<div class="card"><b>🧪 Konto testowe</b><div class="row"><button class="btn ghost t-coins">+1000 🪙</button><button class="btn ghost t-xp">+5 leveli</button><button class="btn ghost t-chest">+3 skrzynie</button><button class="btn danger t-reset">Reset od zera</button></div></div>` : ""}
   </div>`);
   const upd = () => { s.voice = wrap.querySelector(".v").checked; s.pl = wrap.querySelector(".pl").checked; s.sfx = wrap.querySelector(".sfx").checked; s.music = wrap.querySelector(".mus").checked; const n = wrap.querySelector(".cn").value.trim(); if (n) save.catName = n; setAudio(s); persist(); };
   wrap.querySelectorAll("input").forEach((i) => (i.onchange = upd));
+  if (profile.tester) {
+    wrap.querySelector(".t-coins").onclick = () => { save.coins += 1000; persist(); toast("+1000 🪙"); };
+    wrap.querySelector(".t-xp").onclick = () => { const l = levelInfo(save.xp).lvl; for (let i = 0; i < 5; i++) save.xp += ECON.levelXp(l + i); persist(); toast("+5 leveli ⭐"); };
+    wrap.querySelector(".t-chest").onclick = () => { save.chests.push("wood", "silver", "gold"); persist(); toast("+3 skrzynie 🎁"); };
+    wrap.querySelector(".t-reset").onclick = () => { const id = save.id; Object.assign(save, freshSave(id, profile), { rev: save.rev }); persist(true); toast("Wyczyszczone"); nameCat(); };
+  }
   wrap.querySelector(".logout").onclick = () => { try { localStorage.removeItem("ninelives:last"); } catch {} showLogin(); };
   wrap.querySelector(".teacher").onclick = () => {
     const txt = reportText(save, profile, loginName);
