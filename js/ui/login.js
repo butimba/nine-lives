@@ -89,7 +89,7 @@ export const nameScreen = {
       </form>
     </div>`);
     root.append(el);
-    const cat = liveCat({ skin: s.equipped.skin, hat: s.equipped.hat, anim: "idle", scale: 6 });
+    const cat = liveCat({ skin: s.equipped.skin, hat: s.equipped.hat, anim: "idle", scale: 5 });
     el.querySelector(".cat-slot").append(cat.el);
     const inp = el.querySelector("#cat-name");
     inp.value = randomCatName();

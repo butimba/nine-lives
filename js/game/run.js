@@ -23,7 +23,7 @@ const tr = (save, id) => (save.talents && save.talents[id]) || 0;
 const S_ = (k, ...a) => { try { sfx[k] && sfx[k](...a); } catch {} };
 const say = (txt) => { try { if (txt) speak(txt); } catch {} };
 const AS = 2; // actors (cat, monsters) are drawn at 2x so 7-year-olds can see them on a phone
-const isStub = (spr) => !spr || String(spr.id || "").startsWith("ic_");
+const isStub = (spr) => !spr || !spr.w || !spr.anchor;
 const ease = { out: (k) => 1 - (1 - k) ** 3, inQ: (k) => k * k, back: (k) => 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2 };
 const HEART = [".##.##.", "#######", "#######", ".#####.", "..###..", "...#..."];
 const FISH = ["...##...", ".######.#", "#.#######", "########.", ".######.#", "...##...."];
@@ -196,7 +196,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
         mon.sx += (1 - mon.sx) * Math.min(1, dt * 12); mon.sy += (1 - mon.sy) * Math.min(1, dt * 12);
         mon.hpShow += (mon.hp - mon.hpShow) * Math.min(1, dt * 5);
       }
-      if (fight) { fight.paused = runState !== "task" || typing() || ui.modalOpen; fight.update(dt, t); }
+      if (fight) { fight.paused = runState !== "task" || typing() || !!(mech && mech.typing) || ui.modalOpen; fight.update(dt, t); }
       if (mech && mech.update) mech.update(dt, t);
       fx.update(dt);
       for (let i = 0; i < 9; i++) if (heartPulse[i] > 0) heartPulse[i] -= dt;
@@ -233,7 +233,13 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const o = { anim: cat.anim, t: cat.animT, flip: cat.flip, flash: cat.flash > 0, scale: AS };
     if (cat.sx !== 1 || cat.sy !== 1) { ctx.save(); ctx.translate(x, y); ctx.scale(cat.sx, cat.sy); catSpr.draw(ctx, 0, 0, o); ctx.restore(); }
     else catSpr.draw(ctx, x, y, o);
-    if (cat.anim === "sleep") { const k = (t * 0.8) % 1; pxText(ctx, "z", x + 16 + k * 8, y - 50 - k * 16, { color: "#dfe6ff", scale: 1 + Math.round(k) }); }
+    if (cat.anim === "sleep") {
+      const k = (t * 0.6) % 1, zx = Math.round(x + 18 + k * 10), zy = Math.round(y - 44 - k * 18);
+      ctx.globalAlpha = Math.min(1, (1 - k) * 2);
+      if (!isStub(ICONS.zzz)) drawSprite(ctx, ICONS.zzz, 0, zx, zy, {});
+      else pxText(ctx, "Z", zx, zy, { color: "#dfe6ff", scale: 2 });
+      ctx.globalAlpha = 1;
+    }
   }
   function drawMonster(ctx, t) {
     const p = monScreen();
@@ -273,7 +279,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       const full = i < n;
       const p = heartPulse[i] > 0 ? Math.round(Math.sin(heartPulse[i] * 30) * 2) : 0;
       const hx = 4 + i * 15, hy = 4 - p;
-      if (useIco) drawSprite(ctx, full ? ICONS.heart : ICONS.heartEmpty, 0, hx + 7, hy + 12, { scale: 2 });
+      if (useIco) { const sp = full ? ICONS.heart : ICONS.heartEmpty; drawSprite(ctx, sp, 0, hx + 1 + sp.anchor.x, hy + 1 + sp.anchor.y, { silhouette: false, alpha: full && S.dream ? 0.6 : 1 }); }
       else {
         pix(ctx, HEART, hx, hy, full ? (S.dream ? "#9a8cff" : "#e8434f") : "#3a2f4e", "#0e0b16", 2);
         if (full) { ctx.fillStyle = S.dream ? "#d8d0ff" : "#ffb0b8"; ctx.fillRect(hx + 2, hy + 2, 2, 2); }
@@ -282,7 +288,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     // fish (run coins), 2x
     const fp = fishPulse > 0 ? 1 : 0;
     const fishX = 196, fishY = 5 - fp;
-    if (!isStub(ICONS.fish)) drawSprite(ctx, ICONS.fish, 0, fishX + 8, fishY + 12, { scale: 2 });
+    if (!isStub(ICONS.fish)) drawSprite(ctx, ICONS.fish, 0, fishX + 2 + ICONS.fish.anchor.x * 1, fishY + ICONS.fish.anchor.y, {});
     else pix(ctx, FISH, fishX, fishY, "#7ec4ff", "#0e0b16", 2);
     pxText(ctx, String(Math.round(S.coins)), fishX - 3, fishY + 1, { color: fp ? "#ffffff" : "#ffcf3f", align: "right", scale: 2 });
     HUD.fish = () => ({ x: fishX + 8, y: 10 });
@@ -420,6 +426,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const m = Mech.create({
       stage, fx, arena, task: plan.task || task, prompt, rng: Math.random, difficulty, sfx, speak: say,
       sprites: { getCat, ICONS, iconURL, drawSprite, pixelURL }, cat: catApi, hints: S.hints, revealCard: false, ground: footY(),
+      target: mon ? { x: mon.wx, y: toScreenY(mon.wy) - monH() / 2 } : { x: 190, y: footY() - 20 },
     });
     mech = m;
     mechCount[plan.mech] = (mechCount[plan.mech] || 0) + 1;
@@ -636,7 +643,9 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     } else if (S.asleep) {
       cat.anim = "sleep"; S_("snore");
       await stage.sleep(600);
+      setState("reveal");
       await ui.messageCard({ title: "Zzz...", sub: "No lives left. Come back later!", btn: "OK" });
+      setState("idle");
     } else if (isShadow) {
       const won = !(S.dream && S.dreamErrors >= 3);
       cat.anim = won ? "dance" : "sleep";

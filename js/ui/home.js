@@ -189,7 +189,7 @@ export const homeScreen = {
       <header class="home-hud">
         <div class="hud-row hud-row--top">
           <div class="hearts-wrap" style="display:flex;align-items:center;min-width:0"><div class="hearts" aria-label="lives"></div><span class="hud-next"></span></div>
-          <button class="px-btn px-btn--paper gear" data-act="settings" aria-label="Settings"><img class="px-ico" src="${GEAR}" width="24" height="24" alt=""></button>
+          <button class="px-btn px-btn--paper gear" data-act="settings" aria-label="Settings"><img class="px-ico" src="${iconSrc("gear", 2)}" width="28" height="28" alt=""></button>
         </div>
         <div class="hud-row">
           <div class="chip lvl-chip"><span class="lv">LV <b data-lv></b></span><div class="xpbar"><i data-xp></i></div></div>
@@ -241,7 +241,7 @@ export const homeScreen = {
       const b = biomeForFloor(next);
       const wrap = $(".climb-wrap");
       if (ls.asleep) {
-        wrap.innerHTML = `${pxButton(`<span class="zz">Z z z</span>`, { act: "climb", big: true, variant: "dark", cls: "climb", disabled: true })}
+        wrap.innerHTML = `${pxButton("Sleeping", { icon: "zzz", act: "climb", big: true, variant: "dark", cls: "climb", disabled: true })}
           <div class="climb-sub">Next life in <span class="climb-time">${fmtTime(ls.nextInMs)}</span></div>`;
       } else {
         const tier = sleepyTier(save);

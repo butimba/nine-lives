@@ -45,7 +45,7 @@ export const resultsScreen = {
           <div class="res-stat">${ico("check", { scale: 3 })}<b><span data-n="acc">0</span>%</b><small>right</small></div>
         </div>`, { cls: "res-board", tilt: -1 })}
       <div class="res-msgs"></div>
-      ${sleepy ? panel(`<img class="px-ico" src="${iconSrc("catHead", 4)}" alt=""><span>Your cat is getting sleepy… rewards are smaller now. The Shadow Cellar still gives full rewards!</span>`, { cls: "sleepy-note", tape: false, tilt: 0.6 }) : ""}
+      ${sleepy ? panel(`<img class="px-ico" src="${iconSrc("zzz", 4)}" alt=""><span>Your cat is getting sleepy… rewards are smaller now. The Shadow Cellar still gives full rewards!</span>`, { cls: "sleepy-note", tape: false, tilt: 0.6 }) : ""}
       <div class="res-actions">
         ${hasChest ? pxButton("Open chest", { act: "open-chest", big: true, variant: "gold" }) : ""}
         ${pxButton("Continue", { act: "continue", big: !hasChest, variant: hasChest ? "paper" : "ok" })}

@@ -17,7 +17,7 @@ import { gainLife } from "../lives.js";
 const back = () => { sfx.tap(); go("home"); };
 
 // =================== SKILLS ===================
-const TREES_EN = { claws: { name: "Claws", color: "var(--px-danger)", icon: "star" }, fur: { name: "Fur", color: "var(--px-sky)", icon: "shield" }, whiskers: { name: "Whiskers", color: "#d9a22b", icon: "fish" } };
+const TREES_EN = { claws: { name: "Claws", color: "var(--px-danger)", icon: "claw" }, fur: { name: "Fur", color: "var(--px-sky)", icon: "shield" }, whiskers: { name: "Whiskers", color: "#d9a22b", icon: "eye" } };
 const TALENT_EN = {
   sharp_claws: { name: "Sharp Claws", icon: "star", d: (r) => `+${r * 6}% big hits (x2)` },
   combo: { name: "Combo Master", icon: "flame", d: (r) => `${Math.max(2, 5 - r)} right in a row = +1 damage` },
@@ -46,7 +46,7 @@ export const skillsScreen = {
             const en = TALENT_EN[t.id] || { name: t.name, icon: "star", d: () => "" };
             const r = tr(save, t.id), can = canRaise(save, t, pts), locked = t.req && tr(save, t.req) < 1;
             return `<div class="talent ${locked ? "locked" : ""} ${r ? "has" : ""}">
-              <div class="ti">${ico(en.icon, { scale: 3 })}</div>
+              <div class="ti">${ico("talent_" + t.id, { scale: 3 })}</div>
               <div><b>${esc(en.name)}</b><small>${esc(en.d(Math.max(1, Math.min(t.max, r + (r < t.max ? 1 : 0)))))}${r >= t.max ? "" : r ? " (next)" : ""}</small>
                 <div class="pips">${Array.from({ length: t.max }, (_, i) => `<i class="${i < r ? "on" : ""}"></i>`).join("")}</div></div>
               ${locked ? `<img class="px-ico" src="${iconSrc("lock", 3)}" alt="locked">` : pxButton(r >= t.max ? "Max" : "+1", { act: "raise", variant: can ? "ok" : "dark", cls: "px-btn--sm", disabled: !can, attrs: `data-id="${t.id}"` })}
@@ -127,7 +127,7 @@ export const storyScreen = {
         <p>${open}/${STORY.length} pages</p><span class="note">beat a boss = new page</span></div>
       <div class="diary">${STORY.map((p, i) => i < open
         ? panel(`<span class="pn">${i + 1}</span><p class="en">${esc(stripEmoji(p.en))}</p>${showPl ? `<p class="pl" hidden>${esc(p.pl)}</p>` : ""}
-          <div class="row">${canSpeak() ? pxButton(ico("speaker", { scale: 2 }) + "<span>Listen</span>", { act: "say", variant: "paper", cls: "px-btn--sm", attrs: `data-i="${i}"` }) : ""}${showPl ? pxButton("PL", { act: "pl", variant: "paper", cls: "px-btn--sm" }) : ""}</div>`, { cls: "diary-page paper--lined", grid: false, tape: i % 3 === 0, tilt: [-0.8, 0.5, -0.3, 0.9][i % 4] })
+          <div class="row">${canSpeak() ? pxButton("Listen", { icon: "speaker", act: "say", variant: "paper", cls: "px-btn--sm", attrs: `data-i="${i}"` }) : ""}${showPl ? pxButton("PL", { act: "pl", variant: "paper", cls: "px-btn--sm" }) : ""}</div>`, { cls: "diary-page paper--lined", grid: false, tape: i % 3 === 0, tilt: [-0.8, 0.5, -0.3, 0.9][i % 4] })
         : i === open ? panel(`<span class="pn">${i + 1}</span><p class="en">Beat the next boss!</p>`, { cls: "diary-page locked", grid: false, tape: false, tilt: 0.4 }) : "").join("")}</div>
     </div>`);
     root.append(el);

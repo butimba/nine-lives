@@ -39,7 +39,7 @@ export const wardrobeScreen = {
       const sk = SKINS.find((s) => s.id === skin);
       $(".preview-name").innerHTML = sticker(`<span class="sticker-label">${esc(tryOn ? tryOn.name : save.catName || (sk && sk.name) || "")}</span>`, { tilt: -3 });
       let act = "";
-      if (tryOn) act = pxButton(`${ico("fish")}<span>${tryOn.price}</span>`, { act: "buy", variant: save.coins >= tryOn.price ? "ok" : "dark", cls: "px-btn--sm" }) + pxButton("X", { act: "untry", variant: "paper", cls: "px-btn--sm" });
+      if (tryOn) act = pxButton(String(tryOn.price), { icon: "fish", act: "buy", variant: save.coins >= tryOn.price ? "ok" : "dark", cls: "px-btn--sm" }) + pxButton("X", { act: "untry", variant: "paper", cls: "px-btn--sm" });
       else if (save.equipped.hat && save.equipped.hat !== "none") act = pxButton("Take off hat", { act: "hat-off", variant: "paper", cls: "px-btn--sm" });
       $(".preview-actions").innerHTML = act;
     };
@@ -76,10 +76,10 @@ export const wardrobeScreen = {
         const all = [...items.skins, ...items.hats].sort((a, b) => (a.owned - b.owned) || ((b.source || "").startsWith("event") - (a.source || "").startsWith("event")) || (a.price - b.price));
         body.innerHTML = `
           <div class="shop-extras">
-            ${panel(`<img class="px-ico big-ico" src="${iconURLsafe("shield")}" alt=""><b>Streak freeze</b><small>Miss 1 day, keep your streak. You have ${save.streak.freezes}/${ECON.freezeMax}.</small>
-              ${pxButton(`${ico("fish", { scale: 2 })}<span>${ECON.freezePrice}</span>`, { act: "buy-freeze", variant: save.coins >= ECON.freezePrice && save.streak.freezes < ECON.freezeMax ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: -1.5, tape: true })}
+            ${panel(`<img class="px-ico big-ico" src="${iconURLsafe("snow")}" alt=""><b>Streak freeze</b><small>Miss 1 day, keep your streak. You have ${save.streak.freezes}/${ECON.freezeMax}.</small>
+              ${pxButton(String(ECON.freezePrice), { icon: "fish", act: "buy-freeze", variant: save.coins >= ECON.freezePrice && save.streak.freezes < ECON.freezeMax ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: -1.5, tape: true })}
             ${panel(`<img class="px-ico big-ico" src="${chestSrc("wood", 3)}" alt="" style="object-fit:contain"><b>Wood chest</b><small>Fish or a surprise!</small>
-              ${pxButton(`${ico("fish", { scale: 2 })}<span>${ECON.chestPrice}</span>`, { act: "buy-chest", variant: save.coins >= ECON.chestPrice ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: 1.2, tape: true })}
+              ${pxButton(String(ECON.chestPrice), { icon: "fish", act: "buy-chest", variant: save.coins >= ECON.chestPrice ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: 1.2, tape: true })}
           </div>
           <div class="section-title">Skins + hats ${ev ? `<small>${esc(ev.name)}!</small>` : ""}</div>
           <div class="item-grid">${all.map((it) => itemHTML(it, it.kind, { owned: it.owned, price: it.price, cant: !it.owned && save.coins < it.price, on: tryOn && tryOn.id === it.id })).join("")}</div>`;
