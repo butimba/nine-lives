@@ -8,7 +8,7 @@
 import { today } from "./util.js";
 import * as cloud from "./cloud.js";
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 const LS_KEY = (id) => `ninelives:save:${id}`;
 const LOG_MAX = 1500;
 
@@ -20,7 +20,8 @@ export function freshSave(id, profile) {
     owned: { skins: ["ginger"], hats: ["none"] },
     equipped: { skin: "ginger", hat: "none" },
     tower: { checkpoint: 0, best: 0, bossesBeaten: 0 },
-    daily: { date: today(), runs: 0 },
+    daily: { date: today(), runs: 0, ms: 0 },   // ms = czas gry dziś (malejące nagrody)
+    lives: { n: 9, at: Date.now(), date: today() }, // 9 żyć/dzień; at = od kiedy liczymy regenerację
     streak: { count: 0, last: null, freezes: 0, best: 0 },
     srs: {},          // itemKey -> { b: pudełko 0-5, due: ms, n: próby, ok: dobre, last: ms }
     skills: {},       // skillId -> { m: opanowanie 0-1, n: próby }
@@ -30,26 +31,40 @@ export function freshSave(id, profile) {
     chests: [],       // nieotwarte skrzynki: ["wood", "gold"...]
     weekly: { week: null, dmg: 0, claimed: [] },
     weeklySkins: 0,   // ile skórek z kolejki "weekly" już dostał
-    settings: { voice: !!(profile && profile.voice), sfx: true, music: true, pl: true },
+    challenges: { date: null, list: [] },  // wyzwania dnia (etap 2)
+    powers: { owned: [], equipped: [] },   // moce aktywne (etap 2)
+    settings: { voice: !!(profile && profile.noReading), sfx: true, music: true, pl: true },
     log: [],          // [t, itemKey, ok(1/0), ms, chosenTag]
     stats: { runs: 0, answers: 0, correct: 0, playMs: 0, shadowRuns: 0 },
   };
 }
 
 const MIGRATIONS = {
+  // v1 → v2 (Nine Lives v2): życia, czas gry dziennie, wyzwania, moce; lektor domyślnie OFF (poza noReading).
+  2: (s, profile) => {
+    s.lives ??= { n: 9, at: Date.now(), date: today() };
+    s.daily ??= { date: today(), runs: 0 };
+    s.daily.ms ??= 0;
+    s.challenges ??= { date: null, list: [] };
+    s.powers ??= { owned: [], equipped: [] };
+    s.settings ??= {};
+    s.settings.voice = !!(profile && profile.noReading);
+    return s;
+  },
   // przykład na przyszłość:
-  // 2: (s) => { s.newField = s.newField ?? defaultValue; return s; },
+  // 3: (s, profile) => { s.newField ??= defaultValue; return s; },
 };
 
 export function migrate(s, profile) {
   if (!s || typeof s !== "object") return null;
+  let v = s.v || 1;
+  // migracje najpierw (widzą zapis w starym kształcie), potem uzupełnienie brakujących pól
+  while (v < SAVE_VERSION) { v++; if (MIGRATIONS[v]) s = MIGRATIONS[v](s, profile) || s; s.v = v; }
   const base = freshSave(s.id, profile);
   // uzupełnij brakujące pola (bez nadpisywania istniejących)
-  for (const k of Object.keys(base)) if (s[k] === undefined) s[k] = base[k];
-  for (const k of ["owned", "equipped", "tower", "daily", "streak", "weekly", "settings", "stats"])
+  for (const k of Object.keys(base)) if (s[k] === undefined || s[k] === null) s[k] = base[k];
+  for (const k of ["owned", "equipped", "tower", "daily", "lives", "streak", "weekly", "settings", "stats", "challenges", "powers"])
     for (const kk of Object.keys(base[k])) if (s[k][kk] === undefined) s[k][kk] = base[k][kk];
-  let v = s.v || 1;
-  while (v < SAVE_VERSION) { v++; if (MIGRATIONS[v]) s = MIGRATIONS[v](s); s.v = v; }
   if (s.log.length > LOG_MAX) s.log = s.log.slice(-LOG_MAX);
   return s;
 }
@@ -81,10 +96,10 @@ export function persist(immediate = false) {
 }
 
 export function exportCode() { return btoa(unescape(encodeURIComponent(JSON.stringify(current)))); }
-export function importCode(code) {
+export function importCode(code, profile) {
   const s = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
   if (!s.id) throw new Error("zły kod");
-  current = migrate(s); persist(true); return current;
+  current = migrate(s, profile); persist(true); return current;
 }
 
 // ---- level z XP (wyliczany, nie zapisywany) ----

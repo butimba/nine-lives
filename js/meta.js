@@ -1,6 +1,6 @@
 // Meta-gra: skrzynki, sklep, talenty, seria dni, boss tygodnia, duety.
 import { SKINS, HATS } from "../data/cosmetics.js";
-import { CHESTS, ECON, TALENTS } from "../data/progression.js";
+import { CHESTS, ECON, TALENTS, DUP_COINS } from "../data/progression.js";
 import EVENTS, { activeEvent } from "../data/events.js";
 import { today, dayDiff, isoWeek } from "./util.js";
 import * as cloud from "./cloud.js";
@@ -32,7 +32,7 @@ export function openChest(save, type) {
   let roll = Math.random() * Object.values(w).reduce((a, b) => a + b, 0);
   let cat = "coins";
   for (const [k, v] of Object.entries(w)) { roll -= v; if (roll <= 0) { cat = k; break; } }
-  const coinAmt = { wood: [40, 90], silver: [90, 180], gold: [180, 350] }[type] || [40, 90];
+  const coinAmt = c.coins || [40, 90];
   if (cat !== "coins") {
     const pool = [
       ...SKINS.filter((s) => s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })),
@@ -44,7 +44,7 @@ export function openChest(save, type) {
       return { kind: it.kind, item: it };
     }
     // wszystko już ma → monety za duplikat
-    const bonus = { common: 60, rare: 150, epic: 300, legendary: 600 }[cat] || 60;
+    const bonus = DUP_COINS[cat] || 60;
     save.coins += bonus;
     return { kind: "coins", amount: bonus, dup: cat };
   }
@@ -52,9 +52,12 @@ export function openChest(save, type) {
   save.coins += amt;
   return { kind: "coins", amount: amt };
 }
+// skrzynia za bossa na piętrze `floor` (wielokrotność 5): 'wood'|'silver'|'gold'|'epic'
 export function chestForFloor(floor, save) {
   const r = Math.random();
+  if (floor % 50 === 0) return "epic";
   if (floor % 25 === 0) return "gold";
+  if (floor >= 40 && r < 0.06) return "epic";
   if (floor >= 30 && r < 0.25) return "gold";
   if (floor >= 10 && r < 0.5) return "silver";
   return r < 0.2 ? "silver" : "wood";

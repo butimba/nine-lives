@@ -1,0 +1,51 @@
+/* Mechanics overlays (Agent C). Sizes use --u = 1 logical px in CSS px (set by stage). */
+.stage-overlay { --mu: var(--u, 1.6px); }
+
+/* ---- reveal card ---- */
+.mech-reveal { position: absolute; left: 0; right: 0; bottom: calc(var(--mu) * 6); display: flex; justify-content: center; pointer-events: none; z-index: 5; animation: mech-up .22s cubic-bezier(.2,1.4,.5,1) both; }
+.mech-reveal__card { pointer-events: auto; display: flex; flex-direction: column; align-items: stretch; gap: calc(var(--mu) * 4);
+  width: calc(var(--mu) * 200); max-width: 92%; box-sizing: border-box; padding: calc(var(--mu) * 5) calc(var(--mu) * 6) calc(var(--mu) * 6);
+  background: #f4efe2; color: #0e0b16; border: calc(var(--mu) * 1.2) solid #0e0b16;
+  box-shadow: 0 calc(var(--mu) * 2) 0 #0e0b16, inset 0 calc(var(--mu) * -2) 0 #d9ceb4; position: relative; transform: rotate(-1deg); }
+.mech-reveal__card::before { content: ""; position: absolute; top: calc(var(--mu) * -5); left: 50%; width: calc(var(--mu) * 40); height: calc(var(--mu) * 9);
+  transform: translateX(-50%) rotate(2deg); background: rgba(255, 210, 63, .75); box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+.mech-ans { display: flex; align-items: center; gap: calc(var(--mu) * 5); }
+.mech-ans__img { width: calc(var(--mu) * 34); height: calc(var(--mu) * 34); image-rendering: pixelated; flex: none; }
+.mech-ans__txt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.mech-ans__txt b { font: 700 calc(var(--mu) * 12) Lexend, sans-serif; line-height: 1.15; overflow-wrap: anywhere; }
+.mech-ans--g .mech-ans__txt b { font-size: calc(var(--mu) * 9.5); }
+.mech-ans__pl { font: 400 calc(var(--mu) * 7) Lexend, sans-serif; color: #463e5c; margin-top: calc(var(--mu) * 1); }
+.mech-say { flex: none; width: calc(var(--mu) * 24); height: calc(var(--mu) * 24); display: grid; place-items: center; padding: 0;
+  background: #7ec4ff; color: #0e0b16; border: calc(var(--mu) * 1) solid #0e0b16; box-shadow: 0 calc(var(--mu) * 1.5) 0 #0e0b16; cursor: pointer; }
+.mech-say svg { width: 70%; height: 70%; }
+.mech-say:active { transform: translateY(calc(var(--mu) * 1.5)); box-shadow: none; }
+.mech-next { font: 700 calc(var(--mu) * 10) "Pixelify Sans", monospace; letter-spacing: .05em; min-height: calc(var(--mu) * 24);
+  background: #93e04c; color: #0e0b16; border: calc(var(--mu) * 1.2) solid #0e0b16; box-shadow: 0 calc(var(--mu) * 2) 0 #1d5a3c; cursor: pointer; }
+.mech-next:active { transform: translateY(calc(var(--mu) * 2)); box-shadow: none; }
+
+/* ---- Spell Cast input ---- */
+.spell-input { position: absolute; left: 50%; transform: translateX(-50%); width: calc(var(--mu) * 200); max-width: 94%;
+  display: flex; gap: calc(var(--mu) * 3); pointer-events: auto; z-index: 4; }
+.spell-input input { flex: 1; min-width: 0; box-sizing: border-box; height: calc(var(--mu) * 26); padding: 0 calc(var(--mu) * 5);
+  font: 600 max(16px, calc(var(--mu) * 11)) Lexend, sans-serif; /* >=16px: no iOS zoom */
+  background: #1c1630; color: #fff1a8; caret-color: #6fe3d3; border: calc(var(--mu) * 1.2) solid #0e0b16; outline: calc(var(--mu) * 1) solid #6fe3d3;
+  box-shadow: inset 0 calc(var(--mu) * 2) 0 #0e0b16; border-radius: 0; text-transform: lowercase; letter-spacing: .04em; }
+.spell-input input::placeholder { color: #7a7290; }
+.spell-input input.almost { outline-color: #ffa04d; animation: mech-shake .3s; }
+.spell-input input.right { outline-color: #93e04c; color: #93e04c; }
+.spell-input input.wrong { outline-color: #e8434f; color: #e8434f; animation: mech-shake .3s; }
+.spell-input [data-act=cast] { flex: none; min-width: calc(var(--mu) * 40); height: calc(var(--mu) * 26); padding: 0 calc(var(--mu) * 4);
+  font: 700 calc(var(--mu) * 9) Lexend, sans-serif; color: #0e0b16; background: #6fe3d3;
+  border: calc(var(--mu) * 1.2) solid #0e0b16; box-shadow: 0 calc(var(--mu) * 2) 0 #2a8f8a; cursor: pointer; border-radius: 0; }
+.spell-input [data-act=cast]:active { transform: translateY(calc(var(--mu) * 2)); box-shadow: none; }
+.spell-input [data-act=cast]:disabled { filter: grayscale(.8) brightness(.8); }
+.spell-tools { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: calc(var(--mu) * 4); pointer-events: auto; z-index: 4; }
+.spell-tools button { font: 600 calc(var(--mu) * 7) Lexend, sans-serif; color: #f4efe2; background: #463e5c; border: calc(var(--mu) * 1) solid #0e0b16;
+  box-shadow: 0 calc(var(--mu) * 1.5) 0 #0e0b16; padding: calc(var(--mu) * 2) calc(var(--mu) * 5); min-height: calc(var(--mu) * 16); cursor: pointer; }
+.spell-msg { position: absolute; left: 0; right: 0; text-align: center; pointer-events: none; z-index: 4;
+  font: 400 calc(var(--mu) * 10) "Caveat Brush", cursive; color: #ffa04d; text-shadow: 0 calc(var(--mu)) 0 #0e0b16; animation: mech-up .2s both; }
+.spell-msg small { display: block; font: 400 calc(var(--mu) * 6) Lexend, sans-serif; color: #b7b0c8; }
+
+@keyframes mech-up { from { transform: translateY(calc(var(--mu) * 10)); opacity: 0; } }
+@keyframes mech-shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .mech-reveal, .spell-msg { animation: none; } }

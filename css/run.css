@@ -1,0 +1,124 @@
+/* RUN SCREEN (agent B) — canvas stage + HTML overlay pieces.
+   Sizes are in logical pixels via --u (CSS px per logical px, set by stage.js). */
+
+.run-screen { position: absolute; inset: 0; overflow: hidden; background: #0e0b16;
+  background-image:
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 16px 16px; }
+.run-host { position: fixed; inset: 0; }
+.stage-wrap { -webkit-user-select: none; user-select: none; }
+.stage-canvas { box-shadow: 0 0 0 2px #0e0b16, 0 0 0 4px #2a2238, 0 10px 40px rgba(0,0,0,.6); }
+
+.stage-overlay { --ink: var(--px-ink, #0e0b16); --paper: var(--px-paper, #f4efe2); --paper-d: var(--px-paper-dark, #d8ccb4);
+  --acc: var(--px-accent, #ff7a3d); --bad: var(--px-danger, #e8434f); --ok: var(--px-ok, #5ccb5f); --gold: var(--px-gold, #ffcf3f);
+  font-size: calc(var(--u) * 8); color: var(--ink); line-height: 1.15; }
+.rui { position: absolute; inset: 0; pointer-events: none; }
+.rui .px, .rui-btn { font-family: "Pixelify Sans", monospace; }
+.rui .lex { font-family: "Lexend", system-ui, sans-serif; }
+.rui [hidden] { display: none !important; }
+
+/* ---------- buttons ---------- */
+.stage-overlay .rui-btn { pointer-events: auto; cursor: pointer; border: 0; margin: 0; font: 700 1.25em/1 "Pixelify Sans", monospace;
+  color: var(--ink); background: var(--gold); padding: .45em .9em .5em; position: relative;
+  box-shadow: inset 0 calc(var(--u) * -2) 0 rgba(0,0,0,.25), inset 0 calc(var(--u) * 1) 0 rgba(255,255,255,.5),
+    0 0 0 calc(var(--u) * 1) var(--ink), 0 calc(var(--u) * 2) 0 calc(var(--u) * 1) var(--ink);
+  transition: transform .06s; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.stage-overlay .rui-btn:active { transform: translateY(calc(var(--u) * 2)); box-shadow: inset 0 calc(var(--u) * -1) 0 rgba(0,0,0,.25), 0 0 0 calc(var(--u) * 1) var(--ink); }
+.stage-overlay .rui-btn:focus-visible { outline: calc(var(--u) * 1) dashed #fff; outline-offset: calc(var(--u) * 2); }
+.stage-overlay .rui-btn--big { font-size: 1.6em; padding: .4em 1.4em .45em; }
+.stage-overlay .rui-btn--ghost { background: var(--paper); }
+.stage-overlay .rui-btn--danger { background: var(--bad); color: #fff; }
+.stage-overlay .rui-ico { width: calc(var(--u) * 17); height: calc(var(--u) * 17); padding: 0; display: inline-grid; place-items: center; }
+.rui-i { display: block; width: 62%; height: 62%; }
+
+/* ---------- top-right buttons ---------- */
+.rui-top { position: absolute; top: calc(var(--u) * 3); right: calc(var(--u) * 3); display: flex; gap: calc(var(--u) * 4); }
+.stage-overlay .rui-quit { background: #3a2f4e; color: var(--paper); width: calc(var(--u) * 14); height: calc(var(--u) * 14); font-size: 1em; }
+.rui-x { font-weight: 700; }
+.stage-overlay .rui-hint { width: auto; height: calc(var(--u) * 14); padding: 0 .35em; gap: .2em; display: inline-flex; align-items: center; background: var(--paper); font-size: 1em; }
+.rui-hint .rui-i { width: calc(var(--u) * 7); height: calc(var(--u) * 9); }
+
+/* ---------- prompt banner ---------- */
+.rui-prompt { position: absolute; left: calc(var(--u) * 6); right: calc(var(--u) * 6); top: calc(var(--u) * 21); pointer-events: none;
+  animation: rui-drop .22s cubic-bezier(.2,1.6,.4,1) both; }
+.rui-prompt-in { display: flex; align-items: center; gap: .6em; padding: .55em .8em; min-height: calc(var(--u) * 26);
+  background: var(--paper); box-shadow: 0 0 0 calc(var(--u) * 1) var(--ink), calc(var(--u) * 2) calc(var(--u) * 3) 0 calc(var(--u) * 1) rgba(14,11,22,.55);
+  transform: rotate(-.6deg); position: relative; }
+.rui-prompt-in::before { content: ""; position: absolute; left: 50%; top: calc(var(--u) * -4); width: calc(var(--u) * 26); height: calc(var(--u) * 7);
+  transform: translateX(-50%) rotate(2deg); background: rgba(255, 233, 160, .8); box-shadow: 0 0 0 calc(var(--u) * .5) rgba(14,11,22,.15); }
+.rui-prompt-txt { flex: 1; min-width: 0; }
+.rui-q { font-size: 1.55em; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+.rui-gap { display: inline-block; min-width: 2.2em; color: transparent; border-bottom: calc(var(--u) * 1.5) solid var(--acc); line-height: .9; }
+.rui-pl { font-size: .95em; opacity: .62; margin-top: .2em; }
+.rui-prompt .rui-spk { pointer-events: auto; flex: none; background: var(--acc); }
+.rui-prompt-img { flex: none; }
+
+/* ---------- pictures ---------- */
+.rui-pic { image-rendering: pixelated; display: inline-block; vertical-align: middle; }
+img.rui-pic.md { width: calc(var(--u) * 24); height: calc(var(--u) * 24); }
+img.rui-pic.lg { width: calc(var(--u) * 36); height: calc(var(--u) * 36); }
+img.rui-pic.xl { width: calc(var(--u) * 54); height: calc(var(--u) * 54); }
+.rui-emoji { font-size: 2.4em; line-height: 1; }
+.rui-emoji.lg { font-size: 3.4em; } .rui-emoji.xl { font-size: 5em; } .rui-emoji.md { font-size: 2.4em; }
+.rui-swatch { width: calc(var(--u) * 22); height: calc(var(--u) * 22); box-shadow: 0 0 0 calc(var(--u) * 1) var(--ink); }
+.rui-swatch.xl { width: calc(var(--u) * 48); height: calc(var(--u) * 48); }
+.rui-num { font: 700 2.6em/1 "Pixelify Sans", monospace; }
+
+/* ---------- cards ---------- */
+.rui-layer { position: absolute; inset: 0; pointer-events: none; }
+.rui-cardwrap, .rui-modal { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: auto;
+  background: rgba(14, 11, 22, .45); padding: calc(var(--u) * 8); }
+.rui-cardwrap--reveal { align-items: end; padding-bottom: calc(var(--u) * 60); background: rgba(14,11,22,.25); }
+.rui-card { position: relative; width: 100%; max-width: calc(var(--u) * 216); text-align: center; padding: 1.2em 1em 1em;
+  background: var(--paper); color: var(--ink);
+  background-image: linear-gradient(rgba(14,11,22,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(14,11,22,.06) 1px, transparent 1px);
+  background-size: calc(var(--u) * 6) calc(var(--u) * 6);
+  box-shadow: 0 0 0 calc(var(--u) * 1) var(--ink), calc(var(--u) * 3) calc(var(--u) * 4) 0 calc(var(--u) * 1) rgba(14,11,22,.6); }
+.rui-card.pop { animation: rui-pop .28s cubic-bezier(.2,1.7,.4,1) both; }
+.rui-tape { position: absolute; top: calc(var(--u) * -5); left: 50%; width: calc(var(--u) * 34); height: calc(var(--u) * 9);
+  transform: translateX(-50%) rotate(-3deg); background: rgba(255, 233, 160, .85); }
+.rui-title { font-size: 2em; font-weight: 700; margin: .1em 0 .3em; }
+.rui-sub { font-size: 1.1em; opacity: .75; margin-bottom: .6em; }
+.rui-row { display: flex; gap: .8em; justify-content: center; margin-top: .8em; }
+.rui-sticker { display: inline-block; font-size: 1.5em; font-weight: 700; padding: .2em .7em .25em; background: var(--gold); color: var(--ink);
+  transform: rotate(-4deg); box-shadow: 0 0 0 calc(var(--u) * 1.5) #fff, 0 0 0 calc(var(--u) * 2.5) var(--ink), calc(var(--u) * 2) calc(var(--u) * 3) 0 calc(var(--u) * 2) rgba(0,0,0,.35);
+  margin: -2em 0 .5em; }
+.rui-sticker--bad { background: var(--bad); color: #fff; }
+.rui-reveal, .rui-intro { display: flex; flex-direction: column; align-items: center; gap: .35em; }
+.rui-word { font-size: 2em; font-weight: 700; display: flex; align-items: center; gap: .3em; }
+.rui-word--big { font-size: 2.6em; }
+.rui-sent { font-size: 1.5em; font-weight: 600; line-height: 1.3; }
+.rui-ans { background: var(--ok); color: var(--ink); padding: 0 .2em; box-shadow: 0 0 0 calc(var(--u) * .7) var(--ink); }
+.rui-card .rui-spk { background: var(--acc); vertical-align: middle; width: calc(var(--u) * 15); height: calc(var(--u) * 15); }
+
+/* perks */
+.rui-perks { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6em; margin-top: .4em; }
+.stage-overlay .rui-perk { pointer-events: auto; cursor: pointer; border: 0; display: flex; flex-direction: column; align-items: center; gap: .3em;
+  padding: .7em .3em .8em; background: #2a2238; color: var(--paper); transform: rotate(var(--tilt));
+  box-shadow: 0 0 0 calc(var(--u) * 1) var(--ink), inset 0 0 0 calc(var(--u) * 1) #4a3e60, 0 calc(var(--u) * 3) 0 calc(var(--u) * 1) var(--ink);
+  transition: transform .12s; font-family: "Pixelify Sans", monospace; }
+.stage-overlay .rui-perk:hover { transform: rotate(0) translateY(calc(var(--u) * -2)); }
+.stage-overlay .rui-perk.is-picked { background: var(--gold); color: var(--ink); transform: scale(1.08); }
+.rui-perk b { font-size: 1.05em; line-height: 1.05; }
+.rui-perk small { font-size: .85em; opacity: .85; line-height: 1.15; }
+.rui-perk-ico img { width: calc(var(--u) * 24); height: calc(var(--u) * 24); image-rendering: pixelated; }
+.rui-perk-ico .rui-emoji { font-size: 2em; }
+
+/* boss */
+.rui-cardwrap--boss { background: rgba(60, 6, 14, .55); }
+.rui-cardwrap--boss .rui-card { background: #1d1530; color: var(--paper); background-image: none; max-width: calc(var(--u) * 170);
+  box-shadow: 0 0 0 calc(var(--u) * 1) var(--ink), inset 0 0 0 calc(var(--u) * 2) #b8323a, calc(var(--u) * 3) calc(var(--u) * 4) 0 calc(var(--u) * 1) rgba(0,0,0,.6); }
+.rui-cardwrap--boss.out { opacity: 0; transition: opacity .18s; }
+.rui-boss { display: flex; flex-direction: column; align-items: center; gap: .3em; }
+.rui-boss-stamp { font-size: 2.6em; font-weight: 700; color: #ff5a4a; border: calc(var(--u) * 1.5) solid currentColor; padding: 0 .3em;
+  transform: rotate(-8deg); animation: rui-stamp .35s cubic-bezier(.2,1.8,.4,1) .15s both; }
+.rui-boss-img { width: calc(var(--u) * 72); height: calc(var(--u) * 72); image-rendering: pixelated; animation: rui-bob 1s steps(2) infinite; }
+.rui-boss-name { font-size: 1.6em; font-weight: 700; color: var(--gold); }
+.rui-cardwrap--boss .rui-sub { color: var(--paper); }
+
+@keyframes rui-pop { from { transform: scale(.6) rotate(-4deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes rui-drop { from { transform: translateY(calc(var(--u) * -10)); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes rui-stamp { from { transform: scale(2.4) rotate(-8deg); opacity: 0; } to { transform: rotate(-8deg); opacity: 1; } }
+@keyframes rui-bob { 50% { transform: translateY(calc(var(--u) * -2)); } }
+@media (prefers-reduced-motion: reduce) { .rui-card.pop, .rui-prompt, .rui-boss-img { animation: none; } }

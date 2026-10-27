@@ -2,50 +2,58 @@
 // id są stałe na zawsze. Wartości liczbowe (balans) możesz zmieniać bez psucia zapisów.
 
 // --- 3 ścieżki talentów. Punkt talentu = 1 za każdy level. ---
+// Teksty w grze po angielsku (A1). desc(r) = opis dla rangi r.
 export const TALENTS = [
-  // PAZURY — atak
-  { id: "sharp_claws", tree: "claws", name: "Sharp Claws", icon: "🗡️", max: 3, desc: (r) => `+${r * 6}% szansy na cios krytyczny (x2)` },
-  { id: "combo", tree: "claws", name: "Combo Master", icon: "🔥", max: 3, desc: (r) => `Seria ${Math.max(2, 5 - r)} dobrych odpowiedzi = +1 obrażeń`, req: "sharp_claws" },
-  { id: "pounce", tree: "claws", name: "Pounce", icon: "🐾", max: 2, desc: (r) => `Pierwszy cios na piętrze: x${r + 1}`, req: "combo" },
-  // FUTRO — obrona
-  { id: "nine_lives", tree: "fur", name: "Nine Lives", icon: "❤️", max: 3, desc: (r) => `+${r} serce na start` },
-  { id: "thick_fur", tree: "fur", name: "Thick Fur", icon: "🛡️", max: 3, desc: (r) => `${r * 10}% szansy, że cios potworka nic nie zrobi`, req: "nine_lives" },
-  { id: "cat_nap", tree: "fur", name: "Cat Nap", icon: "😴", max: 2, desc: (r) => `Po bossie odzyskujesz ${r} serce`, req: "thick_fur" },
-  // WĄSY — spryt i nagrody
-  { id: "lucky", tree: "whiskers", name: "Lucky Whiskers", icon: "🪙", max: 3, desc: (r) => `+${r * 10}% monet` },
-  { id: "sixth_sense", tree: "whiskers", name: "Sixth Sense", icon: "💡", max: 3, desc: (r) => `${r + 1}x podpowiedź na bieg (usuwa złą odpowiedź)`, req: "lucky" },
-  { id: "treasure", tree: "whiskers", name: "Treasure Nose", icon: "💎", max: 2, desc: (r) => `Lepsze skarby w skrzyniach (+${r * 8}% na rzadkie)`, req: "sixth_sense" },
+  // CLAWS — atak
+  { id: "sharp_claws", tree: "claws", name: "Sharp Claws", icon: "🗡️", max: 3, desc: (r) => `Big hit chance +${r * 6}%` },
+  { id: "combo", tree: "claws", name: "Combo Master", icon: "🔥", max: 3, desc: (r) => `${Math.max(2, 5 - r)} good answers in a row: +1 hit`, req: "sharp_claws" },
+  { id: "pounce", tree: "claws", name: "Pounce", icon: "🐾", max: 2, desc: (r) => `First hit on a floor: x${r + 1}`, req: "combo" },
+  // FUR — obrona (decyzja leada #3)
+  { id: "nine_lives", tree: "fur", name: "Nine Lives", icon: "❤️", max: 3, desc: (r) => `+${r} shield for boss shots` },
+  { id: "thick_fur", tree: "fur", name: "Thick Fur", icon: "🛡️", max: 3, desc: (r) => `${r * 10}% chance: a mistake costs no life`, req: "nine_lives" },
+  { id: "cat_nap", tree: "fur", name: "Cat Nap", icon: "😴", max: 2, desc: (r) => `Beat a boss: +${r >= 2 ? 2 : 1} life`, req: "thick_fur" },
+  // WHISKERS — spryt i nagrody
+  { id: "lucky", tree: "whiskers", name: "Lucky Whiskers", icon: "🪙", max: 3, desc: (r) => `+${r * 10}% fish` },
+  { id: "sixth_sense", tree: "whiskers", name: "Sixth Sense", icon: "💡", max: 3, desc: (r) => `${r + 1} hints in a run`, req: "lucky" },
+  { id: "treasure", tree: "whiskers", name: "Treasure Nose", icon: "💎", max: 2, desc: (r) => `Better chests: +${r * 8}% rare`, req: "sixth_sense" },
 ];
 export const TREES = {
-  claws: { name: "Pazury", color: "#ff5d5d" },
-  fur: { name: "Futro", color: "#3d9bff" },
-  whiskers: { name: "Wąsy", color: "#ffb21f" },
+  claws: { name: "Claws", color: "#ff5d5d" },
+  fur: { name: "Fur", color: "#3d9bff" },
+  whiskers: { name: "Whiskers", color: "#ffb21f" },
 };
 
 // --- perki na jeden bieg (wybór 1 z 3) ---
 export const PERKS = [
-  { id: "fishbone", name: "Fishbone Sword", icon: "🐟", desc: "Krytyki zadają +1", w: 3 },
-  { id: "catnip", name: "Catnip", icon: "🌿", desc: "Odzyskaj 1 serce teraz", w: 3, instant: true },
-  { id: "bell", name: "Golden Bell", icon: "🔔", desc: "+50% monet w tym biegu", w: 3 },
-  { id: "lightning", name: "Lightning Paws", icon: "⚡", desc: "Szybka odpowiedź (do 5 s) = +1 obrażeń", w: 3 },
-  { id: "bubble", name: "Bubble Shield", icon: "🫧", desc: "Blokuje następny cios", w: 3, instant: true },
-  { id: "fire_combo", name: "Fire Combo", icon: "🔥", desc: "Seria 3+ = podwójne obrażenia", w: 2 },
-  { id: "clover", name: "Lucky Clover", icon: "🍀", desc: "+15% szansy na krytyk", w: 3 },
-  { id: "magnet", name: "Star Magnet", icon: "🧲", desc: "+30% XP w tym biegu", w: 3 },
-  { id: "big_heart", name: "Big Heart", icon: "💖", desc: "+1 maks. serce i leczenie", w: 2, instant: true },
+  { id: "fishbone", name: "Fishbone Sword", icon: "🐟", desc: "Big hits: +1 hit", w: 3 },
+  { id: "catnip", name: "Catnip", icon: "🌿", desc: "+1 life now", w: 3, instant: true },
+  { id: "bell", name: "Golden Bell", icon: "🔔", desc: "+50% fish in this run", w: 3 },
+  { id: "lightning", name: "Lightning Paws", icon: "⚡", desc: "Fast answer (5 s): +1 hit", w: 3 },
+  { id: "bubble", name: "Bubble Shield", icon: "🫧", desc: "Blocks the next boss shot", w: 3, instant: true },
+  { id: "fire_combo", name: "Fire Combo", icon: "🔥", desc: "3 good in a row: x2 hits", w: 2 },
+  { id: "clover", name: "Lucky Clover", icon: "🍀", desc: "Big hit chance +15%", w: 3 },
+  { id: "magnet", name: "Star Magnet", icon: "🧲", desc: "+30% XP in this run", w: 3 },
+  { id: "big_heart", name: "Big Heart", icon: "💖", desc: "+1 life and +1 shield", w: 2, instant: true },
 ];
 
-// --- skrzynki ---
+// --- skrzynie (sprite: chestSprite(type) w js/pixel/chests.js) ---
+// rolls = wagi losowania; coins = [min, max] rybek, gdy wypadnie kategoria "coins"
 export const CHESTS = {
-  wood: { name: "Drewniana skrzynia", icon: "🧰", rolls: { coins: 70, common: 20, rare: 9, epic: 1, legendary: 0 } },
-  silver: { name: "Srebrna skrzynia", icon: "🎁", rolls: { coins: 45, common: 25, rare: 22, epic: 7, legendary: 1 } },
-  gold: { name: "Złota skrzynia", icon: "👑", rolls: { coins: 20, common: 15, rare: 35, epic: 22, legendary: 8 } },
+  wood: { name: "Wooden Chest", icon: "🧰", rolls: { coins: 70, common: 20, rare: 9, epic: 1, legendary: 0 }, coins: [40, 90] },
+  silver: { name: "Silver Chest", icon: "🎁", rolls: { coins: 45, common: 25, rare: 22, epic: 7, legendary: 1 }, coins: [90, 180] },
+  gold: { name: "Golden Chest", icon: "👑", rolls: { coins: 20, common: 15, rare: 35, epic: 22, legendary: 8 }, coins: [180, 350] },
+  epic: { name: "Epic Chest", icon: "💎", rolls: { coins: 5, common: 0, rare: 30, epic: 45, legendary: 20 }, coins: [350, 600] },
 };
+export const CHEST_ORDER = ["wood", "silver", "gold", "epic"];
+// rybki za duplikat (wszystko z danej rzadkości już posiadane)
+export const DUP_COINS = { common: 60, rare: 150, epic: 300, legendary: 600 };
 
 // --- ekonomia ---
+// Malejące nagrody i życia: js/lives.js (REWARD_TIERS, MAX_LIVES, REGEN_MS, COMBO_LIFE).
 export const ECON = {
   coinPerCorrect: 2, coinPerKill: 3, coinPerBoss: 20, coinShadowClear: 4,
   xpPerCorrect: 10, xpPerTry: 2, xpPerBoss: 50,
+  // LEGACY (v1 battle.js) — v2 tego nie używa, zastąpione przez lives.rewardMult
   dailyFullRuns: 3, dailyMult: [1, 1, 1, 0.5, 0.5, 0.25],
   freezePrice: 120, freezeMax: 2,
   chestPrice: 220,
@@ -54,6 +62,10 @@ export const ECON = {
   bossHp: (floor) => (floor < 20 ? 5 : floor < 60 ? 6 : 7),
   floorsPerStage: 5,
   weeklyHpPerPlayer: 250,
+  luckyCoin: 0.1,      // talent lucky: +10% rybek za rangę
+  bellCoin: 1.5,       // perk bell
+  magnetXp: 1.3,       // perk magnet
+  catNapLives: (r) => (r >= 2 ? 2 : r >= 1 ? 1 : 0), // talent cat_nap: życia po bossie
 };
 
 // --- FABUŁA: "The Moon Diary" — strona za każdego nowego bossa (co 5 pięter) ---

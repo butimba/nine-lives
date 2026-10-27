@@ -47,7 +47,7 @@ async function main() {
   root.innerHTML = `<h1>👩‍🏫 Nine Lives — postępy</h1>
     <div class="card"><label>Loginy Twoich uczniów (po przecinku, zapisuje się tylko w tej przeglądarce):</label>
       <input class="names" value="${esc(names.join(", "))}" placeholder="lucja, matylda, nina, bruno"/>
-      <div class="row"><button class="btn ghost save-n">Zapisz</button><button class="btn go all">📋 Kopiuj raport wszystkich (dla Claude'a)</button></div></div>
+      <div class="row"><button class="btn ghost save-n">Zapisz</button><button class="btn go all">📋 Kopiuj raport wszystkich</button></div></div>
     <div class="t-grid"></div>
     <div class="card" style="margin-top:12px"><b>Bez chmury?</b> Wklej kod zapisu ucznia (Ustawienia → Dla nauczyciela → Kopiuj kod zapisu):<textarea class="code"></textarea><button class="btn ghost load-code">Pokaż</button></div>`;
   root.querySelector(".save-n").onclick = () => { ls("nl:names", root.querySelector(".names").value); location.reload(); };

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sprite Sheet</title>
+<style>
+  body { background:#151027; color:#f4efe2; font:12px monospace; margin:12px; }
+  h2 { margin:14px 0 6px; font-size:14px; color:#ffd23f; }
+  .row { display:flex; flex-wrap:wrap; gap:6px; align-items:flex-end; }
+  .cell { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .cell span { font-size:10px; color:#b7b0c8; }
+  canvas, img { image-rendering: pixelated; }
+  .light { background:#3b78d8; padding:6px; }
+  .paper { background:#f4efe2; color:#0e0b16; padding:6px; }
+</style></head><body>
+<div id="root"></div>
+<script type="module">
+import { SKINS, HATS } from '../data/cosmetics.js';
+import vocab from '../data/vocab.js';
+import { PAL, UI } from '../js/pixel/palette.js';
+import { drawSprite } from '../js/pixel/sprite.js';
+import { getCat, catURL, CAT_ANIMS } from '../js/pixel/cat.js';
+import { hatSprite } from '../js/pixel/hats.js';
+import { makeMonster } from '../js/pixel/monsters.js';
+import { chestSprite } from '../js/pixel/chests.js';
+import { ICONS, iconURL } from '../js/pixel/icons.js';
+import { drawPanel } from '../js/pixel/frames.js';
+import { drawText } from '../js/pixel/font.js';
+import { pixelImage, pixelURL } from '../js/pixel/pixelizer.js';
+
+const P = new URLSearchParams(location.search);
+const only = P.get('only');
+const T = +(P.get('t') || 0);
+const SC = +(P.get('s') || 3);
+const root = document.getElementById('root');
+const sec = (name) => { if (only && !only.split(',').includes(name)) return null; const h = document.createElement('h2'); h.textContent = name; root.append(h); const r = document.createElement('div'); r.className = 'row'; root.append(r); return r; };
+const cell = (row, el, label) => { const c = document.createElement('div'); c.className = 'cell'; c.append(el); if (label) { const s = document.createElement('span'); s.textContent = label; c.append(s); } row.append(c); };
+const cv = (w, h, s) => { const c = document.createElement('canvas'); c.width = w * s; c.height = h * s; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.setTransform(s, 0, 0, s, 0, 0); return [c, x]; };
+
+let r;
+if ((r = sec('palette'))) for (const [k, v] of Object.entries(PAL)) { if (!v) continue; const d = document.createElement('div'); d.style.cssText = `width:28px;height:28px;background:${v};border:1px solid #000`; cell(r, d, k); }
+
+const anims = Object.keys(CAT_ANIMS);
+if ((r = sec('skins'))) {
+  const hats = P.get('hats') ? P.get('hats').split(',') : ['none', 'none', 'bow', 'wizard', 'crown'];
+  SKINS.forEach((s, i) => { const [c, x] = cv(40, 40, SC); getCat(s.id, hats[i % hats.length]).draw(x, 18, 36, { anim: 'idle', t: T }); cell(r, c, s.id); });
+}
+if ((r = sec('anims'))) {
+  for (const sk of (P.get('ask') || 'ginger,shrimp,tux').split(',')) for (const a of anims) { const fr = CAT_ANIMS[a].frames; [...new Set(fr)].forEach((f, j) => { const [c, x] = cv(40, 40, SC); getCat(sk, sk === 'tux' ? 'tophat' : 'none').draw(x, 18, 36, { anim: a, t: j / CAT_ANIMS[a].fps + 0.001 }); cell(r, c, sk + ' ' + a + j); }); }
+}
+if ((r = sec('fxtime'))) {
+  for (const sk of (P.get('fx') || 'fire,rainbow,ghost,galaxy,toxic,golden,ice,robot').split(',')) for (let k = 0; k < 4; k++) { const [c, x] = cv(40, 40, SC); getCat(sk).draw(x, 18, 36, { anim: 'idle', t: k * 0.37 }); cell(r, c, sk + ' t' + k); }
+}
+if ((r = sec('hats'))) {
+  HATS.filter((h) => h.id !== 'none').forEach((h) => { const [c, x] = cv(40, 40, SC); getCat(P.get('hk') || 'snowball', h.id).draw(x, 18, 36, { t: T }); cell(r, c, h.id); });
+  HATS.filter((h) => h.id !== 'none').forEach((h) => { const s = hatSprite(h.id); const [c, x] = cv(s.w + 2, s.h + 2, 3); drawSprite(x, s, 0, 1 + s.anchor.x, 1 + s.anchor.y); cell(r, c, ''); });
+}
+if ((r = sec('catURL'))) {
+  const im = new Image(); im.src = catURL('shrimp', 'bow', 4); cell(r, im, 'url shrimp');
+  const im2 = new Image(); im2.src = catURL('galaxy', 'halo', 4, { silhouette: true }); cell(r, im2, 'silhouette');
+  const [c, x] = cv(36, 40, 3); getCat('ginger', 'cap').draw(x, 18, 36, { flash: true }); cell(r, c, 'flash');
+  const [c2, x2] = cv(36, 40, 3); getCat('ginger', 'cap').draw(x2, 18, 36, { flip: true }); cell(r, c2, 'flip');
+}
+const pals = [['#93e04c', '#3aa34f', '#ffd23f'], ['#d867d0', '#8a55d6', '#ffc9d3'], ['#7ec4ff', '#3b78d8', '#d2f2ff'], ['#ffa04d', '#d9622b', '#fff1a8'], ['#a9b6cb', '#5d6b85', '#e8434f']];
+if ((r = sec('monsters'))) {
+  for (let i = 0; i < 20; i++) { const boss = i % 7 === 6, shadow = i % 9 === 4; const m = makeMonster(i * 7919 + 13, pals[i % pals.length], { boss, shadow }); const [c, x] = cv(48, 48, 3); if (shadow) { x.fillStyle = '#272036'; x.fillRect(0, 0, 48, 48); } m.draw(x, 24, 46, { anim: 'idle', t: T }); cell(r, c, m.name); }
+}
+if ((r = sec('monanims'))) {
+  for (const seed of [5, 42, 99]) for (const a of ['idle', 'hurt', 'lunge', 'die']) for (const t of [0.1, 0.35]) { const m = makeMonster(seed, pals[seed % 5], { boss: seed === 99 }); const [c, x] = cv(48, 48, 2); m.draw(x, 24, 46, { anim: a, t }); cell(r, c, a + ' ' + t); }
+  const im = new Image(); im.src = makeMonster(3, pals[0]).portraitURL(3); cell(r, im, 'portrait');
+}
+if ((r = sec('chests'))) {
+  for (const ty of ['wood', 'silver', 'gold', 'epic']) { for (let k = 0; k <= 3; k++) { const ch = chestSprite(ty); const [c, x] = cv(30, 28, 3); ch.draw(x, 15, 26, { cracks: k }); cell(r, c, ty + ' ' + k); } const ch = chestSprite(ty); const [c, x] = cv(30, 28, 3); ch.draw(x, 15, 26, { open: true }); cell(r, c, ty + ' open'); }
+}
+if ((r = sec('icons'))) { for (const n of Object.keys(ICONS)) { const im = new Image(); im.src = iconURL(n, 3); cell(r, im, n); } }
+if ((r = sec('panels'))) {
+  for (const st of ['wood', 'stone', 'bubble', 'paper', 'block']) { const [c, x] = cv(70, 40, 3); drawPanel(x, 2, 2, 66, 36, st); cell(r, c, st); }
+  const [c, x] = cv(70, 40, 3); drawPanel(x, 2, 2, 66, 36, 'block', { tint: '#e8434f' }); cell(r, c, 'block tint');
+}
+if ((r = sec('font'))) {
+  const [c, x] = cv(260, 60, 3); x.fillStyle = '#463e5c'; x.fillRect(0, 0, 260, 60);
+  drawText(x, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 2, 2, { color: UI.paper });
+  drawText(x, '0123456789 +-x!?/:% FLOOR 12', 2, 12, { color: UI.gold });
+  drawText(x, 'BOSS!', 2, 24, { color: '#e8434f', scale: 2 });
+  drawText(x, 'x3 COMBO', 258, 24, { color: '#93e04c', align: 'right', scale: 2 });
+  drawText(x, 'center', 130, 46, { align: 'center', outline: null, color: '#fff' });
+  cell(r, c, 'font');
+}
+if ((r = sec('pixelizer'))) {
+  const imgs = []; for (const t of Object.values(vocab)) for (const w of t.words) imgs.push(w[2]);
+  const lim = +(P.get('n') || 400);
+  for (const im of imgs.slice(0, lim)) { const e = new Image(); e.src = pixelURL(im, 2); e.title = im; cell(r, e); }
+}
+window.__done = true;
+</script></body></html>
