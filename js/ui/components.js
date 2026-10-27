@@ -35,8 +35,8 @@ export function pxButton(label, { act, big = false, variant = "", icon, cls = ""
 export const backBtn = () => `<button class="px-btn px-btn--paper back-btn" data-act="back" aria-label="Back"><i class="px-arrow"></i></button>`;
 
 // ---------- panel papierowy z taśmą ----------
-export function panel(inner, { cls = "", tape = true, tilt = 0, grid = true } = {}) {
-  return `<div class="px-panel paper ${grid ? "paper--grid" : ""} ${cls}" style="--tilt:${tilt}deg">${tape ? `<i class="tape tape--l"></i><i class="tape tape--r"></i>` : ""}${inner}</div>`;
+export function panel(inner, { cls = "", tape = true, tilt = 0, grid = true, style = "" } = {}) {
+  return `<div class="px-panel paper ${grid ? "paper--grid" : ""} ${cls}" style="--tilt:${tilt}deg;${style}">${tape ? `<i class="tape tape--l"></i><i class="tape tape--r"></i>` : ""}${inner}</div>`;
 }
 export const stamp = (text, { color = "danger", cls = "" } = {}) => `<div class="stamp stamp--${color} ${cls}"><span>${esc(text)}</span></div>`;
 export const sticker = (inner, { cls = "", tilt = -4 } = {}) => `<div class="sticker ${cls}" style="--tilt:${tilt}deg">${inner}</div>`;
@@ -181,3 +181,14 @@ export function liveCat({ skin = "ginger", hat = "none", anim = "idle", scale = 
 
 // wspólny stan aplikacji (ustawiany przy logowaniu)
 export const app = { save: null, profile: null, loginName: "" };
+
+// skrzynia jako obrazek (sklep, wyniki)
+import { chestSprite } from "../pixel/chests.js";
+export const chestSrc = (type = "wood", scale = 3, opts = {}) => cached(`ch:${type}:${scale}:${opts.open ? 1 : 0}`, () => {
+  const s = chestSprite(type);
+  const c = document.createElement("canvas");
+  c.width = (s.w + 4) * scale; c.height = (s.h + 6) * scale;
+  const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.setTransform(scale, 0, 0, scale, 0, 0);
+  s.draw(x, Math.round((s.w + 4) / 2), s.h + 5, { open: !!opts.open });
+  return c.toDataURL();
+});

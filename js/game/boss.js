@@ -19,7 +19,7 @@ export function createBossFight({ stage, fx, rng = Math.random, sfx = {}, from, 
   const P = [];
   let spawnIn = 2.6, phase = 1, alive = true;
   const cfg = () => (phase === 1 ? { speed: 20, every: 5.2, max: 1 } : { speed: 28, every: 3.4, max: 2 });
-  const R = 11; // generous tap radius (logical px) — kids' fingers
+  const R = 14; // generous tap radius (logical px) — kids' fingers
 
   const off = stage.input.on("down", (e) => {
     if (!alive || fight.paused) return false;
@@ -89,13 +89,18 @@ export function createBossFight({ stage, fx, rng = Math.random, sfx = {}, from, 
         const x = Math.round(p.x), y = Math.round(p.y);
         const pulse = Math.floor(t * 8) % 2;
         const back = p.state === "back";
-        // tap ring hint (so kids know to tap) — blinks
-        if (!back && pulse) { ctx.fillStyle = "rgba(255,255,255,0.55)"; for (let a = 0; a < 12; a++) { const an = a / 12 * Math.PI * 2 + t * 2; ctx.fillRect(Math.round(x + Math.cos(an) * 9), Math.round(y + Math.sin(an) * 9), 1, 1); } }
-        ctx.fillStyle = "#0e0b16"; ctx.fillRect(x - 4, y - 3, 9, 7); ctx.fillRect(x - 3, y - 4, 7, 9);
-        ctx.fillStyle = back ? "#ffffff" : colors[0]; ctx.fillRect(x - 3, y - 2, 7, 5); ctx.fillRect(x - 2, y - 3, 5, 7);
-        ctx.fillStyle = back ? "#bfe8ff" : colors[1]; ctx.fillRect(x - 2, y - 2, 4, 4);
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(x - 1, y - 2, 1, 1);
-        if (pulse) { ctx.fillStyle = colors[1]; ctx.fillRect(x - 5, y, 1, 1); ctx.fillRect(x + 5, y - 1, 1, 1); ctx.fillRect(x, y - 5, 1, 1); }
+        // blinking tap ring so kids know to tap it
+        if (!back) { ctx.fillStyle = pulse ? "#ffffff" : colors[1]; const rr = 12 + pulse; for (let a = 0; a < 16; a++) { const an = a / 16 * Math.PI * 2 + t * 2; if (a % 2) continue; ctx.fillRect(Math.round(x + Math.cos(an) * rr), Math.round(y + Math.sin(an) * rr), 2, 2); } }
+        // spiky orb, 13x13
+        ctx.fillStyle = "#0e0b16"; ctx.fillRect(x - 6, y - 4, 13, 9); ctx.fillRect(x - 4, y - 6, 9, 13); ctx.fillRect(x - 5, y - 5, 11, 11);
+        ctx.fillStyle = back ? "#ffffff" : colors[0]; ctx.fillRect(x - 5, y - 3, 11, 7); ctx.fillRect(x - 3, y - 5, 7, 11); ctx.fillRect(x - 4, y - 4, 9, 9);
+        ctx.fillStyle = back ? "#bfe8ff" : colors[1]; ctx.fillRect(x - 3, y - 3, 6, 6);
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(x - 2, y - 3, 2, 2);
+        // angry eyes
+        if (!back) { ctx.fillStyle = "#0e0b16"; ctx.fillRect(x - 2, y, 1, 2); ctx.fillRect(x + 2, y, 1, 2); }
+        // spikes
+        ctx.fillStyle = colors[pulse ? 1 : 0];
+        ctx.fillRect(x - 8, y, 2, 1); ctx.fillRect(x + 7, y, 2, 1); ctx.fillRect(x, y - 8, 1, 2); ctx.fillRect(x, y + 7, 1, 2);
       }
     },
     destroy() { alive = false; off(); P.length = 0; },

@@ -22,12 +22,21 @@ import { dayPhase, drawSky, drawTrophy, biomeForFloor } from "../game/world.js";
 const W = 240, TX0 = 62, TX1 = 178, TCX = 120;  // wieża
 const GROUND = 18, LOBBY = 44, BH = 42;           // wys. ziemi, parteru, piętra
 const MOON = { x: 212, y: 30 };
-const SKY_CSS = {
-  night: "linear-gradient(#090818, #100f2c 20%, #18173f 40%, #221f52 60%, #2c2862 85%, #1c2a22 85%)",
-  dawn: "linear-gradient(#26285e, #5a4a94 20%, #b46aa0 40%, #f2909a 60%, #ffc890 85%, #2e4a2a 85%)",
-  day: "linear-gradient(#2f7ad8, #4a94e8 20%, #6eaef0 40%, #98c8f6 60%, #c8e4ff 85%, #3c6e47 85%)",
-  dusk: "linear-gradient(#1d1b4a, #4e3274 20%, #a84a6e 40%, #e8705a 60%, #ffaa5e 85%, #2e3a2a 85%)",
+const SKY_PAL = {
+  night: ["#090818", "#100f2c", "#18173f", "#221f52", "#2c2862"],
+  dawn: ["#26285e", "#5a4a94", "#b46aa0", "#f2909a", "#ffc890"],
+  day: ["#2f7ad8", "#4a94e8", "#6eaef0", "#98c8f6", "#c8e4ff"],
+  dusk: ["#1d1b4a", "#4e3274", "#a84a6e", "#e8705a", "#ffaa5e"],
 };
+// tło hosta (boczne marginesy poza canvasem) = te same pasy nieba + ziemia, dopasowane do pozycji canvasu
+function skyBg(scene, stage, phase, H) {
+  const hostH = scene.clientHeight || 1, c = stage.canvas;
+  const top = c.offsetTop, ch = c.offsetHeight || hostH;
+  const groundPx = top + ch * (H - GROUND) / H;
+  const pal = SKY_PAL[phase] || SKY_PAL.night, n = pal.length;
+  const stops = pal.map((col, i) => `${col} ${top + (ch * i) / n}px ${top + (ch * (i + 1)) / n}px`);
+  return `linear-gradient(${pal[0]} 0 ${top}px, ${stops.join(", ")}, #2a1e18 ${groundPx}px)`;
+}
 const TINT = { day: null, dawn: ["#ff9a6a", 0.1], dusk: ["#5a2a7a", 0.2], night: ["#0a0a30", 0.4] };
 
 function hash(a, b = 0) { let x = (a * 374761393 + b * 668265263) | 0; x = Math.imul(x ^ (x >>> 13), 1274126177); return ((x ^ (x >>> 16)) >>> 0) / 4294967296; }
@@ -272,7 +281,7 @@ export const homeScreen = {
       const nC = save.chests.length;
       hot.innerHTML = `
         <button class="hot hot--moon" data-act="moon" aria-label="Moon Diary" style="${pos(MOON.x, MOON.y)};${size(34, 34)}">
-          ${story > seen ? `<span class="hot-label" style="top:105%;--tilt:6deg">${sticker(`<span class="sticker-label">new page</span>`, { tilt: 0 })}</span>` : `<span class="hot-label hand" style="top:92%;font-size:calc(var(--u) * 10);color:#dfe6ff;--tilt:-6deg">where is<br>the Moon?</span>`}
+          ${story > seen ? `<span class="hot-label" style="top:118%;left:10%;--tilt:6deg">${sticker(`<span class="sticker-label">new page</span>`, { tilt: 0 })}</span>` : `<span class="hot-label hand" style="top:92%;font-size:calc(var(--u) * 10);color:#dfe6ff;--tilt:-6deg">where is<br>the Moon?</span>`}
         </button>
         <button class="hot hot-wanted" data-act="weekly" aria-label="Weekly boss" style="${pos(L.poster.x, L.poster.y + 31)};width:calc(var(--u) * 58)">
           <span class="wanted-mini"><i class="tape tape--c" style="top:calc(var(--u) * -5);width:calc(var(--u) * 26);height:calc(var(--u) * 8);margin-left:calc(var(--u) * -13)"></i>
@@ -282,7 +291,7 @@ export const homeScreen = {
         </button>
         <button class="hot hot--cat" data-act="pet" aria-label="Pet your cat" style="${pos(L.cat.x, L.cat.y - 14)};${size(36, 30)}"></button>
         <button class="hot hot--door" data-act="cellar" aria-label="Shadow Cellar" style="${pos(L.door.x, L.door.y)};${size(34, 34)}">
-          <span class="hot-label" style="top:-62%;--tilt:-4deg">${sticker(`<span class="sticker-label sticker-label--violet">${shadows} shadow${shadows === 1 ? "" : "s"}</span>`, { tilt: 0 })}</span>
+          ${shadows ? `<span class="hot-label" style="top:88%;--tilt:-4deg">${sticker(`<span class="sticker-label sticker-label--violet">${shadows} shadow${shadows === 1 ? "" : "s"}</span>`, { tilt: 0 })}</span>` : ""}
         </button>
         ${nC ? `<button class="hot hot--chest" data-act="chest" aria-label="Open chest" style="${pos(211, L.groundY - 10)};${size(48, 30)}">
           <span class="chest-count">${sticker(`<span class="sticker-label sticker-label--red">${nC}</span>`, { tilt: 8 })}</span></button>` : ""}
@@ -294,7 +303,7 @@ export const homeScreen = {
       L = layoutFor(stage.h, save);
       bakedKey = "";
       renderHot();
-      scene.style.setProperty("--sky-bg", SKY_CSS[phase.phase]);
+      scene.style.setProperty("--sky-bg", skyBg(scene, stage, phase.phase, L.H));
     };
     stage.onResize(relayout);
     relayout();
@@ -305,7 +314,7 @@ export const homeScreen = {
       bakedKey = key;
       towerC = bakeTower(L, phase.phase);
       hillsC = bakeHills(L.H, phase.phase);
-      scene.style.setProperty("--sky-bg", SKY_CSS[phase.phase]);
+      scene.style.setProperty("--sky-bg", skyBg(scene, stage, phase.phase, L.H));
     };
 
     let phaseT = 0;
@@ -433,11 +442,13 @@ export const homeScreen = {
       const s = h(`<button class="event-sticker" data-act="wardrobe" aria-label="${esc(ev.name)}">${sticker(`<span class="ev-pic">${ev.deco ? `<img class="px-img" src="${picSrc([...ev.deco][0], 2)}" alt="">` : ""}</span><span class="sticker-label">${esc(ev.name)}</span>`, { tilt: -6 })}</button>`);
       scene.append(s);
     }
-    if (params.first) setTimeout(() => toast(`Hi, ${save.catName}! Tap CLIMB!`), 400);
+    if (params.first) setTimeout(() => toast(`Hi, ${save.catName}! Tap Climb!`), 400);
 
+    const onWin = () => setTimeout(() => { if (L && el.isConnected) scene.style.setProperty("--sky-bg", skyBg(scene, stage, phase.phase, L.H)); }, 150);
+    window.addEventListener("resize", onWin);
     const timer = setInterval(renderHud, 1000);
     const lifeTimer = setInterval(() => { tickLives(save); renderHud(); }, 30000);
-    return () => { clearInterval(timer); clearInterval(lifeTimer); off(); stage.destroy(); };
+    return () => { window.removeEventListener("resize", onWin); clearInterval(timer); clearInterval(lifeTimer); off(); stage.destroy(); };
   },
 };
 

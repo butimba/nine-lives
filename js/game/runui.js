@@ -11,11 +11,11 @@ export const PERK_EN = {
   catnip: { name: "Catnip", desc: "+1 life now" },
   bell: { name: "Golden Bell", desc: "+50% fish" },
   lightning: { name: "Lightning Paws", desc: "Fast answer = +1 hit" },
-  bubble: { name: "Bubble Shield", desc: "Blocks 1 mistake" },
+  bubble: { name: "Bubble Shield", desc: "Blocks the next boss shot" },
   fire_combo: { name: "Fire Combo", desc: "Combo 3+ = x2 hit" },
   clover: { name: "Lucky Clover", desc: "More crits" },
   magnet: { name: "Star Magnet", desc: "+30% XP" },
-  big_heart: { name: "Big Heart", desc: "+1 life and a bubble" },
+  big_heart: { name: "Big Heart", desc: "+1 life and +1 shield" },
 };
 
 const SPEAKER = `<svg viewBox="0 0 9 8" width="100%" height="100%" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3zM4 0h1v8H4zM6 2h1v1H6zM6 5h1v1H6zM7 3h1v2H7zM8 1h1v1H8zM8 6h1v1H8z"/></svg>`;
@@ -36,13 +36,15 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
 
   // ---- top buttons ----
   const top = el(`<div class="rui-top">
-      <button class="rui-btn rui-ico rui-hint" data-act="hint" title="Hint" hidden><span class="rui-i">${BULB}</span><b class="rui-hint-n">1</b></button>
       <button class="rui-btn rui-ico rui-quit" data-act="quit" title="Quit"><span class="rui-x">X</span></button>
     </div>`);
-  root.append(top);
-  let onQuit = null, onHint = null;
+  const bottom = el(`<div class="rui-bottom">
+      <button class="rui-btn rui-ico rui-hint" data-act="hint" title="Hint" hidden><span class="rui-i">${BULB}</span><b class="rui-hint-n">1</b></button>
+    </div>`);
+  root.append(top, bottom);
+  let onQuit = null, onHint = null, onModal = null;
   top.querySelector(".rui-quit").onclick = () => { tap(); openQuit(); };
-  top.querySelector(".rui-hint").onclick = () => { if (onHint) onHint(); };
+  bottom.querySelector(".rui-hint").onclick = () => { if (onHint) onHint(); };
 
   // ---- quit modal ----
   let quitModal = null;
@@ -55,11 +57,11 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
         <div class="rui-row"><button class="rui-btn rui-btn--ghost px-btn" data-act="stay">Stay</button><button class="rui-btn rui-btn--danger px-btn" data-act="quit-yes">Leave</button></div>
       </div></div>`);
     root.append(quitModal);
-    ui.modalOpen = true;
+    ui.modalOpen = true; onModal && onModal(true);
     quitModal.querySelector("[data-act=stay]").onclick = () => { tap(); closeQuit(); };
     quitModal.querySelector("[data-act=quit-yes]").onclick = () => { tap(); closeQuit(); onQuit && onQuit(); };
   }
-  function closeQuit() { if (quitModal) quitModal.remove(); quitModal = null; ui.modalOpen = false; }
+  function closeQuit() { const was = !!quitModal; if (quitModal) quitModal.remove(); quitModal = null; ui.modalOpen = false; if (was && onModal) onModal(false); }
 
   // ---- prompt banner ----
   const banner = el(`<div class="rui-prompt" hidden></div>`);
@@ -88,19 +90,21 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
     root, modalOpen: false,
     set onQuit(fn) { onQuit = fn; },
     set onHint(fn) { onHint = fn; },
+    set onModal(fn) { onModal = fn; },
     openQuit, closeQuit,
     setHints(n, visible = true) {
-      const b = top.querySelector(".rui-hint");
+      const b = bottom.querySelector(".rui-hint");
       b.hidden = !visible || n <= 0; b.querySelector(".rui-hint-n").textContent = n;
     },
     // prompt = { text?, pl?, img?, say?, autoSay }
     prompt(p, { onSay } = {}) {
-      if (!p || (!p.text && !p.img && !p.say)) { banner.hidden = true; banner.innerHTML = ""; return 0; }
+      if (!p || (!p.text && !p.img && !p.say && !p.title)) { banner.hidden = true; banner.innerHTML = ""; return 0; }
       const text = p.text ? esc(p.text).replace(/_{2,}/g, '<span class="rui-gap">___</span>') : "";
       banner.innerHTML = `<div class="rui-prompt-in paper">
           ${p.img ? `<div class="rui-prompt-img">${pic(p.img, "md")}</div>` : ""}
           <div class="rui-prompt-txt">
-            ${text ? `<div class="rui-q lex">${text}</div>` : ""}
+            ${p.title ? `<div class="rui-ptitle px ${text ? "" : "rui-ptitle--big"}">${esc(p.title)}</div>` : ""}
+            ${text ? `<div class="rui-q lex${p.lang === "pl" ? " rui-q--pl" : ""}">${text}</div>` : ""}
             ${p.pl && showPl ? `<div class="rui-pl lex">${esc(p.pl)}</div>` : ""}
           </div>
           ${p.say ? spk(p.say) : ""}
@@ -148,7 +152,7 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
     perkCards(choices) {
       const c = card(`<div class="rui-title px">Pick a power!</div>
         <div class="rui-perks">${choices.map((p, i) => {
-          const en = PERK_EN[p.id] || { name: p.name, desc: p.desc };
+          const en = { name: p.name || (PERK_EN[p.id] || {}).name, desc: p.desc || (PERK_EN[p.id] || {}).desc };
           let icon = "";
           if (iconURL) try { icon = iconURL("perk_" + p.id, 3) || ""; } catch {}
           return `<button class="rui-perk px-btn" data-act="perk" data-i="${i}" style="--tilt:${[-2, 1.5, -1][i % 3]}deg">
@@ -184,7 +188,7 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
       return waitAct(c, "[data-act=next]").then(clearLayer);
     },
     clearCards: clearLayer,
-    hideTop(v) { top.hidden = !!v; },
+    hideTop(v) { top.hidden = !!v; bottom.hidden = !!v; },
     destroy() { root.remove(); },
   };
   return ui;

@@ -1,7 +1,572 @@
-// STUB
-import { spriteURL } from './sprite.js';
-import { box } from './_stubutil.js';
-import { PERKS } from '../../data/progression.js';
-const names = ['fish', 'heart', 'heartEmpty', 'catHead', 'flame', 'xp', 'speaker', 'check', 'cross', 'lock', 'star', 'shield', 'wardrobe', 'skills', 'cards', 'daily', 'moon', 'door', ...PERKS.map((p) => 'perk_' + p.id)];
-export const ICONS = Object.fromEntries(names.map((n) => [n, box('ic_' + n, 12, 12, '#ffd23f')]));
-export function iconURL(name, scale = 3) { return spriteURL(ICONS[name] || ICONS.star, 0, scale); }
+// Pixel icons (auto 1px ink outline). ICONS[name] = Sprite. iconURL(name, scale) -> dataURL.
+// Contract names + perk_<id> for every PERK + talent_<id> for every TALENT + a few extras
+// (gear, zzz, trophy, arrowL, arrowR, play, sword, eye, snow, claw, gem, chest, clock, music, home, plus, coin, crown, skull).
+import { defineSprite, spriteURL } from './sprite.js';
+import { PERKS, TALENTS } from '../../data/progression.js';
+
+const D = {
+  fish: {
+    rows: [
+      '...oooo....',
+      '.ooOOOOo..o',
+      'oOkOyOOOooo',
+      'oOOOyOOOOo.',
+      'oYYYYYOOooo',
+      '.ooYYYoo..o',
+      '...oooo....',
+    ],
+    map: { o: '#d9622b', O: '#ffa04d', y: '#ffd23f', Y: '#fff1a8' },
+  },
+  heart: {
+    rows: [
+      '.RR...RR.',
+      'RWRR.RRRR',
+      'RWRRRRRRR',
+      'RRRRRRRRr',
+      '.RRRRRRr.',
+      '..RRRRr..',
+      '...RRr...',
+      '....r....',
+    ],
+    map: { r: '#a82848' },
+  },
+  heartEmpty: {
+    rows: [
+      '.gg...gg.',
+      'gKKg.gKKg',
+      'gKKKgKKKg',
+      'gKKKKKKKg',
+      '.gKKKKKg.',
+      '..gKKKg..',
+      '...gKg...',
+      '....g....',
+    ],
+  },
+  catHead: {
+    rows: [
+      'O.......O',
+      'OO.....OO',
+      'OpO...OpO',
+      'OOOOOOOOO',
+      'OOkOOOkOO',
+      'OOkOOOkOO',
+      'OpOOROOpO',
+      '.OOkOkOO.',
+      '..ooooo..',
+    ],
+    map: { o: '#d9622b', p: '#ffb6a3', R: '#ff7d8a' },
+  },
+  flame: {
+    rows: [
+      '....R....',
+      '...RR....',
+      '...ROR..R',
+      '..ROOR.RR',
+      '.RROyORRR',
+      '.ROyyyOOR',
+      'ROOyYyyOR',
+      'ROyYYYyOR',
+      'ROyYYYyOR',
+      '.ROyYyOR.',
+      '..RROORR.',
+    ],
+  },
+  xp: {
+    rows: [
+      '....A....',
+      '...WAA...',
+      '..WAAAa..',
+      '.WAAAAAa.',
+      'AAAAAAAaa',
+      '.aAAAAaa.',
+      '..aAAaa..',
+      '...aaa...',
+      '....a....',
+    ],
+    map: { A: '#93e04c', a: '#3aa34f', W: '#e8ffc8' },
+  },
+  speaker: {
+    rows: [
+      '....W.....',
+      '...WW..W..',
+      'WWWWW...W.',
+      'WWWWW.W.W.',
+      'WWWWW.W.W.',
+      'WWWWW...W.',
+      '...WW..W..',
+      '....W.....',
+    ],
+    map: { W: '#f4efe2' },
+  },
+  check: {
+    rows: [
+      '.........E',
+      '........EE',
+      '.......EEe',
+      'E.....EEe.',
+      'EE...EEe..',
+      'eEE.EEe...',
+      '.eEEEe....',
+      '..eEe.....',
+    ],
+  },
+  cross: {
+    rows: [
+      'RR....RR',
+      'RRR..RRR',
+      '.RRRRRR.',
+      '..RRRR..',
+      '..RRRR..',
+      '.RRrrRR.',
+      'RRr..rRR',
+      'Rr....rR',
+    ],
+  },
+  lock: {
+    rows: [
+      '..SSSSS..',
+      '.SS...SS.',
+      '.S.....S.',
+      '.S.....S.',
+      'yyyyyyyyy',
+      'yYYYYYYYd',
+      'yYYYkYYYd',
+      'yYYkkkYYd',
+      'yYYYkYYYd',
+      'yYYYYYYYd',
+      'ddddddddd',
+    ],
+    map: { y: '#ffd23f', Y: '#ffe680', d: '#c27f08' },
+  },
+  star: {
+    rows: [
+      '....y....',
+      '...yYy...',
+      'yyyyYyyyy',
+      '.yYYYYYy.',
+      '..yYYYy..',
+      '..yYdYy..',
+      '.yYd.dYy.',
+      '.yd...dy.',
+    ],
+    map: { y: '#ffd23f', Y: '#fff1a8', d: '#d98a00' },
+  },
+  shield: {
+    rows: [
+      'yyyyyyyyy',
+      'ybbbbBBby',
+      'ybbbbBBby',
+      'ybbbbBBby',
+      'ybbbbbBby',
+      'yybbbbbyy',
+      '.ybbbbby.',
+      '..ybbby..',
+      '...yby...',
+      '....y....',
+    ],
+    map: { y: '#ffd23f', b: '#3b78d8', B: '#7ec4ff' },
+  },
+  wardrobe: {
+    rows: [
+      '......TT.....',
+      '.....T..T....',
+      '........T....',
+      '.......T.....',
+      '......T......',
+      '.....TtT.....',
+      '...TT...TT...',
+      '.TT.......TT.',
+      'TTTTTTTTTTTTT',
+    ],
+    map: { T: '#ecc28a', t: '#c98a52' },
+  },
+  skills: {
+    rows: [
+      '...PP.PP...',
+      '..PPP.PPP..',
+      '..PPP.PPP..',
+      'PP.......PP',
+      'PPP.....PPP',
+      'PP.PPPPP.PP',
+      '..PPPPPPP..',
+      '.PPPPPPPPP.',
+      '.PPPPPPPPP.',
+      '..PPP.PPP..',
+    ],
+    map: { P: '#ff8fa3' },
+  },
+  cards: {
+    rows: [
+      '....VVVVVVV',
+      '....VmVmVmV',
+      'WWWWWWWkmVV',
+      'WWWWWWWkVmV',
+      'WRRWRRWkmVV',
+      'WRRRRRWkVmV',
+      'WWRRRWWkmVV',
+      'WWWRWWWkVVV',
+      'WWWWWWW....',
+      'WWWWWWW....',
+      'lllllll....',
+    ],
+    map: { W: '#f4efe2', l: '#b7b0c8' },
+  },
+  daily: {
+    rows: [
+      '..k.....k..',
+      'RRkRRRRRkRR',
+      'RRRRRRRRRRR',
+      'WWWWWWWWWWW',
+      'WlWlWlWlWlW',
+      'WWWWWWWWWWW',
+      'WlWlWRRWlWW',
+      'WWWWWRRWWWW',
+      'WlWlWlWlWlW',
+      'WWWWWWWWWWW',
+      'lllllllllll',
+    ],
+    map: { W: '#f4efe2', l: '#b7b0c8' },
+  },
+  moon: {
+    rows: [
+      '...YYYY.',
+      '.YYYYY..',
+      '.YYYy...',
+      'YYYy....',
+      'YYYy....',
+      'YYYy....',
+      'YYYYy...',
+      '.YYYYy.y',
+      '.YYYYYYy',
+      '...yyyy.',
+    ],
+    map: { Y: '#fff1a8', y: '#ffd23f' },
+  },
+  door: {
+    rows: [
+      '...NNNNN...',
+      '..NtttttN..',
+      '.NtTtTtTtN.',
+      '.NtTtTtTtN.',
+      '.NtTtTtTtN.',
+      '.NtTtTyTtN.',
+      '.NtTtTtTtN.',
+      '.NtTtTtTtN.',
+      '.NNNNNNNNN.',
+    ],
+  },
+  // ---- perks ----
+  perk_fishbone: {
+    rows: [
+      '.W.W.W.WW..',
+      'W.W.W.WWWW.',
+      'WWWWWWWWkWW',
+      'W.W.W.WWWW.',
+      '.W.W.W.WW..',
+    ],
+    map: { W: '#f4efe2' },
+  },
+  perk_catnip: {
+    rows: [
+      '...EE....',
+      '..EEEe...',
+      '.EEeEe..E',
+      '.EEeee.EE',
+      '..eEe.EEe',
+      '...e.EEee',
+      '...e..ee.',
+      '...e.....',
+      '..ee.....',
+    ],
+  },
+  perk_bell: {
+    rows: [
+      '....d....',
+      '...yYy...',
+      '..yYYYy..',
+      '..YWYYy..',
+      '.yWYYYyy.',
+      '.yYYYYYy.',
+      'yYYYYYYyd',
+      'ddddddddd',
+      '...dkd...',
+    ],
+    map: { y: '#ffd23f', Y: '#ffe680', d: '#c27f08', W: '#fff8d8' },
+  },
+  perk_lightning: {
+    rows: [
+      '....yyyy',
+      '...yYYy.',
+      '..yYYy..',
+      '.yYYyyyy',
+      'yyyyYYy.',
+      '...yYy..',
+      '..yYy...',
+      '.yYy....',
+      '.yy.....',
+    ],
+    map: { y: '#ffd23f', Y: '#fff1a8' },
+  },
+  perk_bubble: {
+    rows: [
+      '..CCCCC..',
+      '.CqqqqqC.',
+      'CqWWqqqqC',
+      'CqWqqqqqC',
+      'CqqqqqqqC',
+      'CqqqqqqqC',
+      'CqqqqqWqC',
+      '.CqqqqqC.',
+      '..CCCCC..',
+    ],
+    map: { C: '#d2f2ff', q: '#7ec4ff88', W: '#ffffff' },
+  },
+  perk_fire_combo: {
+    rows: [
+      '..R.....R..',
+      '.RR....RR..',
+      '.ROR...ROR.',
+      'RROOR.RROOR',
+      'ROyOR.ROyOR',
+      'ROyyOROOyyO',
+      'ROYYyRRYYyR',
+      '.RyYOR.RyYR',
+      '..RRR...RR.',
+    ],
+  },
+  perk_clover: {
+    rows: [
+      '.ee...ee.',
+      'eEEe.eEEe',
+      'eEEEeEEEe',
+      '.eEEeEEe.',
+      '..eeEee..',
+      '.eEEeEEe.',
+      'eEEEeEEEe',
+      'eEEe.eEEe',
+      '.ee.e.ee.',
+      '.....e...',
+      '....e....',
+    ],
+  },
+  perk_magnet: {
+    rows: [
+      '.RRRRRRR.',
+      'RRWrrrrRR',
+      'RWr...rRR',
+      'RR.....RR',
+      'RR.....RR',
+      'RR.....RR',
+      'SS.....SS',
+      'SS.....SS',
+    ],
+    map: { S: '#d3dbe8' },
+  },
+  perk_big_heart: {
+    rows: [
+      '.mmm...mmm.',
+      'mWWmm.mmmmm',
+      'mWmmmmmmmmm',
+      'mmmmmmmmmmr',
+      'mmmmmmmmmmr',
+      '.mmmmmmmmr.',
+      '..mmmmmmr..',
+      '...mmmmr...',
+      '....mmr....',
+      '.....r.....',
+    ],
+    map: { m: '#ff5d8f', r: '#c2306a' },
+  },
+  // ---- extras ----
+  gear: {
+    rows: [
+      '...S.S...',
+      '.SSSSSSS.',
+      '.SSlllSS.',
+      'SSl...lSS',
+      '.Sl...lS.',
+      'SSl...lSS',
+      '.SSlllSS.',
+      '.SSSSSSS.',
+      '...S.S...',
+    ],
+    map: { S: '#a9b6cb', l: '#5d6b85' },
+  },
+  zzz: {
+    rows: [
+      '.....BBBB',
+      '.......B.',
+      '......B..',
+      'BBBB.BBBB',
+      '..B......',
+      '.B.......',
+      'BBBB.....',
+    ],
+    map: { B: '#d2f2ff' },
+  },
+  trophy: {
+    rows: [
+      'yyyyyyyyy',
+      'yYYYYYYdy',
+      'yYYYYYYd.',
+      '.yYYYYd..',
+      '..yYYd...',
+      '...yd....',
+      '...yd....',
+      '..yyyd...',
+      '.ddddddd.',
+    ].map((r) => r.padEnd(9, '.')),
+    map: { y: '#ffd23f', Y: '#fff1a8', d: '#d98a00' },
+  },
+  arrowL: { rows: ['...W....', '..WW....', '.WWWWWWW', 'WWWWWWWW', '.WWWWWWW', '..WW....', '...W....'], map: { W: '#f4efe2' } },
+  arrowR: { rows: ['....W...', '....WW..', 'WWWWWWW.', 'WWWWWWWW', 'WWWWWWW.', '....WW..', '....W...'], map: { W: '#f4efe2' } },
+  play: { rows: ['WW....', 'WWWW..', 'WWWWWW', 'WWWWWW', 'WWWW..', 'WW....'], map: { W: '#f4efe2' } },
+  plus: { rows: ['..EE..', '..EE..', 'EEEEEE', 'EEEEEE', '..EE..', '..EE..'] },
+  sword: {
+    rows: [
+      '........WW',
+      '.......WWl',
+      '......WWl.',
+      '.....WWl..',
+      '.y..WWl...',
+      '.yyWWl....',
+      '..yyl.....',
+      '.ndyy.....',
+      'nn..y.....',
+    ],
+    map: { W: '#f4efe2', l: '#a9b6cb', y: '#ffd23f', d: '#c27f08', n: '#5a3324' },
+  },
+  eye: {
+    rows: [
+      '...kkkkk...',
+      '.kkWWWWWkk.',
+      'kWWWAAAWWWk',
+      'kWWAkkWAWWk',
+      'kWWAkkAAWWk',
+      '.kkWAAAWkk.',
+      '...kkkkk...',
+    ],
+    map: { A: '#ffd23f' },
+  },
+  snow: {
+    rows: [
+      '....C....',
+      '..C.C.C..',
+      '...CCC...',
+      'CC.CWC.CC',
+      '..CWWWC..',
+      'CC.CWC.CC',
+      '...CCC...',
+      '..C.C.C..',
+      '....C....',
+    ],
+    map: { C: '#7ec4ff', W: '#ffffff' },
+  },
+  claw: {
+    rows: [
+      'W...W...W',
+      'W...W...W',
+      'lW..lW..lW',
+      '.W...W...W',
+      '.lW..lW..lW',
+      '..W...W...W',
+      '..l...l...l',
+    ].map((r) => r.padEnd(11, '.')),
+    map: { W: '#ffffff', l: '#b7b0c8' },
+  },
+  gem: {
+    rows: [
+      '..BBBBB..',
+      '.BWBBbBb.',
+      'BWBBBbbbb',
+      'bBBBbbbbc',
+      '.bBBbbbc.',
+      '..bBbbc..',
+      '...bbc...',
+      '....c....',
+    ],
+    map: { B: '#7ec4ff', b: '#3b78d8', c: '#1f3a78', W: '#ffffff' },
+  },
+  chest: {
+    rows: [
+      '.hLLTLLTLh.',
+      'LLLLTLLTLLL',
+      'llllTyyTlll',
+      'kkkkkYYkkkk',
+      'BBBBTyyTBBB',
+      'BBBBTBBTBBB',
+      'bbbbtbbtbbb',
+    ],
+    map: { L: '#b0703e', l: '#8e5434', h: '#d49a5e', B: '#9a5d34', b: '#6e3f24', T: '#5d6b85', t: '#3a4258', y: '#d9a22b', Y: '#ffd23f' },
+  },
+  clock: {
+    rows: [
+      '..WWWWW..',
+      '.WWWkWWW.',
+      'WWWWkWWWW',
+      'WWWWkWWWW',
+      'WWWWkkkWW',
+      'WWWWWWWWW',
+      'WWWWWWWWW',
+      '.WWWWWWW.',
+      '..lllll..',
+    ],
+    map: { W: '#f4efe2', l: '#b7b0c8' },
+  },
+  music: {
+    rows: [
+      '...VVVVV',
+      '...VVVVV',
+      '...V...V',
+      '...V...V',
+      '.VVV.VVV',
+      'VVVVVVVV',
+      '.VV..VV.',
+    ],
+    map: { V: '#d867d0' },
+  },
+  home: {
+    rows: [
+      '.....R.....',
+      '....RRR....',
+      '...RRRRR...',
+      '..RRRRRRR..',
+      '.RRRRRRRRR.',
+      'RRRRRRRRRRR',
+      '.wwwwwwwww.',
+      '.wbbwwwNNw.',
+      '.wbbwwwNNw.',
+      '.wwwwwwNNw.',
+    ],
+    map: { w: '#f4efe2', b: '#7ec4ff' },
+  },
+  coin: {
+    rows: ['..yyyy..', '.yYYYYd.', 'yYYddYYd', 'yYYdYYYd', 'yYYdYYYd', 'yYYddYYd', '.yYYYYd.', '..dddd..'],
+    map: { y: '#ffd23f', Y: '#fff1a8', d: '#c27f08' },
+  },
+  crown: {
+    rows: ['Y...Y...Y', 'yY.yYy.Yy', 'yyyyyyyyy', 'yRyyByyRy', 'ddddddddd'],
+    map: { Y: '#fff1a8', y: '#ffd23f', d: '#d98a00', R: '#e8434f', B: '#3bd8ff' },
+  },
+  skull: {
+    rows: ['.WWWWWW.', 'WWWWWWWW', 'WkkWWkkW', 'WkkWWkkW', 'WWWWWWWW', '.WWkkWW.', '.WlWlWl.'],
+    map: { W: '#f4efe2', l: '#b7b0c8' },
+  },
+};
+
+// talents reuse icons
+const TALENT_ICON = { sharp_claws: 'claw', combo: 'flame', pounce: 'skills', nine_lives: 'heart', thick_fur: 'shield', cat_nap: 'zzz', lucky: 'coin', sixth_sense: 'eye', treasure: 'gem' };
+
+export const ICONS = {};
+for (const [name, d] of Object.entries(D)) {
+  const w = Math.max(...d.rows.map((r) => r.length));
+  ICONS[name] = defineSprite({ id: 'ic_' + name, w, h: d.rows.length, frames: [d.rows.map((r) => r.padEnd(w, '.'))], map: d.map || {}, outline: 'k' });
+}
+for (const p of PERKS) if (!ICONS['perk_' + p.id]) ICONS['perk_' + p.id] = ICONS.star;
+for (const t of TALENTS) ICONS['talent_' + t.id] = ICONS[TALENT_ICON[t.id]] || ICONS.star;
+// power ids (stage 2) — mapped to readable icons
+Object.assign(ICONS, { power_freeze: ICONS.snow, power_claw_storm: ICONS.claw, power_fish_magnet: ICONS.perk_magnet, power_owl_eye: ICONS.eye, power_catnip: ICONS.perk_catnip });
+
+export function iconURL(name, scale = 3) {
+  return spriteURL(ICONS[name] || ICONS.star, 0, scale);
+}

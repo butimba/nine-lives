@@ -61,16 +61,16 @@ if ((r = sec('catURL'))) {
 }
 const pals = [['#93e04c', '#3aa34f', '#ffd23f'], ['#d867d0', '#8a55d6', '#ffc9d3'], ['#7ec4ff', '#3b78d8', '#d2f2ff'], ['#ffa04d', '#d9622b', '#fff1a8'], ['#a9b6cb', '#5d6b85', '#e8434f']];
 if ((r = sec('monsters'))) {
-  for (let i = 0; i < 20; i++) { const boss = i % 7 === 6, shadow = i % 9 === 4; const m = makeMonster(i * 7919 + 13, pals[i % pals.length], { boss, shadow }); const [c, x] = cv(48, 48, 3); if (shadow) { x.fillStyle = '#272036'; x.fillRect(0, 0, 48, 48); } m.draw(x, 24, 46, { anim: 'idle', t: T }); cell(r, c, m.name); }
+  for (let i = 0; i < 20; i++) { const boss = i % 7 === 6, shadow = i % 9 === 4; const m = makeMonster(i * 7919 + 13, pals[i % pals.length], { boss, shadow }); const [c, x] = cv(52, 56, SC); if (shadow) { x.fillStyle = '#272036'; x.fillRect(0, 0, 52, 56); } m.draw(x, 26, 54, { anim: 'idle', t: T }); cell(r, c, m.name); }
 }
 if ((r = sec('monanims'))) {
   for (const seed of [5, 42, 99]) for (const a of ['idle', 'hurt', 'lunge', 'die']) for (const t of [0.1, 0.35]) { const m = makeMonster(seed, pals[seed % 5], { boss: seed === 99 }); const [c, x] = cv(48, 48, 2); m.draw(x, 24, 46, { anim: a, t }); cell(r, c, a + ' ' + t); }
   const im = new Image(); im.src = makeMonster(3, pals[0]).portraitURL(3); cell(r, im, 'portrait');
 }
 if ((r = sec('chests'))) {
-  for (const ty of ['wood', 'silver', 'gold', 'epic']) { for (let k = 0; k <= 3; k++) { const ch = chestSprite(ty); const [c, x] = cv(30, 28, 3); ch.draw(x, 15, 26, { cracks: k }); cell(r, c, ty + ' ' + k); } const ch = chestSprite(ty); const [c, x] = cv(30, 28, 3); ch.draw(x, 15, 26, { open: true }); cell(r, c, ty + ' open'); }
+  for (const ty of ['wood', 'silver', 'gold', 'epic']) { for (let k = 0; k <= 3; k++) { const ch = chestSprite(ty); const [c, x] = cv(30, 30, SC); ch.draw(x, 15, 27, { cracks: k, t: 0.01 }); cell(r, c, ty + ' ' + k); } const ch = chestSprite(ty); const [c, x] = cv(30, 30, SC); ch.draw(x, 15, 27, { open: true, t: 0.3 }); cell(r, c, ty + ' open'); }
 }
-if ((r = sec('icons'))) { for (const n of Object.keys(ICONS)) { const im = new Image(); im.src = iconURL(n, 3); cell(r, im, n); } }
+if ((r = sec('icons'))) { for (const n of Object.keys(ICONS)) { const im = new Image(); im.src = iconURL(n, SC); cell(r, im, n); } }
 if ((r = sec('panels'))) {
   for (const st of ['wood', 'stone', 'bubble', 'paper', 'block']) { const [c, x] = cv(70, 40, 3); drawPanel(x, 2, 2, 66, 36, st); cell(r, c, st); }
   const [c, x] = cv(70, 40, 3); drawPanel(x, 2, 2, 66, 36, 'block', { tint: '#e8434f' }); cell(r, c, 'block tint');
@@ -87,7 +87,7 @@ if ((r = sec('font'))) {
 if ((r = sec('pixelizer'))) {
   const imgs = []; for (const t of Object.values(vocab)) for (const w of t.words) imgs.push(w[2]);
   const lim = +(P.get('n') || 400);
-  for (const im of imgs.slice(0, lim)) { const e = new Image(); e.src = pixelURL(im, 2); e.title = im; cell(r, e); }
+  for (const im of imgs.slice(0, lim)) { const e = new Image(); e.src = pixelURL(im, SC); e.title = im; cell(r, e); }
 }
 window.__done = true;
 </script></body></html>

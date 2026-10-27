@@ -17,7 +17,7 @@ function bubbleSprite(r, tint) {
     if (d > r - 0.7) col = COL.ink;
     else if (d > r - 1.9) col = tint === "ok" ? COL.okD : tint === "bad" ? COL.badD : COL.bubbleD;
     else if (d > r - 3.2) col = tint === "ok" ? COL.ok : tint === "bad" ? COL.bad : COL.bubble;
-    else { c.globalAlpha = 0.28; c.fillStyle = tint === "ok" ? COL.ok : tint === "bad" ? COL.bad : COL.bubbleL; c.fillRect(x, y, 1, 1); c.globalAlpha = 1; continue; }
+    else { c.globalAlpha = tint ? 0.3 : 0.42; c.fillStyle = tint === "ok" ? COL.ok : tint === "bad" ? COL.bad : COL.bubbleL; c.fillRect(x, y, 1, 1); c.globalAlpha = 1; continue; }
     c.fillStyle = col; c.fillRect(x, y, 1, 1);
   }
   // shine
@@ -95,7 +95,7 @@ export function create(ctx) {
       stage.shake && stage.shake(2, 120);
       for (const o of bubbles) if (o !== b) o.state = "flee";
     } else {
-      B.S("wrong");
+      B.S("deflect");
       fx.burst(p.x, p.y, { n: 16, colors: [COL.bad, COL.badD, COL.bubbleL], speed: 60, gravity: 140, size: 2 });
       stage.shake && stage.shake(2, 100);
     }

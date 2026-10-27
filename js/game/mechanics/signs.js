@@ -27,7 +27,7 @@ export function create(ctx) {
   }
   const rowGap = isPic ? 26 : 22;
   const blockH = rows.length * sh + (rows.length - 1) * rowGap;
-  const top0 = A.y + Math.max(14, Math.min(40, (A.h - blockH) * 0.32));
+  const top0 = A.y + Math.max(14, Math.min(96, (A.h - blockH) * 0.3));
   const signs = [];
   const grid = [];
   rows.forEach((row, ri) => {
@@ -90,7 +90,7 @@ export function create(ctx) {
     } else {
       stage.shake && stage.shake(2, 120);
       s.state = "wrong"; s.flash = 1; s.crack = 1;
-      B.S("wrong");
+      B.S("deflect");
       fx.burst(cx, cy, { n: 10, colors: [COL.woodD, COL.bad], speed: 60, gravity: 160, size: 1 });
       setTimeout(() => { s.state = "fall"; s.vy = -20; s.vx = 0; }, 260);
     }

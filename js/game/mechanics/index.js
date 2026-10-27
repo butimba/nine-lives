@@ -21,7 +21,7 @@ const TITLES_PL = {
 };
 
 // build -> cloze (same as engine's cloze construction for box >= 3: answer + 3 wrong, with tags)
-function rebuildCloze(task) {
+export function rebuildCloze(task) {
   const q = task.q;
   const opts = [{ label: q.answer, ok: true }, ...q.wrong.slice(0, 3).map((x) => ({ label: x, ok: false, tag: q.tags[x] }))];
   for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]; }
@@ -41,8 +41,8 @@ export function planTask(task, profile = {}, settings = {}) {
     case "spell": mech = MECHANICS.catch ? "catch" : "spell"; break;
     case "fix": mech = "fixline"; break;
     case "build":
-      if (MECHANICS.catch) mech = "catch";
-      else { rebuildCloze(task); mech = "signs"; }
+      // word order stays word order: "Build the Line" (tap blocks in order) lives in fixline.js
+      mech = MECHANICS.catch ? "catch" : "fixline";
       break;
     default: mech = "signs";
   }
@@ -62,7 +62,7 @@ export function planTask(task, profile = {}, settings = {}) {
     case "cloze": p.text = task.q.text; p.say = task.q.text.replace("___", "…"); p.autoSay = voiceOn; break;
     case "judge": p.text = task.sentence; p.say = task.sentence; p.autoSay = voiceOn; break;
     case "fix": p.text = null; break; // sentence is the row of blocks
-    case "build": p.text = null; p.img = null; break;
+    case "build": p.text = null; p.img = null; break; // v1: no audio (it would read out the answer)
   }
   if (noRead) { if (p.lang === "pl") p.text = null; }
   return { mech, task, prompt: p };

@@ -4,6 +4,10 @@
 import { base, word, textW, ease, clamp01, race, wait, COL, fxSafe, glowRect, arrowDown } from "./common.js";
 
 export function create(ctx) {
+  return ctx.task.type === "build" ? build(ctx) : fix(ctx);
+}
+
+function fix(ctx) {
   const { task, arena: A, stage } = ctx;
   const B = base(ctx);
   const fx = fxSafe(ctx.fx);
@@ -66,7 +70,7 @@ export function create(ctx) {
     } else {
       stage.shake && stage.shake(1, 100);
       t.hit = 1; t.state = "idle-dead";
-      B.S("wrong");
+      B.S("deflect");
       fx.burst(cx, p.y, { n: 10, colors: ["#ffffff", COL.gold, COL.stoneL], speed: 70, gravity: 160, size: 1 });
       fx.float && fx.float(cx, p.y - 6, "CLANK", { color: COL.stoneL });
       await wait(150);
@@ -137,6 +141,164 @@ export function create(ctx) {
     debug: {
       targets: () => toks.filter((x) => x.state === "idle").map((x) => { const p = pos(x); return { ...B.client(p.x + x.bw / 2, p.y + H / 2), ok: x.i === task.badIdx, label: x.w }; }),
       answer: (good) => { if (B.done) return; if (!B.live) B.start(); const tk = toks.find((x) => x.state === "idle" && (x.i === task.badIdx) === !!good); if (tk) choose(tk); },
+    },
+  };
+  return inst;
+}
+
+// ---------------------------------------------------------------- BUILD THE LINE
+// v1 'build' rules: tap words in order; a placed block can be tapped to take it back; when every word is
+// placed: ok = placed words joined === task.words joined, wrong tag 'word_order'.
+function build(ctx) {
+  const { task, arena: A, stage } = ctx;
+  const B = base(ctx);
+  const fx = fxSafe(ctx.fx);
+  const d = Math.max(0, Math.min(1, ctx.difficulty || 0));
+  const g0 = stage.ctx;
+  const FS = 10, H = 24, GAP = 3, PAD = 6, MINW = 26, ROWG = 6;
+  const maxW = A.w - 4;
+  const wOf = (w) => Math.min(maxW, Math.max(MINW, Math.ceil(textW(g0, w, FS)) + PAD * 2));
+  const blocks = task.tiles.map((tl, k) => ({ w: tl.w, i: tl.i, k, bw: wOf(tl.w), state: "pile", ph: k * 0.9, f: 1 }));
+  // flow layout helper: returns positions for a list of widths starting at y
+  const flow = (ws, y0) => {
+    const out = []; let row = [], rw = 0, y = y0; const rows = [];
+    ws.forEach((w, j) => { const need = (row.length ? GAP : 0) + w; if (rw + need > maxW && row.length) { rows.push(row); row = []; rw = 0; } row.push(j); rw += (row.length > 1 ? GAP : 0) + w; });
+    if (row.length) rows.push(row);
+    rows.forEach((r, ri) => {
+      const tw = r.reduce((a, j) => a + ws[j], 0) + GAP * (r.length - 1);
+      let x = A.x + (A.w - tw) / 2;
+      for (const j of r) { out[j] = { x, y: y + ri * (H + ROWG) }; x += ws[j] + GAP; }
+    });
+    return { pos: out, rows: rows.length };
+  };
+  const lineRows = flow(task.words.map(wOf), 0).rows;
+  const lineTop = A.y + 10;
+  const lineH = lineRows * (H + ROWG);
+  const pileTop = Math.min(A.y + A.h - 2 * (H + ROWG) - 4, lineTop + lineH + 26);
+  const pileLayout = flow(blocks.map((b) => b.bw), pileTop).pos;
+  blocks.forEach((b, j) => { b.px = pileLayout[j].x; b.py = pileLayout[j].y; b.x = b.px; b.y = b.py; });
+  const placed = [];
+  let tt = 0, introK = 0, frozen = false, checkState = null, shakeK = 0;
+  const relayout = () => {
+    const L = flow(placed.map((b) => b.bw), lineTop).pos;
+    placed.forEach((b, j) => { b.tx = L[j].x; b.ty = L[j].y; });
+    for (const b of blocks) if (b.state === "pile") { b.tx = b.px; b.ty = b.py; }
+  };
+  blocks.forEach((b) => { b.tx = b.px; b.ty = b.py; });
+  const pos = (b) => {
+    const bob = b.state === "pile" && !frozen ? Math.sin(tt * (1.6 + d) + b.ph) * (1 + 2 * d) : 0;
+    const drop = (1 - ease.back(clamp01(introK * 1.4 - b.k * 0.05))) * 50;
+    const sh = checkState === "bad" && b.state === "line" ? Math.round(Math.sin(tt * 60 + b.k) * 2 * shakeK) : 0;
+    return { x: b.x + sh, y: b.y + bob + drop };
+  };
+  const hitAt = (x, y) => blocks.find((b) => { if (b.state === "gone") return false; const p = pos(b); return x >= p.x - 1 && x <= p.x + b.bw + 1 && y >= p.y - 4 && y <= p.y + H + 4; });
+
+  async function check() {
+    const ok = placed.map((b) => b.w).join(" ") === task.words.join(" ");
+    const res = B.finish(ok, "word_order", placed.map((b) => b.w).join(" "));
+    if (!res) return;
+    checkState = ok ? "ok" : "bad";
+    if (ok) {
+      B.S("cast"); B.S("correct");
+      ctx.cat && ctx.cat.attack && ctx.cat.attack();
+      placed.forEach((b, j) => setTimeout(() => { b.jump = 1; fx.burst(b.x + b.bw / 2, b.y, { n: 5, colors: [COL.gold, COL.grassL, "#ffffff"], speed: 50, gravity: 80, size: 1 }); B.S("type"); }, j * 55));
+      stage.shake && stage.shake(2, 140);
+      await wait(260 + placed.length * 55);
+    } else {
+      B.S("deflect"); shakeK = 1; stage.shake && stage.shake(1, 100);
+      await wait(420);
+    }
+    B.settle();
+  }
+
+  B.onDown((e) => {
+    if (checkState) return false;
+    const b = hitAt(e.x, e.y);
+    if (!b) return false;
+    if (b.state === "line") { placed.splice(placed.indexOf(b), 1); b.state = "pile"; B.S("tap"); }
+    else { b.state = "line"; placed.push(b); B.S("type"); fx.burst(b.x + b.bw / 2, b.y + H / 2, { n: 4, colors: [COL.dirtL, COL.grassL], speed: 30, gravity: 60, size: 1 }); }
+    relayout();
+    return true;
+  });
+
+  const inst = {
+    update(dt) {
+      dt = Math.min(dt, 0.05);
+      if (introK < 1) { introK = Math.min(1, introK + dt * 2.4); if (introK >= 1 && !B.live) B.start(); }
+      if (!frozen) tt += dt;
+      if (shakeK > 0) shakeK = Math.max(0, shakeK - dt * 2);
+      let settled = true;
+      for (const b of blocks) {
+        const k = Math.min(1, dt * 16);
+        b.x += (b.tx - b.x) * k; b.y += (b.ty - b.y) * k;
+        if (Math.abs(b.tx - b.x) > 0.5 || Math.abs(b.ty - b.y) > 0.5) settled = false;
+        if (b.jump) b.jump = Math.max(0, b.jump - dt * 4);
+      }
+      if (!B.done && settled && placed.length === task.words.length) check();
+    },
+    draw(g, t) {
+      // empty line ground (one ledge per row; no per-word widths, so it doesn't leak the answer)
+      const L = flow(task.words.map(wOf), lineTop).pos;
+      const ext = {};
+      L.forEach((p, j) => { const e = (ext[p.y] = ext[p.y] || { a: 1e9, b: -1e9 }); e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + wOf(task.words[j])); });
+      g.globalAlpha = 0.6;
+      for (const [y, e] of Object.entries(ext)) {
+        const yy = Math.round(+y + H - 1);
+        g.fillStyle = COL.ink; g.fillRect(Math.round(e.a), yy, Math.round(e.b - e.a), 3);
+        g.fillStyle = COL.stoneD; for (let x = Math.round(e.a) + 1; x < e.b - 1; x += 4) g.fillRect(x, yy + 1, 2, 1);
+      }
+      g.globalAlpha = 1;
+      for (const b of blocks) {
+        if (b.state === "gone") continue;
+        const p = pos(b);
+        const y = p.y - (b.jump ? Math.sin(b.jump * Math.PI) * 6 : 0);
+        const kind = checkState === "ok" || (inst._reveal) ? "gold" : checkState === "bad" && b.state === "line" ? "bad" : b.state === "line" ? "grass" : "stone";
+        block(g, p.x, y, b.bw, H, kind === "bad" ? "stone" : kind, b.k);
+        if (kind === "bad") { g.globalAlpha = 0.35; g.fillStyle = COL.bad; g.fillRect(Math.round(p.x) + 1, Math.round(y) + 1, Math.round(b.bw) - 2, H - 1); g.globalAlpha = 1; }
+        word(g, b.w, p.x + b.bw / 2, y + H / 2 + 2, { size: FS, maxW: b.bw - 4, color: kind === "gold" ? COL.ink : COL.paper, shadow: kind === "gold" ? COL.goldL : COL.ink });
+      }
+    },
+    result: B.result,
+    hint() {
+      // put the next correct word in place (only when the line so far is right)
+      if (B.done) return false;
+      const sofar = placed.map((b) => b.w);
+      if (sofar.some((w, j) => w !== task.words[j]) || placed.length >= task.words.length - 1) return false;
+      const b = blocks.find((x) => x.state === "pile" && x.w === task.words[placed.length]);
+      if (!b) return false;
+      b.state = "line"; placed.push(b); relayout();
+      B.S("pop"); B.hinted = true;
+      return true;
+    },
+    async reveal() {
+      inst._reveal = true;
+      // rebuild the line in the right order
+      placed.length = 0;
+      const used = new Set();
+      for (const w of task.words) { const b = blocks.find((x) => !used.has(x) && x.w === w); used.add(b); b.state = "line"; placed.push(b); }
+      relayout(); B.S("cast");
+      await B.revealCard(task);
+      inst._reveal = false;
+    },
+    freeze(on) { frozen = !!on; },
+    destroy() { B.destroy(); },
+    debug: {
+      // sequence: only the NEXT right block is ok (or the last placed block, to take it back, if the line is wrong)
+      targets: () => {
+        const onTrack = placed.every((b, j) => b.w === task.words[j]);
+        const next = onTrack ? blocks.find((x) => x.state === "pile" && x.w === task.words[placed.length]) : placed[placed.length - 1];
+        return blocks.filter((x) => x.state !== "gone").map((x) => { const p = pos(x); return { ...B.client(p.x + x.bw / 2, p.y + H / 2), ok: x === next, label: x.w, placed: x.state === "line" }; });
+      },
+      answer: (good) => {
+        if (B.done) return;
+        if (!B.live) B.start();
+        while (placed.length) placed.pop().state = "pile";
+        const order = good ? task.words.map((w) => w) : [...task.words].reverse();
+        if (!good && order.join(" ") === task.words.join(" ")) order.push(order.shift());
+        const used = new Set();
+        for (const w of order) { const b = blocks.find((x) => !used.has(x) && x.w === w); used.add(b); b.state = "line"; placed.push(b); }
+        relayout();
+      },
     },
   };
   return inst;

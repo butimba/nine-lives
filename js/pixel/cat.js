@@ -92,28 +92,28 @@ const BODY = {
     '...HHHHHHHHHHZZZHHZZzz....',
   ],
   jump: [
-    '............................',
-    '............................',
-    '.HH',
-    'HFsH',
-    'HF',
-    'HsF',
-    '.HF',
-    '.HsF',
-    '..HFFFFFFFFFF',
-    '...FFsFFsFFsFFFF',
-    '..FFsFFsFFsFFFFFF',
-    '.FFFFFFFFFFqqFFFFF',
-    '.FFFFFFFFFFFqFFFBBBF',
-    'FFFFFFFFFFFFFFFBBBBBF',
-    'FFFHHHHHHHHFFFFBBBBFFFFFzz',
-    'zzH.........HFFFbBHHHHHHZZ',
-    'ZZ...........HH',
-    '............................',
-    '............................',
-    '............................',
-    '............................',
-    '............................',
+    '..........................',
+    '..HH......................',
+    '.HFsH.....................',
+    '.HF.......................',
+    '..Hs......................',
+    '...HF.....................',
+    '....HF....................',
+    '.....HF.......FFFF........',
+    '......FFFFsFFFFFFFF.......',
+    '.....FFsFFsFFsFFFFFF......',
+    '....FFFFFFFFFqqFFFBBF.....',
+    '...FFFFFFFFFFFqFFBBBBF....',
+    '..FFFFFFFFFFFFFFBBBBFFFF..',
+    '.FFFHHHHHHHHFFFFbBBFHHHZzz',
+    'zFFH.......HHHH.....HZZzz.',
+    'zzH.......................',
+    'ZZ........................',
+    '..........................',
+    '..........................',
+    '..........................',
+    '..........................',
+    '..........................',
   ],
   crouch: [
     '..........................',
@@ -264,7 +264,7 @@ const BODY = {
 const FRAMES = [
   { body: 'sit', head: 'open', hx: 11, hy: 0 },
   { body: 'sit', head: 'open', hx: 11, hy: 1 },
-  { body: 'jump', head: 'open', hx: 13, hy: 3 },
+  { body: 'jump', head: 'open', hx: 14, hy: 1 },
   { body: 'crouch', head: 'open', hx: 13, hy: 6 },
   { body: 'swipe', head: 'open', hx: 13, hy: 6 },
   { body: 'puff', head: 'hurt', hx: 10, hy: 0 },
@@ -288,7 +288,7 @@ function composeFrame(f) {
 }
 const CHAR_FRAMES = FRAMES.map(composeFrame);
 // tail tip per body pose (body coords) — used by the shrimp fan and friends
-const TAIL_TIP = { sit: [2, 13], jump: [1, 2], crouch: [2, 9], swipe: [2, 10], puff: [1, 6], loaf: [0, 20], stand: [2, 12], stand2: [2, 12] };
+const TAIL_TIP = { sit: [2, 13], jump: [2, 1], crouch: [2, 9], swipe: [2, 10], puff: [1, 6], loaf: [0, 20], stand: [2, 12], stand2: [2, 12] };
 const HEAD_POINTS = FRAMES.map((f) => ({ head: { x: f.hx + 6, y: f.hy + 3 } }));
 
 // ---------- skin -> colours ----------

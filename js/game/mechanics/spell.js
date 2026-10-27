@@ -137,7 +137,7 @@ function typeMode(ctx) {
       B.S("correct");
       await wait(160);
     } else {
-      B.S("wrong");
+      B.S("deflect");
       for (const r of runes) { r.vy = -20 - Math.random() * 30; r.vx = (Math.random() - 0.5) * 40; }
       stage.shake && stage.shake(1, 100);
       await wait(380);
@@ -290,7 +290,7 @@ function tiles(ctx) {
       stage.hitstop && stage.hitstop(60); stage.shake && stage.shake(2, 140);
       for (const t of tilesArr) if (t.state === "idle") t.state = "fade";
     } else {
-      B.S("wrong"); shakeK = 1;
+      B.S("deflect"); shakeK = 1;
       stage.shake && stage.shake(1, 100);
     }
     await wait(ok ? 320 : 400);

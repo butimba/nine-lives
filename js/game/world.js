@@ -9,7 +9,7 @@ import { pxText } from "./juice.js";
 
 export { BIOMES, biomeForFloor } from "./biomes.js";
 
-export const FH = 300;          // room height (ledge to ledge)
+export const FH = 540;          // room height (ledge to ledge)
 export const SLAB = 12;         // slab thickness
 export const HATCH = { x0: 6, x1: 48 }; // hole in each slab the cat jumps through
 export const CAT_X = 64;        // where the cat stands on a ledge
@@ -18,7 +18,7 @@ export const floorY = (floor) => -floor * FH;
 // stepping stones under the hatch of the NEXT floor (world coords, top surface)
 export function stonesFor(floor) {
   const y = floorY(floor);
-  return [{ x: 70, y: y - 78 }, { x: 24, y: y - 152 }, { x: 46, y: y - 226 }];
+  return [{ x: 70, y: y - 90 }, { x: 24, y: y - 180 }, { x: 70, y: y - 270 }, { x: 24, y: y - 360 }, { x: 70, y: y - 446 }];
 }
 // path for the cat from ledge `floor` to ledge `floor+1` (list of landing points)
 export function climbPath(floor) {
@@ -197,10 +197,10 @@ export function drawFireflies(ctx, x, y, w, h, t, n = 8) {
 }
 
 // ---------------- TOWER ----------------
-const TINT = { day: null, dawn: ["#ff9a6a", 0.12], dusk: ["#6a2a7a", 0.2], night: ["#0a0a30", 0.42] };
+const TINT = { day: null, dawn: ["#ff9a6a", 0.12], dusk: ["#6a2a7a", 0.2], night: ["#0a0a30", 0.3] };
 const GLOW_A = { day: 0.1, dawn: 0.28, dusk: 0.4, night: 0.62 };
-const windowsFor = (w) => [{ x: Math.round(w * 0.43), y: -196 }, { x: Math.round(w * 0.76), y: -196 }]; // relative to ledge
-const torchFor = (w) => ({ x: Math.round(w * 0.595), y: -170 });
+const windowsFor = (w) => [{ x: Math.round(w * 0.43), y: -196 }, { x: Math.round(w * 0.76), y: -196 }, { x: Math.round(w * 0.3), y: -420 }, { x: Math.round(w * 0.63), y: -420 }]; // relative to ledge
+const torchesFor = (w) => [{ x: Math.round(w * 0.595), y: -170 }, { x: Math.round(w * 0.465), y: -394 }];
 
 function brickWall(x, w, h, b, f) {
   x.fillStyle = b.mortar; x.fillRect(0, 0, w, h);
@@ -319,29 +319,42 @@ function buildChunk(f, w, ph, b, { ground = false, foundation = false, plaque = 
   decorate(x, w, roomH, b, f);
   // painted floor number on the wall (top-left, faded)
   if (plaque && f > 0) {
-    x.globalAlpha = 0.32;
-    pxText(x, String(f), 74, 24, { color: b.brickHi, scale: 5, outline: null });
+    // big stencilled number + a cloth banner in the land's colours
+    x.globalAlpha = 0.22;
+    pxText(x, String(f), Math.round(w * 0.5), roomH - 300, { color: b.brickHi, scale: 7, outline: null, align: "center" });
     x.globalAlpha = 1;
+    for (const [bx, by, bh] of [[Math.round(w * 0.16), roomH - 250, 34], [Math.round(w * 0.86), roomH - 470, 28]]) {
+      x.fillStyle = b.ledgeLo; x.fillRect(bx - 9, by - 2, 18, 2);
+      x.fillStyle = "#0e0b16"; x.fillRect(bx - 7, by, 14, bh + 1);
+      x.fillStyle = b.accent2 || b.accent; x.fillRect(bx - 6, by, 12, bh - 4);
+      x.fillStyle = b.accent; x.fillRect(bx - 6, by + 4, 12, 3); x.fillRect(bx - 6, by + bh - 12, 12, 2);
+      for (let i = 0; i < 6; i++) x.fillRect(bx - 6 + i * 2, by + bh - 4, 1, 4 - (i % 2) * 2); // fringe
+      x.fillStyle = "#0e0b16"; x.globalAlpha = 0.25; x.fillRect(bx + 3, by, 3, bh - 4); x.globalAlpha = 1;
+      pxText(x, "*", bx + 0.5, by + 12, { color: "#fff2a8", align: "center", outline: null });
+    }
   }
   // torch bracket
-  const tp = torchFor(w); const ty = roomH + tp.y;
-  x.fillStyle = b.ledgeLo; x.fillRect(tp.x - 3, ty + 6, 7, 2); x.fillRect(tp.x - 1, ty + 2, 3, 8);
-  x.fillStyle = "#3a2a1a"; x.fillRect(tp.x - 1, ty - 2, 3, 5);
+  for (const tp of torchesFor(w)) {
+    const ty = roomH + tp.y;
+    x.fillStyle = b.ledgeLo; x.fillRect(tp.x - 3, ty + 6, 7, 2); x.fillRect(tp.x - 1, ty + 2, 3, 8);
+    x.fillStyle = "#3a2a1a"; x.fillRect(tp.x - 1, ty - 2, 3, 5);
+  }
   // windows
   const wins = b.noWindows ? [] : windowsFor(w);
   for (const wd of wins) drawWindowFrame(x, wd.x, roomH + wd.y, b);
   if (b.noWindows) { // cellar grate
-    const gx = Math.round(w * 0.7), gy = roomH - 200;
+    const gx = Math.round(w * 0.7), gy = roomH - 220;
     x.fillStyle = "#08060f"; x.fillRect(gx, gy, 24, 12);
     x.fillStyle = b.ledgeHi; for (let i = 0; i < 6; i++) x.fillRect(gx + 1 + i * 4, gy, 1, 12); x.fillRect(gx, gy, 24, 1); x.fillRect(gx, gy + 11, 24, 1);
   }
   // stepping stones (for the climb to the floor above)
   for (const s of stonesFor(0)) {
     const sy = roomH + s.y;
-    x.fillStyle = b.ledgeLo; x.fillRect(s.x - 10, sy, 20, 5);
-    x.fillStyle = b.ledge; x.fillRect(s.x - 10, sy, 20, 4);
-    x.fillStyle = b.ledgeHi; x.fillRect(s.x - 10, sy, 20, 1);
-    x.fillStyle = b.ledgeLo; x.fillRect(s.x - 6, sy + 5, 2, 2); x.fillRect(s.x + 4, sy + 5, 2, 2);
+    x.fillStyle = "#0e0b16"; x.fillRect(s.x - 16, sy - 1, 32, 8);
+    x.fillStyle = b.ledgeLo; x.fillRect(s.x - 15, sy, 30, 6);
+    x.fillStyle = b.ledge; x.fillRect(s.x - 15, sy, 30, 4);
+    x.fillStyle = b.ledgeHi; x.fillRect(s.x - 15, sy, 30, 1);
+    x.fillStyle = b.ledgeLo; x.fillRect(s.x - 10, sy + 7, 3, 3); x.fillRect(s.x + 7, sy + 7, 3, 3);
   }
   // pillars at the edges
   x.fillStyle = shade(b.wall, -0.35); x.fillRect(0, 0, 3, roomH); x.fillRect(w - 3, 0, 3, roomH);
@@ -432,9 +445,10 @@ export function drawTower(ctx, o) {
     const b = bOf(f);
     const ly = Math.round(floorY(f) - camY);
     if (ly < -FH || ly - FH > h) continue;
-    const tp = torchFor(w);
-    const tx = tp.x, ty = ly - SLAB + tp.y + SLAB - 2;
-    const fl = Math.sin(t * 13 + f) * 0.5 + Math.sin(t * 7.3 + f * 2) * 0.5;
+    for (const [ti, tp] of torchesFor(w).entries()) {
+    const tx = tp.x, ty = ly + tp.y - 2;
+    if (ty < -40 || ty > h + 40) continue;
+    const fl = Math.sin(t * 13 + f + ti) * 0.5 + Math.sin(t * 7.3 + f * 2) * 0.5;
     // glow
     ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = ga * (0.85 + 0.15 * fl);
@@ -448,11 +462,12 @@ export function drawTower(ctx, o) {
     ctx.fillStyle = "#ffb43a"; ctx.fillRect(tx - 1, ty - 4 - (fr === 1 ? 1 : 0), 3, 4);
     ctx.fillStyle = "#fff2a8"; ctx.fillRect(tx, ty - 3 - fr % 2, 1, 2);
     if (fr === 2) { ctx.fillStyle = "#ff6a2c"; ctx.fillRect(tx + 1, ty - 6, 1, 1); }
+    }
     if (b.deco === "eyes") { // glowing eyes in the dark
       for (let i = 0; i < 3; i++) {
         const blink = (Math.floor(t * 0.7 + i * 1.7 + f) % 5) === 0 && (t * 7 + i) % 1 < 0.3;
         if (blink) continue;
-        const ex = Math.round(w * (0.3 + i * 0.22)), ey = ly - 60 - i * 47;
+        const ex = Math.round(w * (0.3 + i * 0.22)), ey = ly - 60 - i * 110;
         ctx.fillStyle = i === 1 ? b.accent2 : b.accent;
         ctx.fillRect(ex, ey, 2, 1); ctx.fillRect(ex + 5, ey, 2, 1);
       }

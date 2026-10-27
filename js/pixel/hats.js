@@ -89,17 +89,16 @@ const HAT_DEFS = {
     map: { V: '#5b3cc4', v: '#3a2280', y: '#ffd23f' },
   },
   horns: {
-    dx: 0, dy: 1,
+    dx: 0, dy: 0,
     rows: [
-      'r.....r',
-      'Rr...rR',
-      'RR...RR',
-      'RR...RR',
+      'r...r',
+      'Rr.rR',
+      'RR.RR',
     ],
     map: { R: '#e8434f', r: '#a82848' },
   },
   halo: {
-    dx: 0, dy: -3,
+    dx: 0, dy: -5,
     rows: [
       '..WYYYYYY..',
       'YY.......YY',
