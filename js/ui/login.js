@@ -7,6 +7,7 @@ import { tickLives } from "../lives.js";
 import { sfx, setAudio, stopMusic } from "../audio.js";
 import { randomCatName } from "../../data/catnames.js";
 import ROSTER from "../../data/roster.js";
+import { claimGifts, ensureMySkin, syncCommunity } from "../meta.js";
 
 const LAST = "ninelives:last";
 
@@ -18,6 +19,15 @@ export async function login(name) {
   try { localStorage.setItem(LAST, name); } catch {}
   setAudio(app.save.settings);
   tickLives(app.save);
+  // prezenty od nauczyciela → skrzynie "gift:…"; własna skórka ucznia; zatwierdzone skórki dzieci (w tle)
+  ensureMySkin(app.save);
+  if (claimGifts(app.save, app.profile).length) persist(true);
+  const s0 = app.save;
+  syncCommunity(s0).then((r) => {
+    if (app.save !== s0) return;
+    if (r.status) { app.notes.push(r.status === "approved" ? "skin-ok" : "skin-no"); persist(); }
+    if (r.status || r.added) window.dispatchEvent(new CustomEvent("nl:skins"));
+  }).catch(() => {});
   if (!app.save.catName) return go("name");
   go("home");
 }

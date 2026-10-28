@@ -9,7 +9,7 @@ export const tr = (save, id) => save.talents[id] || 0;
 
 export function shopItems(save, date = new Date()) {
   const ev = activeEvent(date, EVENTS);
-  const ok = (it) => !it.retired && it.price && (it.source === "shop" || (ev && it.source === "event:" + ev.id));
+  const ok = (it) => !it.retired && !it.community && it.price && (it.source === "shop" || (ev && it.source === "event:" + ev.id));
   return {
     skins: SKINS.filter(ok).map((s) => ({ ...s, kind: "skin", owned: save.owned.skins.includes(s.id) })),
     hats: HATS.filter(ok).map((s) => ({ ...s, kind: "hat", owned: save.owned.hats.includes(s.id) })),
@@ -23,8 +23,47 @@ export function buy(save, item) {
   return true;
 }
 
+// ---- prezenty od nauczyciela (roster: profile.gifts = ["skin:shrimp", "hat:crown", "chest:gold", "fish:200"]) ----
+export const isGift = (type) => typeof type === "string" && type.startsWith("gift:");
+export function giftItem(type) {
+  const [, kind, id] = String(type).split(":");
+  if (kind === "skin") { const it = SKINS.find((s) => s.id === id); return it ? { kind, item: it } : null; }
+  if (kind === "hat") { const it = HATS.find((s) => s.id === id); return it ? { kind, item: it } : null; }
+  if (kind === "chest") return { kind, chest: CHESTS[id] ? id : "gold" };
+  if (kind === "fish") return { kind, amount: Math.max(1, Math.min(5000, +id || 100)) };
+  return null;
+}
+// przy logowaniu: każdy nieodebrany prezent → skrzynia "gift:<kind>:<id>" na początek kolejki
+export function claimGifts(save, profile) {
+  save.gifts ??= { claimed: [] };
+  save.gifts.claimed ??= [];
+  const out = [];
+  for (const g of (profile && profile.gifts) || []) {
+    if (typeof g !== "string" || save.gifts.claimed.includes(g)) continue;
+    save.gifts.claimed.push(g);
+    save.chests.unshift("gift:" + g);
+    out.push(g);
+  }
+  return out;
+}
+function openGift(save, type) {
+  const g = giftItem(type);
+  if (g && (g.kind === "skin" || g.kind === "hat")) {
+    const list = g.kind === "skin" ? save.owned.skins : save.owned.hats;
+    const it = { ...g.item, kind: g.kind };
+    if (list.includes(it.id)) { const bonus = DUP_COINS[it.rarity] || 150; save.coins += bonus; return { kind: "coins", amount: bonus, gift: true, had: it }; }
+    list.push(it.id);
+    return { kind: g.kind, item: it, gift: true };
+  }
+  if (g && g.kind === "chest") { save.chests.unshift(g.chest); return { kind: "chest", chest: g.chest, gift: true }; }
+  const amt = g && g.kind === "fish" ? g.amount : 150;
+  save.coins += amt;
+  return { kind: "coins", amount: amt, gift: true };
+}
+
 // ---- skrzynki ----
 export function openChest(save, type) {
+  if (isGift(type)) return openGift(save, type);
   const c = CHESTS[type] || CHESTS.wood;
   const luck = tr(save, "treasure") * 8;
   const w = { ...c.rolls };
@@ -125,4 +164,39 @@ export function weeklyReward(save) {
   if (next) { save.owned.skins.push(next.id); save.weeklySkins++; return { skin: next, coins: 100 }; }
   save.chests.push("gold");
   return { chest: "gold", coins: 100 };
+}
+
+// ---- skórki dzieci: rysunek ucznia + zatwierdzone skórki z chmury ----
+import { registerSkin, addCommunitySkins } from "./pixel/custom.js";
+const SKIN_CACHE = "ninelives:skins";
+export const MY_SKIN = "custom:mine";
+export function ensureMySkin(save) {
+  save.mySkin ??= { pixels: null, status: "none", at: 0 };
+  const m = save.mySkin;
+  if (m.pixels) registerSkin(MY_SKIN, m.pixels, { name: m.name || "My Cat" });
+  if (save.equipped.skin === MY_SKIN && !m.pixels) save.equipped.skin = "ginger";
+  return m;
+}
+// na starcie: najpierw kopia z localStorage (działa offline), potem chmura. Zwraca { added, status } (status mojej skórki, jeśli się zmienił)
+export async function syncCommunity(save) {
+  ensureMySkin(save);
+  try { addCommunitySkins(JSON.parse(localStorage.getItem(SKIN_CACHE) || "[]")); } catch {}
+  const res = { added: 0, status: null };
+  if (!cloud.enabled()) return res;
+  try {
+    const rows = await cloud.loadSkins();
+    res.added = addCommunitySkins(rows);
+    try { localStorage.setItem(SKIN_CACHE, JSON.stringify(rows)); } catch {}
+  } catch (e) { if (!e.noTable) console.warn("skins", e); }
+  const m = save.mySkin;
+  if (m && m.id && m.status === "pending") {
+    try {
+      const st = await cloud.skinStatus(m.id);
+      if (st && st !== "pending") {
+        m.status = st; res.status = st;
+        if (st === "approved" && !save.owned.skins.includes("custom:" + m.id)) save.owned.skins.push("custom:" + m.id);
+      }
+    } catch {}
+  }
+  return res;
 }

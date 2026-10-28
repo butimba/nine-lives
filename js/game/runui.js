@@ -39,10 +39,12 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
       <button class="rui-btn rui-ico rui-quit" data-act="quit" title="Quit"><span class="rui-x">X</span></button>
     </div>`);
   const bottom = el(`<div class="rui-bottom">
+      <div class="rui-powers"></div>
       <button class="rui-btn rui-ico rui-hint" data-act="hint" title="Hint" hidden><span class="rui-i">${BULB}</span><b class="rui-hint-n">1</b></button>
     </div>`);
   root.append(top, bottom);
-  let onQuit = null, onHint = null, onModal = null;
+  let onQuit = null, onHint = null, onModal = null, onPower = null;
+  const powersEl = bottom.querySelector(".rui-powers");
   top.querySelector(".rui-quit").onclick = () => { tap(); openQuit(); };
   bottom.querySelector(".rui-hint").onclick = () => { if (onHint) onHint(); };
 
@@ -91,6 +93,74 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
     set onQuit(fn) { onQuit = fn; },
     set onHint(fn) { onHint = fn; },
     set onModal(fn) { onModal = fn; },
+    set onPower(fn) { onPower = fn; },
+    // ---- active powers (max 2): [{ id, name, icon, color, charge }] ----
+    setPowers(list = []) {
+      powersEl.innerHTML = "";
+      for (const p of list) {
+        let src = ""; if (iconURL) try { src = iconURL(p.icon, 3) || ""; } catch {}
+        const pips = Array.from({ length: p.charge }, () => `<i></i>`).join("");
+        const b = el(`<button class="rui-btn rui-ico rui-power" data-act="power" data-id="${esc(p.id)}" title="${esc(p.name)}" style="--pc:${esc(p.color || "#ffd23f")}">
+            <span class="rui-pw-fill"></span>${src ? `<img src="${src}" alt="">` : `<b>${esc(p.name[0])}</b>`}
+            <span class="rui-pw-pips">${pips}</span><span class="rui-pw-go px">GO!</span></button>`);
+        b.onclick = (e) => { e.stopPropagation(); if (onPower) onPower(p.id); };
+        powersEl.append(b);
+      }
+    },
+    // state = [{ id, n, charge, ready }]
+    updatePowers(state = []) {
+      for (const st of state) {
+        const b = powersEl.querySelector(`[data-id="${st.id}"]`);
+        if (!b) continue;
+        b.style.setProperty("--k", Math.min(1, st.n / st.charge));
+        b.querySelectorAll(".rui-pw-pips i").forEach((pip, i) => pip.classList.toggle("on", i < st.n));
+        const was = b.classList.contains("is-ready");
+        b.classList.toggle("is-ready", !!st.ready);
+        if (st.ready && !was) { b.classList.remove("pw-pop"); void b.offsetWidth; b.classList.add("pw-pop"); }
+      }
+    },
+    powerFeedback(id, kind /*'fire'|'no'*/) {
+      const b = powersEl.querySelector(`[data-id="${id}"]`);
+      if (!b) return;
+      const cls = kind === "fire" ? "pw-fire" : "pw-no";
+      b.classList.remove(cls); void b.offsetWidth; b.classList.add(cls);
+      setTimeout(() => b.classList.remove(cls), 600);
+    },
+    // ---- small sticker toast at the top (daily challenge done, events) ----
+    toast(title, sub = "", icon = "") {
+      let src = ""; if (icon && iconURL) try { src = iconURL(icon, 3) || ""; } catch {}
+      const t = el(`<div class="rui-toast sticker"><div class="rui-toast-in">${src ? `<img src="${src}" alt="">` : ""}<div><b class="px">${esc(title)}</b>${sub ? `<small class="lex">${esc(sub)}</small>` : ""}</div></div></div>`);
+      root.append(t);
+      setTimeout(() => t.classList.add("out"), 2400);
+      setTimeout(() => t.remove(), 2800);
+    },
+    // ---- merchant cat: 3 offers -> resolves with the offer or null ([data-act=merchant-buy] / [data-act=merchant-skip]) ----
+    merchantCard({ portrait = "", offers = [], wallet = 0 }) {
+      const c = card(`<div class="rui-merchant">
+          <div class="rui-sticker sticker px">SHOP!</div>
+          <div class="rui-merch-top">${portrait ? `<img class="rui-merch-cat" src="${portrait}" alt="">` : ""}
+            <div class="rui-merch-say lex">Hello! Do you want to buy something?</div></div>
+          <div class="rui-merch-wallet px">${iconURL ? `<img src="${iconURL("fish", 2)}" alt="">` : ""} ${wallet}</div>
+          <div class="rui-merch-offers">${offers.map((o, i) => {
+            let src = ""; if (iconURL) try { src = iconURL(o.icon, 3) || ""; } catch {}
+            const can = wallet >= o.price;
+            return `<button class="rui-merch-offer px-btn ${can ? "" : "is-poor"}" data-act="merchant-buy" data-i="${i}" ${can ? "" : "disabled"} style="--tilt:${[-2, 1.5, -1][i % 3]}deg">
+              <span class="rui-perk-ico">${src ? `<img src="${src}" alt="">` : ""}</span>
+              <b class="px">${esc(o.name)}</b><small class="lex">${esc(o.desc)}</small>
+              <span class="rui-price px">${iconURL ? `<img src="${iconURL("fish", 2)}" alt="">` : ""}${o.price}</span></button>`;
+          }).join("")}</div>
+          <div class="rui-row"><button class="rui-btn rui-btn--ghost px-btn" data-act="merchant-skip">No, thanks</button></div>
+        </div>`, "rui-cardwrap--merchant");
+      return new Promise((res) => {
+        c.querySelectorAll("[data-act=merchant-buy]").forEach((b) => (b.onclick = (e) => {
+          e.stopPropagation(); if (b.disabled) return;
+          tap(); b.classList.add("is-picked");
+          c.querySelectorAll("[data-act=merchant-buy]").forEach((x) => (x.disabled = true));
+          setTimeout(() => { clearLayer(); res(offers[+b.dataset.i]); }, 320);
+        }));
+        c.querySelector("[data-act=merchant-skip]").onclick = (e) => { e.stopPropagation(); tap(); clearLayer(); res(null); };
+      });
+    },
     openQuit, closeQuit,
     setHints(n, visible = true) {
       const b = bottom.querySelector(".rui-hint");
@@ -149,8 +219,8 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
       return waitAct(c, "[data-act=next]").then(clearLayer);
     },
     // choose 1 of 3 perks -> resolves with the perk object
-    perkCards(choices) {
-      const c = card(`<div class="rui-title px">Pick a power!</div>
+    perkCards(choices, title = "Pick a perk!") {
+      const c = card(`<div class="rui-title px">${esc(title)}</div>
         <div class="rui-perks">${choices.map((p, i) => {
           const en = { name: p.name || (PERK_EN[p.id] || {}).name, desc: p.desc || (PERK_EN[p.id] || {}).desc };
           let icon = "";

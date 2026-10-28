@@ -36,6 +36,34 @@ export const PERKS = [
   { id: "big_heart", name: "Big Heart", icon: "💖", desc: "+1 life and +1 shield", w: 2, instant: true },
 ];
 
+// --- MOCE AKTYWNE (etap 2) — id wieczne. Pasek mocy ładuje się dobrymi odpowiedziami (charge = ile dobrych).
+// Odblokowanie: level >= unlockLevel (rewards.js) albo nagroda ze skrzyni. Założone: max 2 (save.powers.equipped).
+// icon = klucz ICONS (js/pixel/icons.js). Teksty EN, A1.
+export const POWERS = [
+  { id: "owl_eye", name: "Owl Eye", desc: "Takes away a wrong answer", icon: "power_owl_eye", charge: 3, unlockLevel: 2, color: "#ffd23f" },
+  { id: "freeze", name: "Freeze", desc: "Stops everything for 3 questions", icon: "power_freeze", charge: 4, unlockLevel: 3, color: "#7ec4ff" },
+  { id: "claw_storm", name: "Claw Storm", desc: "Double hits for 3 answers", icon: "power_claw_storm", charge: 5, unlockLevel: 4, color: "#ff5d5d" },
+  { id: "fish_magnet", name: "Fish Magnet", desc: "Double fish on this floor", icon: "power_fish_magnet", charge: 4, unlockLevel: 6, color: "#6fe3d3" },
+  { id: "catnip", name: "Catnip", desc: "+1 life", icon: "power_catnip", charge: 6, unlockLevel: 8, color: "#93e04c" },
+];
+export const MAX_EQUIPPED_POWERS = 2;
+export const powerById = (id) => POWERS.find((p) => p.id === id) || null;
+
+// --- WYDARZENIA W BIEGU (etap 2): losowe, nigdy na piętrze bossa, max 1 na etap (bieg). Szansa na piętro.
+// golden/mimic zastępują potwora na początku piętra; merchant/secret pojawiają się po pokonaniu potwora.
+export const RUN_EVENTS = {
+  golden: { chance: 0.035, turns: 3, fish: 30 },          // złoty potwór: ucieka po 3 odpowiedziach, dużo rybek
+  mimic: { chance: 0.03, chest: ["wood", "wood", "silver"] }, // skrzynia-mimik: mini-walka, nagroda = skrzynia
+  merchant: { chance: 0.04 },                              // kupiec-kot między piętrami
+  secret: { chance: 0.012, fish: [12, 36] },               // sekretne piętro: deszcz rybek
+};
+// oferty kupca (cena w rybkach; płaci się najpierw rybkami z biegu, potem z banku)
+export const MERCHANT_OFFERS = [
+  { id: "life", name: "Catnip Tea", desc: "+1 life", icon: "heart", price: 25 },
+  { id: "shield", name: "Shield", desc: "Blocks a boss shot", icon: "shield", price: 15 },
+  { id: "perk", name: "Mystery Perk", desc: "A power for this run", icon: "star", price: 30 },
+];
+
 // --- skrzynie (sprite: chestSprite(type) w js/pixel/chests.js) ---
 // rolls = wagi losowania; coins = [min, max] rybek, gdy wypadnie kategoria "coins"
 export const CHESTS = {

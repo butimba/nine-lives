@@ -334,9 +334,19 @@ export function outlineGrid(g, w, h, col = OUT) {
 }
 
 const catCache = new Map();
+// ---- hook for community / kid-drawn skins (js/pixel/custom.js) ----
+// customHook(skinId) -> null | { skin, grid(fi) -> colour array CAT_W*CAT_H (null = empty) }
+let customHook = null;
+export const CAT_TEMPLATE = { W, H, HEAD, FRAMES, CHAR_FRAMES, TAIL_TIP };
+export function setCustomSkinHook(fn) { customHook = fn; for (const k of [...catCache.keys()]) if (k.startsWith('custom:')) forgetSkin(k); }
+export function forgetSkin(skinId) {
+  catCache.delete(skinId);
+  for (const k of [...urlCache.keys()]) if (k.startsWith(skinId + '|')) urlCache.delete(k);
+}
 function buildSkin(skinId) {
   if (catCache.has(skinId)) return catCache.get(skinId);
-  const skin = skinById(skinId);
+  const custom = customHook && String(skinId).startsWith('custom:') ? customHook(skinId) : null;
+  const skin = custom ? custom.skin : skinById(skinId);
   const fx = skin.fx || [];
   const map = slotColors(skin);
   const variants = fx.includes('rainbow') ? 12 : fx.includes('ghost') ? 2 : 1; // rainbow = hue cycle, ghost = wave phase
@@ -345,7 +355,7 @@ function buildSkin(skinId) {
     let m = map;
     
     const grids = CHAR_FRAMES.map((chars, fi) => {
-      let g = colorGrid(chars, m);
+      let g = custom ? custom.grid(fi) : colorGrid(chars, m);
       const ctx = { g, w: CAT_W, h: CAT_H, chars, fi, v, ox: PADX, oy: PADT, frame: FRAMES[fi], skin, map: m, head: HEAD_POINTS[fi].head, tail: TAIL_TIP[FRAMES[fi].body], body: FRAMES[fi].body };
       paintFxStatic(fx, ctx, 'under');
       g = outlineGrid(ctx.g, CAT_W, CAT_H, fx.includes('ghost') ? '#3a3a6e' : OUT);

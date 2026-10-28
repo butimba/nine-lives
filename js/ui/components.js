@@ -19,8 +19,9 @@ function cached(key, fn) {
   return v;
 }
 export const iconSrc = (name, scale = 3) => cached(`i:${name}:${scale}`, () => iconURL(name, scale));
-export const catSrc = (skin, hat = "none", scale = 4, opts = {}) =>
-  cached(`c:${skin}:${hat}:${scale}:${opts.silhouette ? 1 : 0}:${opts.anim || "idle"}:${opts.frame || 0}`, () => catURL(skin, hat || "none", scale, opts));
+export const catSrc = (skin, hat = "none", scale = 4, opts = {}) => String(skin).startsWith("custom:")
+  ? (() => { try { return catURL(skin, hat || "none", scale, opts); } catch { return BLANK; } })()
+  : cached(`c:${skin}:${hat}:${scale}:${opts.silhouette ? 1 : 0}:${opts.anim || "idle"}:${opts.frame || 0}`, () => catURL(skin, hat || "none", scale, opts));
 export const picSrc = (img, scale = 3) => cached(`p:${img}:${scale}`, () => pixelURL(img, scale));
 
 export const ico = (name, { scale = 3, cls = "" } = {}) => `<img class="px-ico ${cls}" src="${iconSrc(name, scale)}" alt="" draggable="false">`;
@@ -173,6 +174,7 @@ export function liveCat({ skin = "ginger", hat = "none", anim = "idle", scale = 
   return {
     el: canvas,
     set({ skin: s = c.skin, hat: hh = c.hat, anim: a } = {}) { if (s !== c.skin || hh !== c.hat) build(s, hh); if (a) c.anim = a; },
+    refresh() { build(c.skin, c.hat); },
     play(a, ms = 1200) { c.tmp = a; c.tmpUntil = performance.now() + ms; },
     hop(ms = 400) { c.hop = true; c.hopUntil = performance.now() + ms; },
     get anim() { return c.anim; },
@@ -180,7 +182,7 @@ export function liveCat({ skin = "ginger", hat = "none", anim = "idle", scale = 
 }
 
 // wspólny stan aplikacji (ustawiany przy logowaniu)
-export const app = { save: null, profile: null, loginName: "" };
+export const app = { save: null, profile: null, loginName: "", notes: [] };
 
 // skrzynia jako obrazek (sklep, wyniki)
 import { chestSprite } from "../pixel/chests.js";

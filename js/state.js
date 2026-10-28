@@ -8,7 +8,7 @@
 import { today } from "./util.js";
 import * as cloud from "./cloud.js";
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 const LS_KEY = (id) => `ninelives:save:${id}`;
 const LOG_MAX = 1500;
 
@@ -21,7 +21,7 @@ export function freshSave(id, profile) {
     equipped: { skin: "ginger", hat: "none" },
     tower: { checkpoint: 0, best: 0, bossesBeaten: 0 },
     daily: { date: today(), runs: 0, ms: 0 },   // ms = czas gry dziś (malejące nagrody)
-    lives: { n: 9, at: Date.now(), date: today() }, // 9 żyć/dzień; at = od kiedy liczymy regenerację
+    lives: { n: 9, at: Date.now(), date: today(), free: 0 }, // 9 żyć/dzień; at = od kiedy liczymy regenerację; free = darmowe błędy użyte dziś
     streak: { count: 0, last: null, freezes: 0, best: 0 },
     srs: {},          // itemKey -> { b: pudełko 0-5, due: ms, n: próby, ok: dobre, last: ms }
     skills: {},       // skillId -> { m: opanowanie 0-1, n: próby }
@@ -32,10 +32,12 @@ export function freshSave(id, profile) {
     weekly: { week: null, dmg: 0, claimed: [] },
     weeklySkins: 0,   // ile skórek z kolejki "weekly" już dostał
     challenges: { date: null, list: [] },  // wyzwania dnia (etap 2)
-    powers: { owned: [], equipped: [] },   // moce aktywne (etap 2)
+    powers: { owned: [], equipped: [] },   // moce aktywne (etap 2): owned = odblokowane id z POWERS, equipped max 2
+    gifts: { claimed: [] },                // v3: odebrane prezenty od nauczyciela, np. "skin:shrimp"
+    mySkin: { pixels: null, status: "none", at: 0 }, // v3: własna skórka 16x16 (none|pending|approved|rejected)
     settings: { voice: !!(profile && profile.noReading), sfx: true, music: true, pl: true },
     log: [],          // [t, itemKey, ok(1/0), ms, chosenTag]
-    stats: { runs: 0, answers: 0, correct: 0, playMs: 0, shadowRuns: 0 },
+    stats: { runs: 0, answers: 0, correct: 0, playMs: 0, shadowRuns: 0, events: {} }, // events: liczniki wydarzeń w biegu
   };
 }
 
@@ -51,8 +53,18 @@ const MIGRATIONS = {
     s.settings.voice = !!(profile && profile.noReading);
     return s;
   },
+  // v2 → v3 (etap 2+3): prezenty od nauczyciela, własna skórka, liczniki wydarzeń biegu.
+  3: (s) => {
+    s.gifts ??= { claimed: [] };
+    s.mySkin ??= { pixels: null, status: "none", at: 0 };
+    s.challenges ??= { date: null, list: [] };
+    s.powers ??= { owned: [], equipped: [] };
+    s.stats ??= { runs: 0, answers: 0, correct: 0, playMs: 0, shadowRuns: 0 };
+    s.stats.events ??= {};
+    return s;
+  },
   // przykład na przyszłość:
-  // 3: (s, profile) => { s.newField ??= defaultValue; return s; },
+  // 4: (s, profile) => { s.newField ??= defaultValue; return s; },
 };
 
 export function migrate(s, profile) {
@@ -63,7 +75,7 @@ export function migrate(s, profile) {
   const base = freshSave(s.id, profile);
   // uzupełnij brakujące pola (bez nadpisywania istniejących)
   for (const k of Object.keys(base)) if (s[k] === undefined || s[k] === null) s[k] = base[k];
-  for (const k of ["owned", "equipped", "tower", "daily", "lives", "streak", "weekly", "settings", "stats", "challenges", "powers"])
+  for (const k of ["owned", "equipped", "tower", "daily", "lives", "streak", "weekly", "settings", "stats", "challenges", "powers", "gifts", "mySkin"])
     for (const kk of Object.keys(base[k])) if (s[k][kk] === undefined) s[k][kk] = base[k][kk];
   if (s.log.length > LOG_MAX) s.log = s.log.slice(-LOG_MAX);
   return s;

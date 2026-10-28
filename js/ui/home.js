@@ -5,7 +5,9 @@ import { h, esc, app, ico, iconSrc, picSrc, pxButton, sticker, toast, onAct, fmt
 import { go } from "./router.js";
 import { levelInfo, talentPoints, persist } from "../state.js";
 import { livesState, tickLives, sleepyTier, MAX_LIVES } from "../lives.js";
-import { streakAlive, weeklyStatus, weeklyBossInfo } from "../meta.js";
+import { streakAlive, weeklyStatus, weeklyBossInfo, isGift } from "../meta.js";
+import { dailySummary, loadDaily } from "./daily.js";
+import { hasPowers, slotsHTML, powerPicker } from "./powers.js";
 import { shadowList } from "../engine.js";
 import { sfx, startMusic } from "../audio.js";
 import { ECON, STORY } from "../../data/progression.js";
@@ -204,7 +206,7 @@ export const homeScreen = {
           <button class="dock-btn" data-act="wardrobe">${ico("wardrobe", { scale: 3 })}<span>Wardrobe</span>${ev ? `<span class="sticker" style="--tilt:10deg"><span class="sticker-label sticker-label--violet">new</span></span>` : ""}</button>
           <button class="dock-btn" data-act="skills">${ico("skills", { scale: 3 })}<span>Skills</span>${pts > 0 ? `<em class="badge">${pts}</em>` : ""}</button>
           <button class="dock-btn" data-act="cards">${ico("cards", { scale: 3 })}<span>Cards</span></button>
-          <button class="dock-btn soon" data-act="daily">${ico("daily", { scale: 3 })}<span>Daily</span><span class="sticker" style="--tilt:12deg"><span class="sticker-label">soon</span></span></button>
+          <button class="dock-btn" data-act="daily">${ico("daily", { scale: 3 })}<span>Daily</span><span class="dl-badge"></span></button>
         </div>
       </nav>
     </div>`);
@@ -245,13 +247,21 @@ export const homeScreen = {
           <div class="climb-sub">Next life in <span class="climb-time">${fmtTime(ls.nextInMs)}</span></div>`;
       } else {
         const tier = sleepyTier(save);
-        wrap.innerHTML = `${pxButton("Climb", { act: "climb", big: true, cls: "climb" })}
+        wrap.innerHTML = `<div class="climb-row">${pxButton("Climb", { act: "climb", big: true, cls: "climb" })}${hasPowers() ? `<button class="pw-pick" data-act="power-pick" aria-label="Powers"><span class="pw-slots">${slotsHTML(save)}</span><small>powers</small></button>` : ""}</div>
           <div class="climb-sub">Floor ${next}–${next + ECON.floorsPerStage - 1} · ${esc(b.label || b.name)}</div>
           ${tier > 0 ? `<span class="climb-note">sleepy…</span>` : save.stats.runs < 2 ? `<span class="climb-note">tap!</span>` : ""}`;
       }
     };
     renderClimb();
     renderHud();
+    const renderDaily = () => {
+      const b = $(".dl-badge"); if (!b) return;
+      const d = dailySummary(save, profile);
+      b.innerHTML = d.claimable ? `<em class="badge badge--go">${d.claimable}</em>` : d.total ? `<span class="dl-mini">${d.done}/${d.total}</span>` : "";
+      $("[data-act=daily]").classList.toggle("has-claim", d.claimable > 0);
+    };
+    loadDaily().then(() => { if (el.isConnected) { renderDaily(); renderClimb(); } });
+    renderDaily();
 
     // ---------- scena ----------
     const stage = createStage(scene, { lw: W, minH: 280, maxH: 432 });
@@ -259,11 +269,12 @@ export const homeScreen = {
     let L = null, towerC = null, hillsC = null, bakedKey = "";
     let phase = dayPhase();
     let catAnimUntil = 0, catAnim = null;
-    const catObj = getCat(save.equipped.skin, save.equipped.hat);
+    let catObj = getCat(save.equipped.skin, save.equipped.hat);
     let partner = null;
     const chestTypes = () => save.chests.slice(0, 3);
     const chestSpr = {};
-    const spr = (t) => (chestSpr[t] = chestSpr[t] || (() => { try { return chestSprite(t); } catch { return null; } })());
+    const spr = (t) => { const k = isGift(t) ? "epic" : t; return (chestSpr[k] = chestSpr[k] || (() => { try { return chestSprite(k); } catch { return null; } })()); };
+    const hasGift = () => save.chests.some(isGift);
 
     const hot = h(`<div class="home-hot" style="position:absolute;inset:0;pointer-events:none"></div>`);
     stage.overlay.append(hot);
@@ -293,8 +304,8 @@ export const homeScreen = {
         <button class="hot hot--door" data-act="cellar" aria-label="Shadow Cellar" style="${pos(L.door.x, L.door.y)};${size(34, 34)}">
           ${shadows ? `<span class="hot-label" style="top:88%;--tilt:-4deg">${sticker(`<span class="sticker-label sticker-label--violet">${shadows} shadow${shadows === 1 ? "" : "s"}</span>`, { tilt: 0 })}</span>` : ""}
         </button>
-        ${nC ? `<button class="hot hot--chest" data-act="chest" aria-label="Open chest" style="${pos(211, L.groundY - 10)};${size(48, 30)}">
-          <span class="chest-count">${sticker(`<span class="sticker-label sticker-label--red">${nC}</span>`, { tilt: 8 })}</span></button>` : ""}
+        ${nC ? `<button class="hot hot--chest ${hasGift() ? "hot--gift" : ""}" data-act="chest" aria-label="${hasGift() ? "Open your gift" : "Open chest"}" style="${pos(211, L.groundY - 10)};${size(48, 30)}">
+          <span class="chest-count">${sticker(`<span class="sticker-label sticker-label--red">${hasGift() ? "gift!" : nC}</span>`, { tilt: 8 })}</span></button>` : ""}
         ${partner ? `<span class="duo-tag" style="${pos(L.partner.x, L.groundY - 40)}">${esc(partner.name)}<small>${partner.ago}</small></span>` : ""}
       `;
     };
@@ -379,7 +390,9 @@ export const homeScreen = {
           const s = spr(ty); if (!s) return;
           const cycle = (t + i * 0.7) % 2.6, sh = cycle < 0.45 ? Math.sin(cycle * 40) * 1.5 : 0;
           const p = L.chests[i];
-          try { s.draw(ctx, Math.round(p.x + sh), p.y - (cycle < 0.45 && cycle > 0.15 ? 1 : 0), { shake: 0 }); } catch {}
+          const yy = p.y - (cycle < 0.45 && cycle > 0.15 ? 1 : 0);
+          try { s.draw(ctx, Math.round(p.x + sh), yy, { shake: 0 }); } catch {}
+          if (isGift(ty)) giftRibbon(ctx, Math.round(p.x + sh), yy, s, t);
         });
         // kot z duetu
         if (partner && partner.cat) try { partner.cat.draw(ctx, L.partner.x, L.partner.y, { anim: "idle", t: t + 0.4 }); } catch {}
@@ -434,7 +447,8 @@ export const homeScreen = {
       wardrobe: () => { sfx.tap(); go("wardrobe"); },
       skills: () => { sfx.tap(); go("skills"); },
       cards: () => { sfx.tap(); go("cards"); },
-      daily: (b) => { replay(b, "nope"); toast("Daily quests: coming soon!"); },
+      daily: () => { sfx.tap(); go("daily"); },
+      "power-pick": async () => { sfx.tap(); await powerPicker(save); if (el.isConnected) renderClimb(); },
     });
 
     // event (Halloween…) jako naklejka
@@ -443,15 +457,36 @@ export const homeScreen = {
       scene.append(s);
     }
     if (params.first) setTimeout(() => toast(`Hi, ${save.catName}! Tap Climb!`), 400);
+    const showNotes = () => {
+      while (app.notes.length) {
+        const n = app.notes.shift();
+        if (n === "skin-ok") setTimeout(() => { sfx.level(); toast("Your skin is in the game!", { icon: "star", ms: 4000 }); }, 700);
+        if (n === "skin-no") setTimeout(() => toast("Your teacher says: draw a new skin!", { icon: "wardrobe", ms: 4000 }), 700);
+      }
+    };
+    showNotes();
+    const onSkins = () => { showNotes(); if (String(save.equipped.skin).startsWith("custom:")) { try { catObj = getCat(save.equipped.skin, save.equipped.hat); } catch {} } };
+    window.addEventListener("nl:skins", onSkins);
+    if (hasGift() && !params.first) setTimeout(() => toast("A gift from your teacher!", { icon: "star", ms: 3200 }), 500);
 
     const onWin = () => setTimeout(() => { if (L && el.isConnected) scene.style.setProperty("--sky-bg", skyBg(scene, stage, phase.phase, L.H)); }, 150);
     window.addEventListener("resize", onWin);
     const timer = setInterval(renderHud, 1000);
     const lifeTimer = setInterval(() => { tickLives(save); renderHud(); }, 30000);
-    return () => { window.removeEventListener("resize", onWin); clearInterval(timer); clearInterval(lifeTimer); off(); stage.destroy(); };
+    return () => { window.removeEventListener("nl:skins", onSkins); window.removeEventListener("resize", onWin); clearInterval(timer); clearInterval(lifeTimer); off(); stage.destroy(); };
   },
 };
 
+// wstążka na skrzyni-prezencie przy wieży (sprite w skali 1)
+function giftRibbon(ctx, x, y, s, t) {
+  const top = y - s.h;
+  ctx.fillStyle = "#e8434f"; ctx.fillRect(x - 1, top + 1, 3, s.h - 2);
+  ctx.fillStyle = "#ff8fa3"; ctx.fillRect(x - 1, top + 1, 1, s.h - 2);
+  const by = top - 1 + (Math.floor(t * 3) % 2);
+  ctx.fillStyle = "#0e0b16"; ctx.fillRect(x - 5, by - 3, 11, 5);
+  ctx.fillStyle = "#e8434f"; ctx.fillRect(x - 4, by - 2, 3, 3); ctx.fillRect(x + 2, by - 2, 3, 3);
+  ctx.fillStyle = "#a82848"; ctx.fillRect(x - 1, by - 2, 3, 3);
+}
 function glow(ctx, x, y, r, color) {
   ctx.fillStyle = color;
   for (const [rr, a] of [[r, 0.35], [r * 0.66, 0.5], [r * 0.36, 0.7]]) {
