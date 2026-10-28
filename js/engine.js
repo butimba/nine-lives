@@ -172,6 +172,9 @@ export class Session {
     let types = box <= 1 ? ["cloze"] : box === 2 ? ["cloze", "cloze", "fix", "judge"] : ["build", "fix", "cloze", "build"];
     let type = pick(types, this.rng);
     const singleWrong = q.wrong.filter((x) => !x.includes(" ") && !q.answer.includes(" "));
+    // zadania w formacie "one box → two ___" albo "pytanie — ___" to nie są zdania: tylko luka do uzupełnienia
+    const notSentence = /[→—]/.test(q.text);
+    if (notSentence) type = "cloze";
     if (type === "fix" && !singleWrong.length) type = "cloze";
     if (type === "build" && (!q.full || q.full.split(" ").length > 9 || q.full.includes("—") || q.full.includes("→"))) type = "cloze";
     const t = { key, skill, kind: "grammar", type, q, voice: this.save.settings.voice };
@@ -179,8 +182,9 @@ export class Session {
     if (type === "fix") {
       const wrong = pick(singleWrong, this.rng);
       t.wrongWord = wrong; t.tag = q.tags[wrong];
-      t.tokens = q.text.replace("___", "§").split(" ").map((tok) => (tok.includes("§") ? tok.replace("§", wrong) : tok));
-      t.badIdx = t.tokens.findIndex((tok) => tok.replace(/[.,!?]/g, "") === wrong || tok.startsWith(wrong));
+      const raw = q.text.replace("___", "§").split(" ");
+      t.badIdx = raw.findIndex((tok) => tok.includes("§")); // dokładnie to miejsce, nie pierwsze wystąpienie słowa
+      t.tokens = raw.map((tok) => tok.replace("§", wrong));
     }
     if (type === "judge") {
       t.correct = this.rng() < 0.5;
