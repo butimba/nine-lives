@@ -13,6 +13,9 @@ export default {
     "pc_vs_ps",
     "v:actions",
     "v:animals"
+   ],
+   "gifts": [
+    "skin:shrimp"
    ]
   },
   "rkzkt9": {
@@ -71,6 +74,9 @@ export default {
     "v:colors",
     "v:numbers",
     "v:actions"
+   ],
+   "gifts": [
+    "skin:shrimp"
    ],
    "duo": null
   }
