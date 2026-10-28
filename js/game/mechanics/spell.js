@@ -183,10 +183,10 @@ function typeMode(ctx) {
         g.fillRect(Math.round(x) - 6, Math.round(y) - 9, 13, 18);
         g.globalAlpha = 0.5; g.fillRect(Math.round(x) - 1, Math.round(y) + 10, 3, 1); g.fillRect(Math.round(x), Math.round(circle.y - 2), 1, 2);
         g.globalAlpha = 1;
-        word(g, r.ch, x, y, { size: r.size * sc, color: col, weight: 700, font: "Pixelify Sans" });
+        word(g, r.ch, x, y, { size: r.size * sc, color: col, weight: 700, font: "Nine Pixel" });
       });
       if (inst._reveal) {
-        word(g, task.word.en, circle.x, circle.y - 30, { size: 16, color: COL.gold, weight: 700, font: "Pixelify Sans", maxW: A.w - 8 });
+        word(g, task.word.en, circle.x, circle.y - 30, { size: 16, color: COL.gold, weight: 700, font: "Nine Pixel", maxW: A.w - 8 });
       }
     },
     result: B.result,
@@ -331,7 +331,7 @@ function tiles(ctx) {
         g.fillStyle = COL.ink; g.fillRect(x, y + s.h - 1, s.w, 3);
         g.fillStyle = col; g.fillRect(x, y + s.h - 1, s.w, 2);
         const ch = inst._reveal ? s._rev : s.ch;
-        if (ch) word(g, ch, x + s.w / 2, y + 9 - (s.pop || 0) * 3, { size: sw < 13 ? 12 : 15, color: checkState === "bad" && !inst._reveal ? COL.bad : COL.paper, weight: 700, font: "Pixelify Sans" });
+        if (ch) word(g, ch, x + s.w / 2, y + 9 - (s.pop || 0) * 3, { size: sw < 13 ? 12 : 15, color: checkState === "bad" && !inst._reveal ? COL.bad : COL.paper, weight: 700, font: "Nine Pixel" });
       }
       // tiles
       for (const tl of tilesArr) {
@@ -343,7 +343,7 @@ function tiles(ctx) {
         const S = Math.round(T * sc), x = Math.round(p.x + (T - S) / 2), y = Math.round(p.y + (T - S) / 2 + (tl.press ? 2 : 0));
         stoneBlock(g, x, y, S, tl.back);
         if (tl.back) backIcon(g, x + S / 2, y + S / 2 - 1);
-        else word(g, tl.ch, x + S / 2, y + S / 2 - 1, { size: 17 * sc, color: COL.paper, weight: 700, font: "Pixelify Sans" });
+        else word(g, tl.ch, x + S / 2, y + S / 2 - 1, { size: 17 * sc, color: COL.paper, weight: 700, font: "Nine Pixel" });
         g.globalAlpha = 1;
       }
     },

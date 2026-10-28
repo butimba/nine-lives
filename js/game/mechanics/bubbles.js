@@ -151,7 +151,7 @@ export function create(ctx) {
           // number badge so kids can tell them apart
           const bx = Math.round(p.x + r * 0.55), by = Math.round(p.y - r * 0.75);
           g.fillStyle = COL.ink; g.fillRect(bx - 5, by - 5, 11, 11); g.fillStyle = b.played ? COL.gold : COL.paper; g.fillRect(bx - 4, by - 4, 9, 9);
-          word(g, String(b.i + 1), bx + 0.5, by + 0.8, { size: 8, color: COL.ink, shadow: null, weight: 700, font: "Pixelify Sans" });
+          word(g, String(b.i + 1), bx + 0.5, by + 0.8, { size: 8, color: COL.ink, shadow: null, weight: 700, font: "Nine Pixel" });
           if (b.sel) {
             // sound waves + "tap again" check badge
             const w = (t * 2) % 1;

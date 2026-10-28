@@ -10,14 +10,14 @@
   --px-r-common: #a9b6cb; --px-r-rare: #3b9bff; --px-r-epic: #b04dff; --px-r-legendary: #ffb21f;
   --violet: #41246e; --grey: #463e5c; --mid: #7a7290; --tape: rgba(236, 222, 170, .82);
   --pu: 3px;
-  --f-px: "Pixelify Sans", ui-monospace, monospace;
+  --f-px: "Nine Pixel", ui-monospace, monospace;
   --f-hand: "Caveat Brush", "Comic Sans MS", cursive;
   --f-lex: "Lexend", system-ui, sans-serif;
   --col: 520px;
   color-scheme: dark;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; }
+html, body { margin: 0; height: 100%; font-synthesis-weight: none; }
 body {
   background-color: var(--px-night);
   /* dithered night: 2x2 checker at very low contrast + sparse pixel stars */
@@ -251,6 +251,7 @@ canvas.cat-live { display: block; image-rendering: pixelated; }
 .home { height: 100dvh; min-height: 0; overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; max-width: var(--col); margin: 0 auto; }
 .home-scene { position: relative; min-height: 0; background: var(--sky-bg, #151027); }
 .home-scene .stage-wrap { z-index: 0; }
+.home-scene .stage-canvas, .chest-stage .stage-canvas { box-shadow: none !important; }
 .home-hud { position: relative; z-index: 5; padding: 10px 12px 8px; display: grid; gap: 8px;
   background: var(--px-night); box-shadow: 0 3px 0 var(--px-ink); }
 .hud-row { display: flex; align-items: center; gap: 10px; }

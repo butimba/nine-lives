@@ -14,12 +14,12 @@
   --acc: var(--px-accent, #ff7a3d); --bad: var(--px-danger, #e8434f); --ok: var(--px-ok, #5ccb5f); --gold: var(--px-gold, #ffcf3f);
   font-size: calc(var(--u) * 8); color: var(--ink); line-height: 1.15; }
 .rui { position: absolute; inset: 0; pointer-events: none; }
-.rui .px, .rui-btn { font-family: "Pixelify Sans", monospace; }
+.rui .px, .rui-btn { font-family: "Nine Pixel", monospace; }
 .rui .lex { font-family: "Lexend", system-ui, sans-serif; }
 .rui [hidden] { display: none !important; }
 
 /* ---------- buttons ---------- */
-.stage-overlay .rui-btn { pointer-events: auto; cursor: pointer; border: 0; margin: 0; font: 700 1.25em/1 "Pixelify Sans", monospace;
+.stage-overlay .rui-btn { pointer-events: auto; cursor: pointer; border: 0; margin: 0; font: 700 1.25em/1 "Nine Pixel", monospace;
   color: var(--ink); background: var(--gold); padding: .45em .9em .5em; position: relative;
   box-shadow: inset 0 calc(var(--u) * -2) 0 rgba(0,0,0,.25), inset 0 calc(var(--u) * 1) 0 rgba(255,255,255,.5),
     0 0 0 calc(var(--u) * 1) var(--ink), 0 calc(var(--u) * 2) 0 calc(var(--u) * 1) var(--ink);
@@ -67,7 +67,7 @@ img.rui-pic.xl { width: calc(var(--u) * 54); height: calc(var(--u) * 54); }
 .rui-emoji.lg { font-size: 3.4em; } .rui-emoji.xl { font-size: 5em; } .rui-emoji.md { font-size: 2.4em; }
 .rui-swatch { width: calc(var(--u) * 22); height: calc(var(--u) * 22); box-shadow: 0 0 0 calc(var(--u) * 1) var(--ink); }
 .rui-swatch.xl { width: calc(var(--u) * 48); height: calc(var(--u) * 48); }
-.rui-num { font: 700 2.6em/1 "Pixelify Sans", monospace; }
+.rui-num { font: 700 2.6em/1 "Nine Pixel", monospace; }
 
 /* ---------- cards ---------- */
 .rui-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -101,7 +101,7 @@ img.rui-pic.xl { width: calc(var(--u) * 54); height: calc(var(--u) * 54); }
 .stage-overlay .rui-perk { pointer-events: auto; cursor: pointer; border: 0; display: flex; flex-direction: column; align-items: center; gap: .3em;
   padding: .7em .3em .8em; background: #2a2238; color: var(--paper); transform: rotate(var(--tilt));
   box-shadow: 0 0 0 calc(var(--u) * 1) var(--ink), inset 0 0 0 calc(var(--u) * 1) #4a3e60, 0 calc(var(--u) * 3) 0 calc(var(--u) * 1) var(--ink);
-  transition: transform .12s; font-family: "Pixelify Sans", monospace; }
+  transition: transform .12s; font-family: "Nine Pixel", monospace; }
 .stage-overlay .rui-perk:hover { transform: rotate(0) translateY(calc(var(--u) * -2)); }
 .stage-overlay .rui-perk.is-picked { background: var(--gold); color: var(--ink); transform: scale(1.08); }
 .rui-perk b { font-size: 1.05em; line-height: 1.05; }

@@ -19,7 +19,7 @@
   background: #7ec4ff; color: #0e0b16; border: calc(var(--mu) * 1) solid #0e0b16; box-shadow: 0 calc(var(--mu) * 1.5) 0 #0e0b16; cursor: pointer; }
 .mech-say svg { width: 70%; height: 70%; }
 .mech-say:active { transform: translateY(calc(var(--mu) * 1.5)); box-shadow: none; }
-.mech-next { font: 700 calc(var(--mu) * 10) "Pixelify Sans", monospace; letter-spacing: .05em; min-height: calc(var(--mu) * 24);
+.mech-next { font: 700 calc(var(--mu) * 10) "Nine Pixel", monospace; letter-spacing: .05em; min-height: calc(var(--mu) * 24);
   background: #93e04c; color: #0e0b16; border: calc(var(--mu) * 1.2) solid #0e0b16; box-shadow: 0 calc(var(--mu) * 2) 0 #1d5a3c; cursor: pointer; }
 .mech-next:active { transform: translateY(calc(var(--mu) * 2)); box-shadow: none; }
 

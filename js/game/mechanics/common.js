@@ -24,7 +24,7 @@ export function pic(img, size = 18) {
   const cv = document.createElement("canvas"); cv.width = cv.height = size + 2;
   const c = cv.getContext("2d");
   if (img.startsWith("color:")) { c.fillStyle = COL.ink; c.fillRect(1, 1, size, size); c.fillStyle = img.slice(6); c.fillRect(2, 2, size - 2, size - 2); }
-  else if (img.startsWith("num:")) { c.fillStyle = COL.ink; c.font = `700 ${size}px "Pixelify Sans", monospace`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(img.slice(4), (size + 2) / 2, (size + 2) / 2 + 1); }
+  else if (img.startsWith("num:")) { c.fillStyle = COL.ink; c.font = `700 ${size}px "Nine Pixel", monospace`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(img.slice(4), (size + 2) / 2, (size + 2) / 2 + 1); }
   else {
     const tmp = document.createElement("canvas"); tmp.width = tmp.height = size; const t = tmp.getContext("2d");
     t.font = `${Math.round(size * 0.86)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; t.textAlign = "center"; t.textBaseline = "middle";

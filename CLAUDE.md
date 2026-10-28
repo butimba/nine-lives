@@ -8,7 +8,7 @@ Gra edukacyjna (angielski) dla młodszych uczniów Maxa. Statyczna strona (GitHu
 - `js/game/` — scena canvas, wieża i cykl dnia (`?hour=NN`), bieg (`run.js`), boss, mechaniki zadań (`mechanics/`).
 - `js/ui/` — ekrany (router, logowanie, dom-wieża, Wardrobe, skrzynie, wyniki…).
 - `js/state.js` — zapis (SAVE_VERSION 2, migracje). `js/lives.js` — 9 żyć + malejące nagrody. `js/rewards.js` — nagrody po biegu. `js/meta.js` — skrzynie, sklep, talenty, seria dni, boss tygodnia. `js/audio.js` — chiptune SFX + muzyka generatywna + lektor.
-- `js/engine.js` — silnik nauki (powtórki, wzorce błędów). `js/art.js`, `js/battle.js`, `js/tasks.js` — LEGACY v1 (nie importować w nowym kodzie).
+- `js/engine.js` — silnik nauki (powtórki, wzorce błędów). `js/art.js` — LEGACY v1 (używany przez engine.js i teacher.html) (nie importować w nowym kodzie).
 - `data/vocab.js` — tematy słówek `[en, pl, obrazek]`. Obrazek: emoji / `color:#hex` / `num:7`.
 - `data/grammar.js` — generator zdań: umiejętność → wzorce → funkcja zwracająca `{text, answer, wrong, tags, full, hint}`.
 - `data/cosmetics.js` — skórki i czapki. `data/progression.js` — talenty, perki, skrzynie (wood/silver/gold/epic), ekonomia, fabuła (Moon Diary). `data/catnames.js` — generator imion kota.
