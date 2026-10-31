@@ -41,7 +41,7 @@ export default {
   ]},
   family: { name: "Family", icon: "👪", words: [
     ["mum", "mama", "👩"], ["dad", "tata", "👨"], ["sister", "siostra", "👧"], ["brother", "brat", "👦"],
-    ["baby", "niemowlę", "👶"], ["grandma", "babcia", "👵"], ["grandpa", "dziadek", "👴"], ["family", "rodzina", "👪"],
+    ["baby", "dzidziuś", "👶"], ["grandma", "babcia", "👵"], ["grandpa", "dziadek", "👴"], ["family", "rodzina", "👪"],
   ]},
   body: { name: "My body", icon: "✋", words: [
     ["eye", "oko", "👁️"], ["ear", "ucho", "👂"], ["nose", "nos", "👃"], ["mouth", "usta", "👄"],
@@ -51,11 +51,11 @@ export default {
   clothes: { name: "Clothes", icon: "👕", words: [
     ["T-shirt", "koszulka", "👕"], ["jeans", "dżinsy", "👖"], ["dress", "sukienka", "👗"], ["shoes", "buty", "👟"],
     ["hat", "kapelusz", "🎩"], ["cap", "czapka z daszkiem", "🧢"], ["socks", "skarpetki", "🧦"], ["scarf", "szalik", "🧣"],
-    ["gloves", "rękawiczki", "🧤"], ["coat", "płaszcz", "🧥"], ["boots", "kozaki", "👢"], ["glasses", "okulary", "👓"],
+    ["gloves", "rękawiczki", "🧤"], ["coat", "płaszcz", "🧥"], ["boots", "kozaki / wysokie buty", "👢"], ["glasses", "okulary", "👓"],
   ]},
   school: { name: "School", icon: "🎒", words: [
     ["book", "książka", "📕"], ["pencil", "ołówek", "✏️"], ["pen", "długopis", "🖊️"], ["ruler", "linijka", "📏"],
-    ["scissors", "nożyczki", "✂️"], ["school bag", "plecak", "🎒"], ["teacher", "nauczyciel", "🧑‍🏫"], ["school", "szkoła", "🏫"],
+    ["scissors", "nożyczki", "✂️"], ["school bag", "plecak", "🎒"], ["teacher", "nauczyciel / nauczycielka", "🧑‍🏫"], ["school", "szkoła", "🏫"],
     ["computer", "komputer", "💻"], ["paintbrush", "pędzel", "🖌️"], ["notebook", "zeszyt", "📓"], ["clock", "zegar", "🕐"],
   ]},
   home: { name: "My home", icon: "🏠", words: [
@@ -65,8 +65,8 @@ export default {
   ]},
   weather: { name: "Weather", icon: "🌦️", words: [
     ["sun", "słońce", "☀️"], ["rain", "deszcz", "🌧️"], ["snow", "śnieg", "❄️"], ["cloud", "chmura", "☁️"],
-    ["wind", "wiatr", "🌬️"], ["storm", "burza", "⛈️"], ["rainbow", "tęcza", "🌈"], ["hot", "gorąco", "🥵"],
-    ["cold", "zimno", "🥶"], ["fog", "mgła", "🌫️"],
+    ["wind", "wiatr", "🌬️"], ["storm", "burza", "⛈️"], ["rainbow", "tęcza", "🌈"], ["hot", "gorący / gorąco", "🥵"],
+    ["cold", "zimny / zimno", "🥶"], ["fog", "mgła", "🌫️"],
   ]},
   toys: { name: "Toys", icon: "🧸", words: [
     ["ball", "piłka", "⚽"], ["teddy bear", "miś", "🧸"], ["kite", "latawiec", "🪁"], ["robot", "robot", "🤖"],
@@ -80,12 +80,12 @@ export default {
   ]},
   transport: { name: "Transport", icon: "🚗", words: [
     ["car", "samochód", "🚗"], ["bus", "autobus", "🚌"], ["train", "pociąg", "🚆"], ["plane", "samolot", "✈️"],
-    ["bike", "rower", "🚲"], ["boat", "łódka", "⛵"], ["ship", "statek", "🚢"], ["taxi", "taksówka", "🚕"],
+    ["bike", "rower", "🚲"], ["boat", "łódka / żaglówka", "⛵"], ["ship", "statek", "🚢"], ["taxi", "taksówka", "🚕"],
     ["helicopter", "helikopter", "🚁"], ["rocket", "rakieta", "🚀"], ["tractor", "traktor", "🚜"], ["lorry", "ciężarówka", "🚚"],
   ]},
   jobs: { name: "Jobs", icon: "🧑‍🚒", words: [
     ["doctor", "lekarz", "🧑‍⚕️"], ["cook", "kucharz", "🧑‍🍳"], ["farmer", "rolnik", "🧑‍🌾"], ["police officer", "policjant", "👮"],
-    ["firefighter", "strażak", "🧑‍🚒"], ["pilot", "pilot", "🧑‍✈️"], ["artist", "artysta", "🧑‍🎨"], ["singer", "piosenkarz", "🧑‍🎤"],
+    ["firefighter", "strażak", "🧑‍🚒"], ["pilot", "pilot", "🧑‍✈️"], ["artist", "artysta / malarz", "🧑‍🎨"], ["singer", "piosenkarz / piosenkarka", "🧑‍🎤"],
     ["astronaut", "astronauta", "🧑‍🚀"], ["builder", "budowlaniec", "👷"], ["scientist", "naukowiec", "🧑‍🔬"],
   ]},
   nature: { name: "Nature", icon: "🌳", words: [
@@ -95,8 +95,8 @@ export default {
   ]},
   feelings: { name: "Feelings", icon: "😀", words: [
     ["happy", "szczęśliwy", "😀"], ["sad", "smutny", "😢"], ["angry", "zły", "😠"], ["scared", "przestraszony", "😨"],
-    ["tired", "zmęczony", "😴"], ["surprised", "zaskoczony", "😲"], ["sick", "chory", "🤒"], ["excited", "podekscytowany", "🤩"],
-    ["bored", "znudzony", "😒"],
+    ["tired", "zmęczony", "🥱"], ["surprised", "zaskoczony", "😲"], ["sick", "chory", "🤒"], ["excited", "podekscytowany", "🤩"],
+    ["bored", "znudzony", "😑"],
   ]},
   actions: { name: "Actions", icon: "🏃", words: [
     ["run", "biegać", "🏃"], ["swim", "pływać", "🏊"], ["sing", "śpiewać", "🎤"], ["dance", "tańczyć", "💃"],
@@ -110,13 +110,32 @@ export default {
     ["hot chocolate", "gorąca czekolada", "☕"], ["deer", "jeleń", "🦌"], ["scarf", "szalik", "🧣"], ["cookie", "ciastko", "🍪"],
   ]},
   spring: { name: "Spring & Easter", icon: "🐣", words: [
-    ["chick", "kurczątko", "🐣"], ["egg", "jajko", "🥚"], ["bunny", "zajączek", "🐰"], ["flower", "kwiat", "🌷"],
+    ["chick", "kurczaczek", "🐣"], ["egg", "jajko", "🥚"], ["bunny", "zajączek", "🐰"], ["flower", "kwiat", "🌷"],
     ["butterfly", "motyl", "🦋"], ["bee", "pszczoła", "🐝"], ["basket", "koszyk", "🧺"], ["rainbow", "tęcza", "🌈"],
     ["umbrella", "parasol", "☂️"], ["ladybird", "biedronka", "🐞"],
   ]},
   summer: { name: "Summer", icon: "🏖️", words: [
     ["beach", "plaża", "🏖️"], ["sea", "morze", "🌊"], ["sun", "słońce", "☀️"], ["sunglasses", "okulary przeciwsłoneczne", "🕶️"],
     ["shell", "muszelka", "🐚"], ["crab", "krab", "🦀"], ["ice cream", "lody", "🍦"], ["swimsuit", "strój kąpielowy", "👙"],
-    ["tent", "namiot", "⛺"], ["watermelon", "arbuz", "🍉"], ["holiday", "wakacje", "✈️"],
+    ["tent", "namiot", "⛺"], ["watermelon", "arbuz", "🍉"], ["holiday", "wakacje", "🧳"],
   ]},
 };
+
+// MYLĄCE SIĘ SŁOWA — nigdy nie pojawiają się razem jako opcje (ani jako cel + dystraktor).
+// Grupa = słowa, z których przy danym obrazku / dźwięku więcej niż jedno mogłoby być "dobre"
+// (synonimy, część–całość, podobne obrazki po pikselizacji, homofony TTS). Słowa angielskie, jak w tematach.
+// Zwykła grupa = każde z każdym. Grupa zaczynająca się od "*słowo" = to słowo z każdym z reszty (reszta między sobą OK).
+export const CONFUSABLE = [
+  ["rain", "cloud", "storm", "fog", "wind"], ["snow", "snowflake", "cold", "snowman"], ["sun", "hot"],
+  ["*ball", "football", "play football", "basketball", "volleyball", "tennis"], ["football", "play football"], ["cycling", "ride a bike", "bike"],
+  ["running", "run"], ["swimming", "swim", "swimsuit"], ["dancing", "dance"], ["TV", "watch TV"], ["book", "read", "notebook"],
+  ["chick", "egg", "chicken"], ["*bird", "owl", "duck", "chick"], ["fish", "shark"], ["rabbit", "bunny"],
+  ["cat", "black cat"], ["bear", "teddy bear"], ["horse", "horse riding"], ["candy", "lollipop"], ["*chocolate", "candy", "hot chocolate"],
+  ["hot chocolate", "milk"], ["bread", "sandwich"], ["apple", "tomato"], ["cake", "cookie"],
+  ["hand", "arm"], ["foot", "leg"], ["mouth", "tongue", "tooth"], ["car", "taxi"], ["boat", "ship"], ["bus", "lorry"],
+  ["tree", "forest", "Christmas tree"], ["mountain", "volcano"], ["sea", "beach", "island"], ["house", "haunted house"],
+  ["spider", "spider web"], ["glasses", "sunglasses"], ["happy", "excited"], ["scared", "surprised"], ["tired", "sleep", "bored"],
+  ["sad", "sick"], ["*family", "mum", "dad", "baby", "sister", "brother", "grandma", "grandpa"], ["mum", "grandma"], ["dad", "grandpa"],
+  ["red", "read"], ["sing", "singer"], ["*draw", "artist", "paintbrush"], ["holiday", "beach"], ["star", "Christmas tree"],
+  ["monster", "zombie", "ghost"], ["*witch", "hat", "broom"], ["pen", "pencil"], ["computer", "video game"], ["deer", "horse"],
+];

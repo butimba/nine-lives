@@ -4,7 +4,7 @@
 import { h, esc, app, ico, pxButton, panel, stamp, sticker, onAct, countUp, refreshFish, RARITY_EN, CHEST_EN, replay } from "./components.js";
 import { go } from "./router.js";
 import { persist } from "../state.js";
-import { openChest, isGift, giftItem } from "../meta.js";
+import { openChest, isGift } from "../meta.js";
 import { sfx, startMusic } from "../audio.js";
 import { RARITY_COLOR } from "../pixel/palette.js";
 import { chestSprite } from "../pixel/chests.js";
@@ -25,7 +25,7 @@ export const chestScreen = {
     const sprType = gift ? "epic" : type;
     const el = h(`<div class="screen chest-screen ${gift ? "is-gift" : ""}">
       <div class="chest-top"><button class="px-btn px-btn--paper back-btn" data-act="back" aria-label="Back"><i class="px-arrow"></i></button>
-        <span class="chest-left">${gift ? "Gift" : esc(CHEST_EN[type] || "Chest")} · ${save.chests.length} left</span>
+        <span class="chest-left">${gift ? "Gift" : esc(CHEST_EN[type] || "Chest")}${save.chests.length > 1 ? ` · 1 of ${save.chests.length}` : ""}</span>
         <div class="chip chip--fish">${ico("fish")}<b data-fish>${save.coins}</b></div></div>
       ${gift ? `<div class="gift-banner">${sticker(`<span class="sticker-label sticker-label--red">A gift from your teacher!</span>`, { tilt: -3 })}<span class="hand gift-note">for you!</span></div>` : ""}
       <div class="chest-stage"><button class="tap-chest-hot" data-act="tap-chest" aria-label="Tap the chest"></button></div>

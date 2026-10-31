@@ -2,7 +2,10 @@
 // Uruchom: node tools/test-systems.mjs
 import { migrate, freshSave, SAVE_VERSION, levelInfo } from "../js/state.js";
 import * as L from "../js/lives.js";
-import { applyRunResults } from "../js/rewards.js";
+import { applyRunResults, syncPowers } from "../js/rewards.js";
+import { ensureDaily, progressDaily, claimDaily, makeDaily } from "../js/daily.js";
+import { POWERS, RUN_EVENTS, MERCHANT_OFFERS } from "../data/progression.js";
+import EVENTS, { activeEvent } from "../data/events.js";
 import { openChest, chestForFloor } from "../js/meta.js";
 import { CHESTS, TALENTS, PERKS, ECON } from "../data/progression.js";
 import { randomCatName } from "../data/catnames.js";
@@ -39,10 +42,14 @@ const V1 = {
 // ---------- migracja ----------
 {
   const s = migrate(clone(V1), { noReading: false });
-  eq(s.v, SAVE_VERSION, "version bumped to 2");
-  eq(SAVE_VERSION, 2, "SAVE_VERSION is 2");
-  // nic ze starych danych nie zginęło
-  for (const k of Object.keys(V1)) if (!["v", "settings", "daily"].includes(k)) eq(s[k], V1[k], `v1 field preserved: ${k}`);
+  eq(s.v, SAVE_VERSION, "version bumped to 3");
+  eq(SAVE_VERSION, 3, "SAVE_VERSION is 3");
+  // nic ze starych danych nie zginęło (v1 -> v3)
+  for (const k of Object.keys(V1)) if (!["v", "settings", "daily", "stats"].includes(k)) eq(s[k], V1[k], `v1 field preserved: ${k}`);
+  for (const k of Object.keys(V1.stats)) eq(s.stats[k], V1.stats[k], `v1 stats preserved: ${k}`);
+  eq(s.stats.events, {}, "v3: stats.events added");
+  eq(s.gifts, { claimed: [] }, "v3: gifts added");
+  eq(s.mySkin, { pixels: null, status: "none", at: 0 }, "v3: mySkin added");
   eq(s.daily.date, "2026-10-20", "daily.date kept"); eq(s.daily.runs, 2, "daily.runs kept"); eq(s.daily.ms, 0, "daily.ms added");
   ok(s.lives && s.lives.n === 9 && typeof s.lives.at === "number" && s.lives.date === today(), "lives added");
   eq(s.challenges, { date: null, list: [] }, "challenges added");
@@ -63,9 +70,26 @@ const V1 = {
   ok(typeof p2.lives.at === "number" && p2.lives.date, "nested lives defaults filled");
   // fresh save has all new fields
   const f = freshSave("x", { noReading: true });
-  ok(f.v === 2 && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
+  ok(f.v === 3 && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
   eq(freshSave("x", { voice: true }).settings.voice, false, "freshSave: voice follows noReading, not profile.voice");
   eq(migrate(null), null, "migrate(null) -> null");
+}
+
+// ---------- v2 -> v3 bezstratnie ----------
+{
+  const V2 = migrate(clone(V1), {}); V2.v = 2; delete V2.gifts; delete V2.mySkin; delete V2.stats.events;
+  V2.challenges = { date: "2026-10-27", list: [{ id: "x", ev: "correct", text: "t", goal: 5, n: 2, done: false, claimed: false, reward: { fish: 10 } }] };
+  V2.powers = { owned: ["owl_eye"], equipped: ["owl_eye"] }; V2.lives = { n: 4, at: 123, date: "2026-10-27" }; V2.daily.ms = 777;
+  const before = clone(V2);
+  const s = migrate(clone(V2), {});
+  eq(s.v, 3, "v2 -> v3");
+  for (const k of Object.keys(before)) if (!["v", "stats", "lives"].includes(k)) eq(s[k], before[k], `v2 field preserved: ${k}`);
+  for (const k of Object.keys(before.stats)) eq(s.stats[k], before.stats[k], `v2 stats preserved: ${k}`);
+  ok(s.lives.n === 4 && s.lives.at === 123 && s.lives.date === "2026-10-27", "v2 lives preserved");
+  ok(s.gifts.claimed.length === 0 && s.mySkin.status === "none" && typeof s.stats.events === "object", "v3 fields added");
+  const keep = clone(s); keep.gifts.claimed.push("skin:shrimp"); keep.mySkin.status = "pending"; keep.stats.events.golden = 2;
+  const again = migrate(keep, {});
+  ok(again.gifts.claimed[0] === "skin:shrimp" && again.mySkin.status === "pending" && again.stats.events.golden === 2, "v3 re-migrate no-op");
 }
 
 // ---------- życia ----------
@@ -104,6 +128,83 @@ const V1 = {
   ok(L.livesState(s, T0).n === 2 && s.lives.at === T0, "clock skew handled");
   // brak obiektu lives (stary/zepsuty zapis)
   const z = freshSave("z", {}); delete z.lives; eq(L.livesState(z, T0).n, 9, "missing lives -> 9");
+}
+
+// ---------- łagodne życia (mistakeCost) ----------
+{
+  const now = Date.now();
+  const s = freshSave("g", {});
+  eq(L.mistakeCost(s, { newItem: true }, now).free, "new", "new item free");
+  eq(L.mistakeCost(s, { repeat: true }, now).free, "repeat", "repeat free");
+  eq(s.lives.free, 0, "new/repeat don't use warm-up");
+  const r = []; for (let i = 0; i < L.FREE_PER_DAY + 2; i++) r.push(L.mistakeCost(s, {}, now).free);
+  eq(r, [...Array(L.FREE_PER_DAY).fill("warmup"), null, null], "warm-up then costs");
+  s.lives.date = "2000-01-01"; L.tickLives(s, now); eq(s.lives.free, 0, "warm-up resets at midnight");
+  // symulacja: 7-latek 60% trafień, ~7 s na odpowiedź, 30% błędów na nowych, 25% powtórek -> ile minut do 0 żyć?
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const sim = (gentle) => { const z = freshSave("sim", {}); let t = 0; while (z.lives.n > 0 && t < 120 * MIN) { t += 7000; if (rnd() < 0.6) continue;
+    const c = gentle ? L.mistakeCost(z, { newItem: rnd() < 0.3, repeat: rnd() < 0.25 }, now) : { free: null }; if (!c.free) L.loseLife(z, now); } return t / MIN; };
+  const hard = sim(false), soft = sim(true);
+  console.log(`  lives sim (60% acc): old rule ${hard.toFixed(1)} min, gentle ${soft.toFixed(1)} min`);
+  ok(hard < 4 && soft >= 8 && soft > 3 * hard, "gentle lives: struggling kid plays clearly longer than 5 min");
+}
+
+// ---------- moce ----------
+{
+  ok(POWERS.length === 5 && POWERS.every((p) => p.id && p.name && /^[\x20-\x7e]+$/.test(p.desc) && p.icon.startsWith("power_") && p.charge > 0 && p.unlockLevel >= 1), "POWERS shape");
+  const s = freshSave("pw", {});
+  eq(syncPowers(s), [], "level 1: no powers");
+  let need = 0; for (let l = 1; l < 6; l++) need += ECON.levelXp(l); s.xp = need; // level 6
+  const fresh = syncPowers(s).map((p) => p.id);
+  eq(fresh, ["owl_eye", "freeze", "claw_storm", "fish_magnet"], "level 6 unlocks 4");
+  eq(s.powers.equipped, ["owl_eye", "freeze"], "auto-equip first 2");
+  eq(syncPowers(s), [], "idempotent");
+  s.powers.equipped = ["fish_magnet", "nope", "fish_magnet"]; syncPowers(s); eq(s.powers.equipped, ["fish_magnet"], "equipped cleaned");
+  // level-up w biegu -> results.extras
+  const s2 = freshSave("pw2", {}); s2.xp = ECON.levelXp(1) - 5;
+  const r = applyRunResults(s2, { ...clone({ mode: "tower", answers: 3, xp: 10, coins: 0 }), unlockedPowers: [] });
+  ok(r.newPowers.includes("owl_eye") && r.extras.some((e) => /Owl Eye/.test(e.text)), "level 2 -> owl eye + results line");
+  const r2 = applyRunResults(freshSave("pw3", {}), { mode: "tower", unlockedPowers: ["freeze"], eventChests: ["silver"], events: ["golden", "secret"] });
+  ok(r2.newPowers[0] === "freeze" && r2.extras.length === 4, "start-of-run unlock + event lines");
+}
+
+// ---------- wydarzenia biegu / sezon ----------
+{
+  ok(Object.values(RUN_EVENTS).every((e) => e.chance > 0 && e.chance < 0.06), "run events: a few % each");
+  ok(MERCHANT_OFFERS.length === 3 && MERCHANT_OFFERS.every((o) => o.price > 0), "3 merchant offers");
+  const s = freshSave("ev", {}); const r = applyRunResults(s, { mode: "tower", eventChests: ["wood"] });
+  ok(s.chests.includes("wood") && r.eventChests[0] === "wood", "mimic chest goes to save.chests");
+  const h = activeEvent(new Date(2026, 9, 31), EVENTS); ok(h && h.id === "halloween" && h.mech === "trickortreat", "halloween on 31.10");
+  ok(!activeEvent(new Date(2026, 10, 20), EVENTS), "no event on 20.11");
+}
+
+// ---------- wyzwania dnia ----------
+{
+  const prof = { focus: ["ps_3s", "v:animals"] };
+  const s = freshSave("dl", {});
+  const d1 = new Date(2026, 9, 28, 10), d2 = new Date(2026, 9, 29, 10);
+  const c = ensureDaily(s, prof, d1);
+  eq(c.list.length, 3, "3 challenges");
+  ok(/present simple/.test(c.list[0].text) && c.list[0].ev === "skill:ps_3s", "main focus in simple English");
+  ok(c.list.every((x) => /^[\x20-\x7e]+$/.test(x.text) && x.text.length <= 40 && x.reward.fish > 0), "short ASCII English + fish");
+  eq(makeDaily(freshSave("dl", {}), prof, d1).map((x) => x.text), c.list.map((x) => x.text), "deterministic");
+  const ids = c.list.map((x) => x.id); ensureDaily(s, prof, d1); eq(s.challenges.list.map((x) => x.id), ids, "same day: kept");
+  eq(progressDaily(s, "nothing", 1, d1), [], "unknown event ignored");
+  const first = c.list[0]; let done = [];
+  for (let i = 0; i < first.goal; i++) done = done.concat(progressDaily(s, first.ev, 1, d1));
+  ok(first.done && done.length === 1, "skill challenge completes once");
+  eq(claimDaily(s, "nope"), null, "claim unknown -> null");
+  const coins0 = s.coins; const rw = claimDaily(s, first.id);
+  ok(rw && s.coins === coins0 + rw.fish && first.claimed, "claim gives fish"); eq(claimDaily(s, first.id), null, "no double claim");
+  const s3 = freshSave("dl3", {}); s3.challenges = { date: null, list: [] }; ensureDaily(s3, prof, d1);
+  s3.challenges.list[2] = { ...s3.challenges.list[2], ev: "combo", goal: 10, n: 0, done: false };
+  progressDaily(s3, "combo", 6, d1); progressDaily(s3, "combo", 3, d1); eq(s3.challenges.list[2].n, 6, "combo keeps best");
+  progressDaily(s3, "combo", 10, d1); ok(s3.challenges.list[2].done, "combo 10 done");
+  const ch0 = s3.chests.length; const rr = claimDaily(s3, s3.challenges.list[2].id); ok(!rr.chest || s3.chests.length === ch0 + 1, "chest reward pushed");
+  ensureDaily(s, prof, d2); ok(s.challenges.date !== c.date || s.challenges.list[0].n === 0, "new day -> new list");
+  const young = ensureDaily(freshSave("yb", {}), { noReading: true, focus: ["ps_3s", "v:food"] }, d1);
+  ok(young.list[0].ev === "skill:v:food" && !young.list.some((x) => x.ev === "typed"), "noReading: vocab focus, no spelling");
+  ok(ensureDaily(freshSave("nf", {}), {}, d1).list.length === 3, "no focus still 3");
 }
 
 // ---------- czas gry i malejące nagrody ----------

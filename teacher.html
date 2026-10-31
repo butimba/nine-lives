@@ -5,21 +5,65 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Nine Lives · panel</title>
 <meta name="robots" content="noindex" />
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=1" />
+<link rel="stylesheet" href="css/fonts.css?v=6" />
+<link rel="stylesheet" href="css/style.css?v=6" />
 <style>
   body { user-select: text; -webkit-user-select: text; }
-  .t-wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
-  .t-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 12px; }
-  .pcard { background: var(--card); border: 1.5px solid var(--line); border-radius: 18px; padding: 14px; }
-  .pcard h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
-  .pcard .mini { width: 54px; }
-  .bar { height: 8px; background: rgba(0,0,0,.35); border-radius: 99px; overflow: hidden; }
-  .bar i { display: block; height: 100%; }
-  .sk { display: grid; grid-template-columns: 1fr 60px 40px; gap: 6px; align-items: center; font-size: 13px; margin: 3px 0; }
-  .warn { color: #ffb3bd; font-size: 13px; }
-  pre { white-space: pre-wrap; font-size: 12px; background: rgba(0,0,0,.3); padding: 10px; border-radius: 10px; max-height: 260px; overflow: auto; }
-  textarea { width: 100%; min-height: 80px; background: rgba(0,0,0,.3); color: var(--ink); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px; font: inherit; }
+  .t-wrap { max-width: 1120px; margin: 0 auto; padding: 18px 16px 60px; }
+  .t-head { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; margin-bottom: 18px; }
+  .t-title { margin: 0; font: 700 34px/1 var(--f-px); letter-spacing: .05em; color: var(--px-accent); text-shadow: 0 3px 0 #a83a20, 3px 3px 0 var(--px-ink), -2px -2px 0 var(--px-ink), 2px -2px 0 var(--px-ink), -2px 2px 0 var(--px-ink), 0 6px 0 var(--px-ink); }
+  .t-title small { display: block; margin-top: 8px; font-size: 15px; color: var(--l, #b7b0c8); text-shadow: none; letter-spacing: .1em; }
+  .t-tabs { display: flex; gap: 6px; margin-left: auto; }
+  .t-tabs .tab { flex: none; padding: 10px 14px 9px; font-size: 15px; }
+  .t-tabs .tab em { font-style: normal; margin-left: 6px; padding: 1px 5px; background: var(--px-danger); color: #fff; font-size: 12px; }
+  .t-bar { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; padding: 16px 14px 14px; margin-bottom: 22px; }
+  .t-bar label { display: block; font: 700 13px/1 var(--f-px); letter-spacing: .08em; margin-bottom: 8px; }
+  .t-bar .px-input { font: 400 16px/1.2 var(--f-lex); padding: 10px; }
+  .t-bar .hint { font: 400 12px/1.3 var(--f-lex); color: var(--grey); margin-top: 6px; }
+  .t-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 22px 18px; }
+  .pcard { padding: 14px 14px 12px; font-family: var(--f-lex); font-size: 14px; }
+  .pc-top { display: grid; grid-template-columns: 76px 1fr auto; gap: 10px; align-items: center; }
+  .pc-cat { width: 76px; height: 76px; background: var(--px-shadow); box-shadow: 0 0 0 3px var(--px-ink); display: grid; place-items: end center; overflow: hidden; }
+  .pc-cat img { width: 72px; image-rendering: pixelated; }
+  .pc-name { font: 700 22px/1 var(--f-px); letter-spacing: .03em; }
+  .pc-name small { display: block; font: 400 13px/1.3 var(--f-lex); color: var(--grey); margin-top: 3px; }
+  .pc-when { font: 700 12px/1 var(--f-px); padding: 4px 6px; background: var(--px-ok); color: #fff; box-shadow: 0 0 0 2px var(--px-ink); transform: rotate(3deg); white-space: nowrap; }
+  .pc-when.old { background: var(--px-danger); } .pc-when.mid { background: var(--px-gold); color: var(--px-ink); }
+  .pc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+  .pc-chips .chip { font-size: 14px; min-height: 26px; padding: 3px 7px; box-shadow: 0 0 0 2px var(--px-ink); }
+  .pc-chips .chip img { width: 18px; height: 18px; }
+  .pc-week { margin: 8px 0 0; color: var(--grey); }
+  .pc-week b { color: var(--px-ink); }
+  .pc-h { margin: 14px 0 6px; font: 700 13px/1 var(--f-px); letter-spacing: .1em; color: var(--px-danger); }
+  .sk { display: grid; grid-template-columns: 1fr 90px 42px; gap: 8px; align-items: center; font-size: 13px; margin: 4px 0; }
+  .bar { height: 10px; background: var(--px-paper-dark); box-shadow: 0 0 0 2px var(--px-ink); position: relative; }
+  .bar i { position: absolute; inset: 0 auto 0 0; }
+  .sk small { text-align: right; font-family: var(--f-px); }
+  .warn { margin: 3px 0; padding-left: 12px; position: relative; font-size: 13px; }
+  .warn::before { content: ""; position: absolute; left: 0; top: 6px; width: 6px; height: 6px; background: var(--px-danger); }
+  .weak { font-size: 13px; line-height: 1.5; }
+  .pc-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 3px dotted rgba(14, 11, 22, .2); }
+  .gift { display: inline-flex; align-items: center; gap: 4px; font: 700 12px/1 var(--f-px); padding: 4px 6px; background: var(--px-paper-dark); box-shadow: 0 0 0 2px var(--px-ink); }
+  .gift.ok { background: #d9f2c9; }
+  .empty { color: var(--mid); font: 400 14px/1.4 var(--f-lex); }
+  .err { color: #ffb3bd; font: 400 14px/1.4 var(--f-lex); }
+  .skins { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px 16px; }
+  .skin { display: grid; gap: 8px; justify-items: center; padding: 14px 12px 12px; text-align: center; }
+  .skin-pre { display: flex; gap: 4px; justify-content: center; align-items: end; width: 100%; padding: 10px 4px 4px; background: var(--px-shadow); box-shadow: 0 0 0 3px var(--px-ink); }
+  .skin-pre img { width: 33%; max-width: 92px; image-rendering: pixelated; }
+  .skin b { font: 700 19px/1 var(--f-px); }
+  .skin small { font: 400 12px/1.3 var(--f-lex); color: var(--grey); }
+  .skin .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .skin.approved { background-color: #e9f5e0; } .skin.rejected { background-color: #f5e0e0; }
+  .st { font: 700 11px/1 var(--f-px); padding: 3px 6px; box-shadow: 0 0 0 2px var(--px-ink); }
+  .st.pending { background: var(--px-gold); } .st.approved { background: var(--px-ok); color: #fff; } .st.rejected { background: var(--px-danger); color: #fff; }
+  .note-card { padding: 14px; font: 400 14px/1.5 var(--f-lex); margin-top: 22px; }
+  .note-card code { background: rgba(14, 11, 22, .08); padding: 1px 4px; }
+  textarea.code { width: 100%; min-height: 70px; margin: 8px 0; font: 12px/1.4 ui-monospace, monospace; background: #fffdf6; color: var(--px-ink); border: 0; padding: 8px; box-shadow: inset 0 0 0 2px var(--px-ink); }
+  .pin { width: min(340px, 100%); margin: 14vh auto 0; display: grid; gap: 12px; padding: 24px 18px 18px; }
+  .pin h2 { margin: 0; font: 700 26px/1 var(--f-px); }
+  .pin input { text-align: center; letter-spacing: .3em; }
+  @media (max-width: 600px) { .t-bar { grid-template-columns: 1fr; } .t-tabs { margin-left: 0; width: 100%; } .t-tabs .tab { flex: 1; } }
 </style>
 </head>
 <body>
@@ -30,55 +74,154 @@ import * as cloud from "./js/cloud.js";
 import { loginHash, esc } from "./js/util.js";
 import { report, reportText } from "./js/engine.js";
 import { migrate, levelInfo } from "./js/state.js";
-import { catSVG } from "./js/art.js";
+import { catURL } from "./js/pixel/cat.js";
+import { iconURL } from "./js/pixel/icons.js";
+import { applyCssVars } from "./js/pixel/palette.js";
+import { registerSkin, addCommunitySkins, isValidPixels } from "./js/pixel/custom.js";
+import { SKINS, HATS } from "./data/cosmetics.js";
 import ROSTER from "./data/roster.js";
 
+applyCssVars(document.documentElement);
 const root = document.getElementById("t");
 const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch {} };
+const ic = (n, s = 2) => { try { return iconURL(n, s); } catch { return ""; } };
+const cat = (skin, hat, opts) => { try { return catURL(skin, hat || "none", 3, opts); } catch { return catURL("ginger", "none", 3); } };
+const paper = (inner, cls = "", tilt = 0, tape = true) => `<div class="px-panel paper paper--grid ${cls}" style="--tilt:${tilt}deg">${tape ? `<i class="tape tape--l"></i><i class="tape tape--r"></i>` : ""}${inner}</div>`;
+const btn = (label, act, variant = "paper", extra = "") => `<button class="px-btn px-btn--sm px-btn--${variant}" data-act="${act}" ${extra}><span>${label}</span></button>`;
+const copy = (txt, b) => { navigator.clipboard.writeText(txt).then(() => { const s = b.querySelector("span"); const o = s.textContent; s.textContent = "Skopiowane"; setTimeout(() => (s.textContent = o), 1500); }, () => alert(txt)); };
 
 if (ls("nl:teacher") !== "1") {
-  root.innerHTML = `<div class="card" style="max-width:340px;margin:12vh auto;display:grid;gap:10px"><h2>👩‍🏫 Panel nauczyciela</h2><input type="password" placeholder="PIN" inputmode="numeric"/><button class="btn go">Wejdź</button></div>`;
-  root.querySelector("button").onclick = () => { if (root.querySelector("input").value === CONFIG.teacherPin) { ls("nl:teacher", "1"); location.reload(); } };
+  root.innerHTML = paper(`<h2>Panel nauczyciela</h2><input class="px-input" type="password" placeholder="PIN" inputmode="numeric"/>${btn("Wejdź", "pin", "ok")}`, "pin", -1);
+  const go = () => { if (root.querySelector("input").value === CONFIG.teacherPin) { ls("nl:teacher", "1"); location.reload(); } else root.querySelector("input").classList.add("shake"); };
+  root.querySelector("[data-act=pin]").onclick = go;
+  root.querySelector("input").onkeydown = (e) => { if (e.key === "Enter") go(); };
 } else main();
+
+function giftLabel(g) {
+  const [k, id] = g.split(":");
+  if (k === "skin") return "skórka " + ((SKINS.find((s) => s.id === id) || {}).name || id);
+  if (k === "hat") return "czapka " + ((HATS.find((s) => s.id === id) || {}).name || id);
+  if (k === "chest") return "skrzynia " + id;
+  if (k === "fish") return id + " rybek";
+  return g;
+}
+function ago(ms) {
+  const d = Math.floor((Date.now() - ms) / 86400000);
+  return d <= 0 ? ["dziś", ""] : d === 1 ? ["wczoraj", "mid"] : [`${d} dni temu`, d > 4 ? "old" : "mid"];
+}
 
 async function main() {
   const names = (ls("nl:names") || "").split(",").map((s) => s.trim()).filter(Boolean);
   const byHash = Object.fromEntries(names.map((n) => [loginHash(n), n]));
-  root.innerHTML = `<h1>👩‍🏫 Nine Lives — postępy</h1>
-    <div class="card"><label>Loginy Twoich uczniów (po przecinku, zapisuje się tylko w tej przeglądarce):</label>
-      <input class="names" value="${esc(names.join(", "))}" placeholder="lucja, matylda, nina, bruno"/>
-      <div class="row"><button class="btn ghost save-n">Zapisz</button><button class="btn go all">📋 Kopiuj raport wszystkich</button></div></div>
-    <div class="t-grid"></div>
-    <div class="card" style="margin-top:12px"><b>Bez chmury?</b> Wklej kod zapisu ucznia (Ustawienia → Dla nauczyciela → Kopiuj kod zapisu):<textarea class="code"></textarea><button class="btn ghost load-code">Pokaż</button></div>`;
-  root.querySelector(".save-n").onclick = () => { ls("nl:names", root.querySelector(".names").value); location.reload(); };
+  let tab = ls("nl:ttab") || "students";
+  root.innerHTML = `<header class="t-head"><h1 class="t-title">Nine Lives<small>panel nauczyciela</small></h1>
+      <nav class="t-tabs"><button class="tab" data-tab="students">Uczniowie</button><button class="tab" data-tab="skins">Skórki <em hidden></em></button></nav></header>
+    <div class="view view-students">
+      ${paper(`<div><label for="names">Loginy uczniów (po przecinku, zapisuje się tylko w tej przeglądarce)</label>
+        <input id="names" class="px-input names" value="${esc(names.join(", "))}" placeholder="lucja, matylda, nina, bruno"/>
+        <div class="hint">Dzięki temu karty pokazują imiona zamiast numerów.</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${btn("Zapisz", "save-names")}${btn("Kopiuj raport postępów (wszyscy)", "copy-all", "ok")}</div>`, "t-bar", -0.4)}
+      <div class="t-grid"></div>
+      ${paper(`<b>Bez chmury?</b> Wklej kod zapisu ucznia (w grze: Settings → For teachers → Copy save code):<textarea class="code"></textarea>${btn("Pokaż", "load-code")}`, "note-card", 0.3, false)}
+    </div>
+    <div class="view view-skins"><div class="skins-body"><p class="empty">Ładowanie…</p></div></div>`;
+  const setTab = (t) => {
+    tab = t; ls("nl:ttab", t);
+    root.querySelectorAll(".t-tabs .tab").forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
+    root.querySelector(".view-students").hidden = t !== "students";
+    root.querySelector(".view-skins").hidden = t !== "skins";
+  };
+  root.querySelectorAll(".t-tabs .tab").forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
+  setTab(tab);
+
   const grid = root.querySelector(".t-grid");
   const texts = [];
   const show = (save, label) => {
-    const prof = ROSTER.players[save.id] || ROSTER.default;
+    const prof = ROSTER.players[save.id] || ROSTER.default || {};
     const r = report(save, prof);
-    texts.push(reportText(save, prof, label));
-    const card = document.createElement("div"); card.className = "pcard";
-    const days = Math.round((Date.now() - (save.updatedAt || 0)) / 86400000);
-    card.innerHTML = `<h3><span class="mini">${catSVG(save.equipped.skin, save.equipped.hat)}</span>${esc(label)} <small>(${esc(save.catName || "")})</small></h3>
-      <div>Lv ${levelInfo(save.xp).lvl} · piętro ${save.tower.best} · seria 🔥${save.streak.count} · ${days === 0 ? "grał(a) dziś" : `ostatnio ${days} dni temu`}</div>
-      <div>7 dni: <b>${r.weekAnswers}</b> odpowiedzi, celność <b>${r.weekAcc ?? "–"}%</b> · złote karty ${r.gold}/${r.seen} · cienie ${r.shadows}</div>
-      <h4 style="margin:10px 0 4px">Umiejętności</h4>
-      ${r.skills.map((s) => `<div class="sk"><span>${esc(s.name)}</span><div class="bar"><i style="width:${s.m}%;background:${s.m < 45 ? "#ff5d6c" : s.m < 75 ? "#ffcf3f" : "#3ddc84"}"></i></div><small>${s.m}%</small></div>`).join("")}
-      ${r.conf.length ? `<h4 style="margin:10px 0 4px">Wzorce błędów</h4>${r.conf.map((c) => `<div class="warn">• ${esc(c.pl)}</div>`).join("")}` : ""}
-      ${r.weakItems.length ? `<h4 style="margin:10px 0 4px">Najsłabsze</h4><div style="font-size:13px">${r.weakItems.slice(0, 6).map((w) => `${esc(w.label)} (${w.acc}%)`).join(" · ")}</div>` : ""}`;
-    grid.append(card);
+    const txt = reportText(save, prof, label);
+    texts.push(txt);
+    const [when, wcls] = ago(save.updatedAt || 0);
+    const L = levelInfo(save.xp).lvl;
+    const gifts = prof.gifts || [];
+    const claimed = (save.gifts && save.gifts.claimed) || [];
+    const my = save.mySkin || {};
+    if (my.pixels && isValidPixels(my.pixels)) registerSkin("custom:t-" + save.id, my.pixels, { name: my.name });
+    const skin = String(save.equipped.skin).startsWith("custom:mine") ? "custom:t-" + save.id : save.equipped.skin;
+    const card = document.createElement("div");
+    card.innerHTML = paper(`
+      <div class="pc-top"><div class="pc-cat"><img src="${cat(skin, save.equipped.hat)}" alt=""></div>
+        <div class="pc-name">${esc(label)}<small>kot: ${esc(save.catName || "–")}</small></div><span class="pc-when ${wcls}">${when}</span></div>
+      <div class="pc-chips">
+        <span class="chip">LV ${L}</span>
+        <span class="chip"><img src="${ic("trophy")}" alt="">piętro ${save.tower.best}</span>
+        <span class="chip"><img src="${ic("flame")}" alt="">seria ${save.streak.count}</span>
+        <span class="chip"><img src="${ic("cards")}" alt="">${r.gold} złotych / ${r.seen} widzianych</span>
+        ${r.shadows ? `<span class="chip"><img src="${ic("door")}" alt="">${r.shadows} do powtórki</span>` : ""}
+      </div>
+      <p class="pc-week">Ostatnie 7 dni: <b>${r.weekAnswers}</b> odpowiedzi, skuteczność <b>${r.weekAcc ?? "–"}%</b> · dni grania łącznie: ${r.daysPlayed}</p>
+      <div class="pc-h">UMIEJĘTNOŚCI (od najsłabszej)</div>
+      ${r.skills.length ? r.skills.slice(0, 8).map((s) => `<div class="sk"><span>${esc(s.name)}</span><div class="bar"><i style="width:${s.m}%;background:${s.m < 45 ? "var(--px-danger)" : s.m < 75 ? "var(--px-gold)" : "var(--px-ok)"}"></i></div><small>${s.m}%</small></div>`).join("") : `<p class="empty" style="color:var(--grey)">Brak danych.</p>`}
+      ${r.conf.length ? `<div class="pc-h">WZORCE BŁĘDÓW</div>${r.conf.map((c) => `<div class="warn">${esc(c.pl)}</div>`).join("")}` : ""}
+      ${r.weakItems.length ? `<div class="pc-h">NAJSŁABSZE</div><div class="weak">${r.weakItems.slice(0, 6).map((w) => `${esc(w.label)} <b>${w.acc}%</b>`).join(" · ")}</div>` : ""}
+      <div class="pc-foot"><div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${gifts.map((g) => `<span class="gift ${claimed.includes(g) ? "ok" : ""}"><img src="${ic(claimed.includes(g) ? "check" : "chest")}" width="16" height="16" alt="">${esc(giftLabel(g))}: ${claimed.includes(g) ? "odebrany" : "czeka"}</span>`).join("")}
+          ${my.pixels ? `<span class="gift">własna skórka: ${{ pending: "do akceptacji", approved: "w grze", rejected: "odrzucona" }[my.status] || "narysowana, niewysłana"}</span>` : ""}
+        </div>${btn("Kopiuj raport", "copy-one")}</div>`, "pcard", [-0.6, 0.4, -0.2, 0.7][grid.children.length % 4], grid.children.length % 3 === 0);
+    const el = card.firstElementChild;
+    el.querySelector("[data-act=copy-one]").onclick = (e) => copy(txt, e.currentTarget);
+    grid.append(el);
   };
-  root.querySelector(".all").onclick = () => { navigator.clipboard.writeText(texts.join("\n\n---\n\n")); root.querySelector(".all").textContent = "Skopiowane ✔"; };
-  root.querySelector(".load-code").onclick = () => {
+  root.querySelector("[data-act=save-names]").onclick = () => { ls("nl:names", root.querySelector(".names").value); location.reload(); };
+  root.querySelector("[data-act=copy-all]").onclick = (e) => copy(texts.join("\n\n---\n\n"), e.currentTarget);
+  root.querySelector("[data-act=load-code]").onclick = () => {
     try { const s = migrate(JSON.parse(decodeURIComponent(escape(atob(root.querySelector(".code").value.trim()))))); show(s, byHash[s.id] || s.catName || s.id); } catch (e) { alert("Zły kod"); }
   };
+
+  // ---- skórki dzieci ----
+  const skinsBody = root.querySelector(".skins-body");
+  const renderSkins = async () => {
+    if (!cloud.enabled()) { skinsBody.innerHTML = `<p class="empty">Chmura nie jest skonfigurowana (config.js).</p>`; return; }
+    let rows;
+    try { rows = await cloud.listSkins(); }
+    catch (e) {
+      skinsBody.innerHTML = e.noTable ? paper(`<b>Tabela skórek jeszcze nie istnieje.</b><br>Wklej plik <code>tools/supabase-v3.sql</code> w Supabase → SQL Editor → Run. Do tego czasu dzieci mogą rysować, ale rysunki zostają na ich urządzeniach.`, "note-card", -0.4)
+        : `<p class="err">Nie mogę pobrać skórek: ${esc(e.message)}</p>`;
+      return;
+    }
+    const pend = rows.filter((r) => r.status === "pending");
+    const badge = root.querySelector(".t-tabs em"); badge.hidden = !pend.length; badge.textContent = pend.length;
+    if (!rows.length) { skinsBody.innerHTML = `<p class="empty">Nikt jeszcze nie wysłał skórki.</p>`; return; }
+    const order = { pending: 0, approved: 1, rejected: 2 };
+    rows.sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3) || String(b.created_at).localeCompare(String(a.created_at)));
+    skinsBody.innerHTML = `<div class="section-title">Do akceptacji <small>${pend.length}</small></div>
+      <p class="empty" style="margin-top:-4px">Zatwierdzone skórki trafiają do kolejki nagród za bossa tygodnia (po istniejących). W grze nie widać autora.</p>
+      <div class="skins">${rows.map((r, i) => {
+        const id = "custom:mod-" + r.id;
+        const ok = registerSkin(id, r.pixels, { name: r.name });
+        const pre = ok ? ["idle", "dance", "attack"].map((a) => `<img src="${cat(id, "none", { anim: a })}" alt="">`).join("") : `<p class="err">zły format</p>`;
+        return paper(`<div class="skin-pre">${pre}</div>
+          <b>${esc(r.name || "bez nazwy")}</b>
+          <small>${esc(byHash[r.author_id] || "uczeń " + String(r.author_id).slice(0, 6))} · ${new Date(r.created_at).toLocaleDateString("pl-PL")} <span class="st ${r.status}">${{ pending: "czeka", approved: "w grze", rejected: "odrzucona" }[r.status] || r.status}</span></small>
+          <div class="row">${r.status !== "approved" ? btn("Zatwierdź", "approve", "ok", `data-id="${esc(r.id)}"`) : ""}${r.status !== "rejected" ? btn(r.status === "approved" ? "Wycofaj z gry" : "Odrzuć", "reject", "danger", `data-id="${esc(r.id)}"`) : ""}</div>`,
+          `skin ${r.status}`, [-0.8, 0.6, -0.3][i % 3], r.status === "pending");
+      }).join("")}</div>`;
+    skinsBody.querySelectorAll("[data-act=approve],[data-act=reject]").forEach((b) => (b.onclick = async () => {
+      b.disabled = true;
+      try { await cloud.setSkinStatus(b.dataset.id, b.dataset.act === "approve" ? "approved" : "rejected"); await renderSkins(); }
+      catch (e) { alert("Nie udało się: " + e.message); b.disabled = false; }
+    }));
+  };
+
   if (cloud.enabled()) {
+    try { addCommunitySkins(await cloud.loadSkins()); } catch {}
     try {
       const rows = await cloud.listAll();
-      for (const row of rows) show(migrate(row.data), byHash[row.id] || `gracz ${row.id}`);
-      if (!rows.length) grid.innerHTML = `<p class="sub">Nikt jeszcze nie grał.</p>`;
-    } catch (e) { grid.innerHTML = `<p class="warn">Nie mogę połączyć się z bazą: ${esc(e.message)}</p>`; }
-  }
+      for (const row of rows) show(migrate(row.data, ROSTER.players[row.id]), byHash[row.id] || `gracz ${String(row.id).slice(0, 6)}`);
+      if (!rows.length) grid.innerHTML = `<p class="empty">Nikt jeszcze nie grał.</p>`;
+    } catch (e) { grid.innerHTML = `<p class="err">Nie mogę połączyć się z bazą: ${esc(e.message)}</p>`; }
+  } else grid.innerHTML = `<p class="empty">Chmura nie jest skonfigurowana — użyj kodu zapisu poniżej.</p>`;
+  renderSkins();
 }
 </script>
 </body>

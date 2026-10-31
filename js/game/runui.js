@@ -195,7 +195,10 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
     revealCard(task) {
       let body = "";
       if (task.kind === "vocab" && task.word) {
-        body = `<div class="rui-reveal">${pic(task.word.img, "lg")}<div class="rui-word lex">${esc(task.word.en)} ${spk(task.word.en)}</div>${showPl ? `<div class="rui-pl lex">= ${esc(task.word.pl)}</div>` : ""}</div>`;
+        // F (learning): contrastive feedback — what the child picked vs the right word (engine.feedbackFor via record())
+        const fb = task.feedback || {};
+        const why = fb.why ? `<div class="rui-pl lex">${fb.picked ? pic(fb.picked.img, "md") + " " : ""}${esc(fb.why)}</div>` : "";
+        body = `<div class="rui-reveal">${pic(task.word.img, "lg")}<div class="rui-word lex">${esc(task.word.en)} ${spk(task.word.en)}</div>${showPl ? `<div class="rui-pl lex">= ${esc(task.word.pl)}</div>` : ""}${why}</div>`;
       } else if (task.q) {
         const q = task.q;
         let line = esc(q.full || "");
@@ -203,7 +206,10 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
           const [a, b] = q.text.split("___");
           line = `${esc(a)}<b class="rui-ans">${esc(q.answer)}</b>${esc(b)}`;
         }
-        body = `<div class="rui-reveal"><div class="rui-sent lex">${line} ${spk(q.full)}</div>${q.hint && showPl ? `<div class="rui-pl lex">${esc(q.hint)}</div>` : ""}</div>`;
+        // F (learning): explanatory feedback — simple English rule for THIS sentence (+ the error type), Polish rule below
+        const fb = task.feedback || {};
+        const en = [q.why, fb.tagWhy].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).map(esc).join("<br>");
+        body = `<div class="rui-reveal"><div class="rui-sent lex">${line} ${spk(q.full)}</div>${en ? `<div class="rui-why lex"><b>${en}</b></div>` : ""}${q.hint && showPl ? `<div class="rui-pl lex">${esc(q.hint)}</div>` : ""}</div>`;
       }
       const c = card(`<div class="rui-sticker sticker rui-sticker--bad px">Not quite!</div>${body}
         <div class="rui-row"><button class="rui-btn rui-btn--big px-btn px-btn--big" data-act="next">OK</button></div>`, "rui-cardwrap--reveal");

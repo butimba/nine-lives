@@ -19,6 +19,13 @@ const TITLES_PL = {
   pl2en: "Jak to po angielsku?", spell: "Ułóż słowo z literek", type: "Wpisz słowo", match: "Co to jest?", cloze: "Uzupełnij lukę",
   fix: "Rozbij błędne słowo", judge: "Dobrze czy źle?", build: "Ułóż zdanie",
 };
+// TTS: tekst do przeczytania bez symboli ("one cat → two …" czytane jako "one cat, two …")
+export function sayText(s) {
+  return String(s || "").replace(/___/g, "…").replace(/\s*[→—]\s*/g, ", ").replace(/\(([^)]*)\)/g, "").replace(/\s+/g, " ").trim();
+}
+// słowa, które syntezator czyta niejednoznacznie w izolacji (wind = /waɪnd/)
+const SAY_FIX = { wind: "the wind" };
+const sayWord = (en) => SAY_FIX[en] || en;
 
 // build -> cloze (same as engine's cloze construction for box >= 3: answer + 3 wrong, with tags)
 export function rebuildCloze(task) {
@@ -34,16 +41,16 @@ export function planTask(task, profile = {}, settings = {}) {
   profile = profile || {}; settings = settings || {};
   let mech;
   switch (task.type) {
-    case "word2pic": case "pic2word": case "pl2en": case "cloze": mech = "signs"; break;
+    // word2pic: obrazki na tabliczkach albo w bańkach (ta sama trudność, więcej różnorodności od pierwszego dnia)
+    case "word2pic": mech = (task.v ?? Math.random()) < 0.4 ? "bubbles" : "signs"; break;
+    case "pic2word": case "pl2en": case "cloze": mech = "signs"; break;
     case "match": task.type = "pic2word"; mech = "signs"; break;
     case "listen2pic": case "pic2listen": case "judge": mech = "bubbles"; break;
     case "type": mech = "spell"; break;
-    case "spell": mech = MECHANICS.catch ? "catch" : "spell"; break;
+    // literki / układanie zdań: na zmianę Catch (spadające klocki) i spokojniejsze wersje (Spell tiles / Build the Line)
+    case "spell": mech = MECHANICS.catch && (task.v ?? Math.random()) < 0.6 ? "catch" : "spell"; break;
     case "fix": mech = "fixline"; break;
-    case "build":
-      // word order stays word order: "Build the Line" (tap blocks in order) lives in fixline.js
-      mech = MECHANICS.catch ? "catch" : "fixline";
-      break;
+    case "build": mech = MECHANICS.catch && (task.v ?? Math.random()) < 0.5 ? "catch" : "fixline"; break;
     default: mech = "signs";
   }
   const type = task.type;
@@ -53,23 +60,28 @@ export function planTask(task, profile = {}, settings = {}) {
   if (settings.pl !== false && TITLES_PL[type]) p.pl = TITLES_PL[type];
   const w = task.word;
   switch (type) {
-    case "word2pic": p.text = w.en; p.say = w.en; p.autoSay = voiceOn; break;
-    case "listen2pic": p.say = w.en; p.autoSay = true; p.speaker = true; break;
+    case "word2pic": p.text = w.en; p.say = sayWord(w.en); p.autoSay = voiceOn; break;
+    case "listen2pic": p.say = sayWord(w.en); p.autoSay = true; p.speaker = true; break;
     case "pic2listen": p.img = w.img; break; // options are audio
     case "pic2word": p.img = w.img; p.say = null; break;
     case "pl2en": p.text = w.pl; p.lang = "pl"; break;
-    case "spell": case "type": p.img = w.img; p.text = w.pl; p.lang = "pl"; break;
-    case "cloze": p.text = task.q.text; p.say = task.q.text.replace("___", "…"); p.autoSay = voiceOn; break;
+    case "spell": case "type":
+      if (task.kind === "grammar") { // wpisz brakujące słowo: "Tom is ___ (run) now."
+        p.text = task.typeText || task.q.text; p.say = sayText(task.q.text); p.autoSay = voiceOn;
+        if (p.pl) p.pl = "Wpisz brakujące słowo";
+      } else { p.img = w.img; p.text = w.pl; p.lang = "pl"; }
+      break;
+    case "cloze": p.text = task.q.text; p.say = sayText(task.q.text); p.autoSay = voiceOn; break;
     case "judge": p.text = task.sentence; p.say = task.sentence; p.autoSay = voiceOn; break;
     case "fix": p.text = null; break; // sentence is the row of blocks
     case "build": p.text = null; p.img = null; break; // v1: no audio (it would read out the answer)
   }
-  if (noRead) { if (p.lang === "pl") p.text = null; }
+  if (noRead) { p.text = null; if (p.say) p.autoSay = true; }
   return { mech, task, prompt: p };
 }
 
 // For reveal cards / B's run UI.
 export function answerOf(task) {
   if (task.kind === "vocab") return { img: task.word.img, en: task.word.en, pl: task.word.pl, say: task.word.en };
-  return { en: task.q.full, pl: task.q.hint || null, say: task.q.full };
+  return { en: task.q.full, pl: task.q.hint || null, why: task.q.why || null, say: task.q.full };
 }

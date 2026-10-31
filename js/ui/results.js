@@ -4,6 +4,8 @@ import { h, esc, app, ico, iconSrc, catImg, chestSrc, pxButton, panel, stamp, on
 import { go } from "./router.js";
 import { sfx, stopMusic } from "../audio.js";
 import { livesState } from "../lives.js";
+import { dailyList } from "./daily.js";
+import { powersList, powerIcon } from "./powers.js";
 
 export const resultsScreen = {
   mount(root, r = {}) {
@@ -31,6 +33,10 @@ export const resultsScreen = {
       if (e.type === "streakChest") msgs.push({ cls: "gold", icon: "flame", text: `${e.n} days in a row! Silver chest!` });
       if (e.type === "streakLost") msgs.push({ icon: "flame", text: "New streak. Go go go!" });
     }
+    // nowe moce: progi unlockLevel przekroczone w tym biegu
+    for (const p of powersList()) if (r.lvlAfter > r.lvlBefore && p.unlockLevel > r.lvlBefore && p.unlockLevel <= r.lvlAfter)
+      msgs.push({ cls: "violet", img: powerIcon(p, 2), text: `New power: ${p.name}!`, power: true });
+    const daily = dailyList(save, app.profile);
     const sleepy = !shadow && (r.mult < 1 || (r.sleepy || 0) > 0);
     const hasChest = save.chests.length > 0;
 
@@ -45,6 +51,8 @@ export const resultsScreen = {
           <div class="res-stat">${ico("check", { scale: 3 })}<b><span data-n="acc">0</span>%</b><small>right</small></div>
         </div>`, { cls: "res-board", tilt: -1 })}
       <div class="res-msgs"></div>
+      ${daily.length ? panel(`<div class="res-daily-head px">Daily ${daily.some((c) => c.done && !c.claimed) ? `<button class="px-btn px-btn--gold px-btn--sm" data-act="daily">Claim!</button>` : `<small>${daily.filter((c) => c.done).length}/${daily.length}</small>`}</div>
+        ${daily.map((c) => `<div class="res-daily ${c.done ? "done" : ""}"><span class="lex">${esc(c.text || "")}</span><div class="dl-bar ${c.done ? "full" : ""}"><i style="width:${Math.round((c.n / (c.goal || 1)) * 100)}%"></i><span>${c.n}/${c.goal}</span></div></div>`).join("")}`, { cls: "res-daily-card", tape: false, tilt: 0.5 }) : ""}
       ${sleepy ? panel(`<img class="px-ico" src="${iconSrc("zzz", 4)}" alt=""><span>Your cat is getting sleepy… rewards are smaller now. The Shadow Cellar still gives full rewards!</span>`, { cls: "sleepy-note", tape: false, tilt: 0.6 }) : ""}
       <div class="res-actions">
         ${hasChest ? pxButton("Open chest", { act: "open-chest", big: true, variant: "gold" }) : ""}
@@ -71,12 +79,13 @@ export const resultsScreen = {
       msgs.forEach((m, i) => setTimeout(() => {
         if (!alive) return;
         box.append(h(`<div class="res-msg ${m.cls ? "res-msg--" + m.cls : ""}">${m.img ? `<img class="px-img" src="${m.img}" alt="" style="object-fit:contain">` : ico(m.icon || "star")}<span>${esc(m.text)}</span></div>`));
-        if (m.icon === "star") { sfx.level(); cat.play("dance", 1500); } else sfx.perk && sfx.perk();
+        if (m.icon === "star" || m.power) { sfx.level(); cat.play("dance", 1500); } else sfx.perk && sfx.perk();
       }, i * 380));
     })();
 
     const off = onAct(el, {
       continue: () => { sfx.tap(); go("home"); },
+      daily: () => { sfx.tap(); go("daily"); },
       "open-chest": () => { sfx.tap(); go("chest", { from: "home" }); },
     });
     return () => { alive = false; off(); };

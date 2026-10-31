@@ -1,4 +1,5 @@
-// Zrzuty ekranu v2: dom o 7/13/19/23, bieg, intro bossa, każda mechanika, Wardrobe, rytuał skrzyni, wyniki.
+// Zrzuty ekranu v2: dom o 7/13/19/23, bieg, intro bossa, każda mechanika, wyniki, rytuał prezentu (gift) i skrzyni,
+// Daily, wybór mocy, Skills, Cards (+ duża karta), Moon Diary, Wardrobe, edytor skórek.
 // Użycie: node tools/shots-v2.cjs [port=8765] [login=lucja] [viewports=mobile,desktop]
 // Wynik: $SHOTS_DIR (domyślnie /tmp/shots)/v2-<viewport>-<nazwa>.png
 const fs = require("fs");
@@ -18,8 +19,10 @@ const [port = "8765", loginName = "lucja", vps = "mobile,desktop"] = process.arg
     const S = async (name) => { await shot(name); made.push(name); };
     try {
       if (!(await B.login(p, loginName))) throw new Error("login failed");
-      // zapis pod zrzuty: skrzynie do otwarcia, trochę rybek, życia pełne
-      await B.patchSave(p, `s.chests = ["gold", "epic", "wood"]; s.coins = Math.max(s.coins, 900); s.lives = { n: 9, at: Date.now(), date: s.lives && s.lives.date || "" }; s.daily.ms = 0;`);
+      // zapis pod zrzuty (zmiana w pamięci + przeładowanie; patchSave przez localStorage nadpisuje beforeunload):
+      // prezent od nauczyciela zostaje pierwszy, skrzynie do otwarcia, rybki, pełne życia, level 5 (moce), 3 strony fabuły
+      const patch = async (src) => { await p.evaluate((src) => { new Function("s", src)(window.__nl.save()); }, src); return B.goHome(p, loginName); };
+      await patch(`s.chests = [...s.chests.filter((c) => String(c).startsWith("gift:")), "gold", "epic", "wood"]; s.coins = Math.max(s.coins, 900); s.lives = { n: 9, at: Date.now(), date: s.lives && s.lives.date || "" }; s.daily.ms = 0; if (s.xp < 700) s.xp = 700; s.story = Math.max(s.story || 0, 3);`);
       // dom o różnych porach dnia
       for (const hour of [7, 13, 19, 23]) {
         await B.goHome(p, loginName, `hour=${hour}`);
@@ -47,14 +50,53 @@ const [port = "8765", loginName = "lucja", vps = "mobile,desktop"] = process.arg
       await B.sleep(800); await S("results");
       await B.tap(p, "[data-act=continue]");
       if (!(await B.waitFor(p, "[data-act=climb]", 5000))) await B.goHome(p, loginName);
-      // Wardrobe
-      if (await B.tap(p, "[data-act=wardrobe]")) {
+      // rytuał prezentu od nauczyciela (gift:… jest pierwszy w kolejce) + zwykłej skrzyni
+      await B.sleep(3000); // toasty po powrocie do domu
+      await S("home-gift");
+      await B.chestRitual(p, async (n) => S("gift-" + n));
+      if (!(await B.waitFor(p, "[data-act=climb]", 3000))) await B.goHome(p, loginName);
+      await B.chestRitual(p, async (n) => S(n));
+      if (!(await B.waitFor(p, "[data-act=climb]", 3000))) await B.goHome(p, loginName);
+      const page = async (act, name, after) => {
+        await B.sleep(600);
+        if (!(await B.tap(p, `[data-act=${act}]`))) return;
+        await B.sleep(800);
+        if (after) await after();
+        await S(name);
+        await p.screenshot({ path: `${B.SHOTS}/v2-${vp}-${name}-full.png`, fullPage: true }).catch(() => {});
+        await B.tap(p, "[data-act=back]");
+        if (!(await B.waitFor(p, "[data-act=climb]", 4000))) await B.goHome(p, loginName);
+      };
+      // Daily, moce, Skills, Cards, Moon Diary
+      await page("daily", "daily");
+      if (await B.tap(p, "[data-act=power-pick]")) {
+        await B.sleep(500); await B.tap(p, "[data-act=power-toggle]"); await B.sleep(300); await S("power-pick");
+        await B.tap(p, "[data-act=power-done]"); await B.sleep(400);
+      }
+      await page("skills", "skills");
+      await page("cards", "cards", async () => {
+        if (await B.tap(p, "[data-act=card]")) { await B.sleep(600); await S("card-big"); await B.tap(p, ".card-back [data-act=close]"); await B.sleep(300); }
+      });
+      await page("moon", "story");
+      // Wardrobe + edytor skórek (kilka pociągnięć pędzlem i wiadrem)
+      await B.sleep(600);
+      if (await B.tap(p, "[data-act=wardrobe]") && await B.waitFor(p, "[data-act=skin-editor]", 4000)) {
         await B.sleep(700); await S("wardrobe");
+        if (await B.tap(p, "[data-act=skin-editor]")) {
+          await B.sleep(700);
+          const box = await p.evaluate(() => { const r = document.querySelector(".ed-canvas").getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
+          await B.tap(p, "[data-act=color][data-c=b]"); await B.tap(p, "[data-act=tool][data-tool=fill]");
+          await p.mouse.click(box.x + box.w * 0.45, box.y + box.h * 0.75);
+          await B.tap(p, "[data-act=color][data-c=y]"); await B.tap(p, "[data-act=tool][data-tool=brush]");
+          await p.mouse.move(box.x + box.w * 0.3, box.y + box.h * 0.6); await p.mouse.down();
+          await p.mouse.move(box.x + box.w * 0.6, box.y + box.h * 0.62, { steps: 8 }); await p.mouse.up();
+          await B.sleep(900); await S("editor");
+          await B.tap(p, "[data-act=skin-send]"); await B.sleep(600); await S("editor-send");
+          await B.tap(p, "[data-act=back]"); await B.sleep(600); await S("wardrobe-diy");
+        }
         await B.tap(p, "[data-act=back]");
         if (!(await B.waitFor(p, "[data-act=climb]", 4000))) await B.goHome(p, loginName);
       }
-      // rytuał skrzyni
-      await B.chestRitual(p, async (n) => S(n));
       console.log(`[${vp}] shots: ${made.join(", ")}`);
       console.log(`[${vp}] mechanics seen: ${[...seen].join(", ") || "none"}`);
     } catch (e) {

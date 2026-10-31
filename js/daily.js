@@ -51,7 +51,9 @@ export function makeDaily(save, profile = {}, date = new Date()) {
     { ev: "correct", goal: 20, text: "Get 20 right answers", icon: "check", w: 3 },
     { ev: "new", goal: 3, text: "Learn 3 new words", icon: "star", w: 2 },
   ];
-  if (!young) learn.push({ ev: "typed", goal: 6, text: "Spell 6 words", icon: "xp", w: 2 });
+  // spelling tasks only appear for words in SRS box 2+ -> offer it only when the kid has enough of them
+  const spellable = Object.entries(save.srs || {}).filter(([k, r]) => k.startsWith("v:") && r && r.b >= 2).length;
+  if (!young && spellable >= 6) learn.push({ ev: "typed", goal: 6, text: "Spell 6 words", icon: "xp", w: 2 });
   if ((save.shadows || []).length >= 3) learn.push({ ev: "cellar", goal: 1, text: "Clean the Shadow Cellar", icon: "door", w: 3 });
   if (list[0].ev === "correct") learn.shift();
   list.push({ ...pickW(learn, rng), kind: "learn", reward: { fish: 30 } });

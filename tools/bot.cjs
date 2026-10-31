@@ -1,5 +1,8 @@
 // Bot grający w Nine Lives v2 (kontrakt debug: window.__nl + [data-act=...]).
 // Użycie: node tools/bot.cjs [login=lucja] [accuracy=0.85] [runs=2] [viewport=mobile|desktop] [port=8765]
+// Etap 2: odpala moce (.rui-power.is-ready / [data-act=power]), kupuje u kupca ([data-act=merchant-buy] / -skip),
+// łapie rybki na sekretnym piętrze, odbiera wyzwania dnia ([data-act=daily] -> [data-act=claim]).
+// BOT_EVENT=golden|mimic|merchant|secret wymusza wydarzenie biegu (?event=), BOT_SEASON=halloween|none (?season=).
 // Najpierw: python3 -m http.server <port>
 // Klika PRAWDZIWE współrzędne z __nl.mech.targets() (fallback: __nl.mech.answer(good)),
 // wpisuje słowa w .spell-input input, przechodzi perki/bossa/wyniki, odwiedza Wardrobe i otwiera skrzynię.
@@ -108,6 +111,8 @@ async function patchSave(p, fnSrc) {
 
 // Jeden bieg. onEvent(kind, info) — do zrzutów ('mech' przy nowej mechanice, 'bossIntro', 'reveal', 'perk').
 async function playRun(p, { acc = 0.85, counts, onEvent = async () => {}, maxMs = 6 * 60 * 1000, log = () => {} } = {}) {
+  counts = counts || { types: {}, mechs: {}, tasks: 0, clicks: 0, fallbacks: 0, wrongPlanned: 0 };
+  counts.events = counts.events || {}; counts.powers = counts.powers || 0;
   if (!(await tap(p, "[data-act=climb]"))) return { error: "no climb button" };
   const t0 = Date.now();
   let lastKey = null, good = true, sameTicks = 0, lastState = null, stuck = 0;
@@ -119,6 +124,17 @@ async function playRun(p, { acc = 0.85, counts, onEvent = async () => {}, maxMs 
     if (st.screen === "results") { await sleep(300); continue; }
     if (st.screen === "home" && Date.now() - t0 > 3000) return { error: "back home without results" };
     if (st.runState !== lastState) { lastState = st.runState; if (["bossIntro", "perk", "reveal"].includes(st.runState)) await onEvent(st.runState, st); }
+    if (await visible(p, "[data-act=merchant-buy]")) {
+      counts.events.merchant = (counts.events.merchant || 0) + 1;
+      if (Math.random() < 0.6 && (await tap(p, "[data-act=merchant-buy]"))) counts.events.merchantBuy = (counts.events.merchantBuy || 0) + 1;
+      else await tap(p, "[data-act=merchant-skip]");
+      await sleep(500); continue;
+    }
+    if (st.runState === "bonus") { // sekretne piętro: łap rybki (klik w losowe miejsce sceny)
+      const vp = p.viewportSize(); await p.mouse.click(vp.width * (0.15 + Math.random() * 0.7), vp.height * (0.3 + Math.random() * 0.4));
+      if (!counts.events._bonus) { counts.events._bonus = 1; counts.events.secret = (counts.events.secret || 0) + 1; }
+      continue;
+    }
     if (await visible(p, "[data-act=perk]")) { await tap(p, "[data-act=perk]"); continue; }
     if (await visible(p, "[data-act=next]")) { await tap(p, "[data-act=next]"); continue; }
     if (st.runState !== "task" || !st.task) {
@@ -142,6 +158,8 @@ async function playRun(p, { acc = 0.85, counts, onEvent = async () => {}, maxMs 
       log(`  task ${st.task.type} -> ${st.mech} ${good ? "good" : "BAD"}`);
     }
     sameTicks++;
+    // moc gotowa → odpal (czasem), zanim odpowiemy
+    if (sameTicks === 2 && Math.random() < 0.5 && (await tap(p, ".rui-power.is-ready"))) { counts.powers++; await sleep(400); continue; }
     // pisanie
     if (await visible(p, ".spell-input input")) {
       const word = good ? (st.task.answer || "cat") : "zzqx";
@@ -205,7 +223,8 @@ async function saveSummary(p) {
     if (!s) return null;
     return { v: s.v, xp: s.xp, coins: s.coins, lives: s.lives, dailyMin: +((s.daily && s.daily.ms || 0) / 60000).toFixed(1), tower: s.tower,
       chests: s.chests, story: s.story, skins: s.owned.skins.length, hats: s.owned.hats.length, equipped: s.equipped,
-      srs: Object.keys(s.srs).length, shadows: s.shadows.length, conf: s.confusions, streak: s.streak && s.streak.count, voice: s.settings.voice };
+      srs: Object.keys(s.srs).length, shadows: s.shadows.length, conf: s.confusions, streak: s.streak && s.streak.count, voice: s.settings.voice,
+      powers: s.powers, events: s.stats && s.stats.events, daily: s.challenges && (s.challenges.list || []).map((c) => `${c.n}/${c.goal}${c.claimed ? "+" : c.done ? "!" : ""}`).join(" ") };
   }).catch((e) => "ERR " + e.message);
 }
 
@@ -217,9 +236,10 @@ if (require.main === module) {
   (async () => {
     fs.mkdirSync(SHOTS, { recursive: true });
     const browser = await chromium.launch();
-    const p = await newGame(browser, { vp, port: +port });
+    const q = [process.env.BOT_EVENT && "event=" + process.env.BOT_EVENT, process.env.BOT_SEASON && "season=" + process.env.BOT_SEASON].filter(Boolean).join("&");
+    const p = await newGame(browser, { vp, port: +port, query: q });
     const shot = (name) => p.screenshot({ path: `${SHOTS}/${loginName}-${vp}-${name}.png` }).catch(() => {});
-    const counts = { types: {}, mechs: {}, tasks: 0, clicks: 0, fallbacks: 0, wrongPlanned: 0 };
+    const counts = { types: {}, mechs: {}, tasks: 0, clicks: 0, fallbacks: 0, wrongPlanned: 0, powers: 0, events: {} };
     const verbose = !!process.env.VERBOSE;
     try {
       if (!(await login(p, loginName))) throw new Error("login failed (no [data-act=climb])");
@@ -240,10 +260,21 @@ if (require.main === module) {
         await shot(`results-r${r}`);
         console.log(`run ${r}:`, res.error ? `ERROR ${res.error}` : await resultsText(p));
         if (res.error) { const st = await nl(p); console.log("  state:", JSON.stringify(st)); }
+        counts.events._bonus = 0;
         await tap(p, "[data-act=continue]");
         if (!(await waitFor(p, "[data-act=climb]", 5000))) await goHome(p, loginName);
         await sleep(400);
       }
+      // wyzwania dnia: odbierz wszystko, co gotowe
+      if (await tap(p, "[data-act=daily]")) {
+        await sleep(700); await shot("page-daily");
+        let claimed = 0;
+        for (let k = 0; k < 4; k++) { if (!(await tap(p, "[data-act=claim]:not([disabled])"))) break; claimed++; await sleep(900); }
+        console.log(`daily: claimed ${claimed}`);
+        if (claimed) await shot("page-daily-claimed");
+        await tap(p, "[data-act=back]");
+        if (!(await waitFor(p, "[data-act=climb]", 4000))) await goHome(p, loginName);
+      } else console.log("(no [data-act=daily])");
       // przegląd ekranów
       for (const act of ["wardrobe", "skills", "cards", "moon", "settings"]) {
         if (!(await tap(p, `[data-act=${act}]`))) { console.log(`(no [data-act=${act}])`); continue; }
@@ -259,7 +290,8 @@ if (require.main === module) {
     }
     console.log("task types:", JSON.stringify(counts.types));
     console.log("mechanics:", JSON.stringify(counts.mechs));
-    console.log(`tasks: ${counts.tasks}, clicks: ${counts.clicks}, fallbacks(answer()): ${counts.fallbacks}, planned wrong: ${counts.wrongPlanned}`);
+    console.log(`tasks: ${counts.tasks}, clicks: ${counts.clicks}, fallbacks(answer()): ${counts.fallbacks}, planned wrong: ${counts.wrongPlanned}, powers fired: ${counts.powers}`);
+    delete counts.events._bonus; console.log("run events:", JSON.stringify(counts.events));
     console.log("save:", JSON.stringify(await saveSummary(p)));
     console.log("ERRORS:", p.__errors.length ? "\n" + [...new Set(p.__errors)].slice(0, 15).join("\n") : "none");
     await browser.close();

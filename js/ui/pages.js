@@ -13,6 +13,7 @@ import { SKILLS } from "../../data/grammar.js";
 import * as cloud from "../cloud.js";
 import { makeMonster } from "../pixel/monsters.js";
 import { gainLife } from "../lives.js";
+import { mountPowersSection } from "./powers.js";
 
 const back = () => { sfx.tap(); go("home"); };
 
@@ -33,8 +34,9 @@ const TALENT_EN = {
 export const skillsScreen = {
   mount(root) {
     const save = app.save;
-    const el = h(`<div class="screen page skills">${pageHead("Skills", save, { fish: false })}<div class="sk-body"></div></div>`);
+    const el = h(`<div class="screen page skills">${pageHead("Skills", save, { fish: false })}<div class="sk-body"></div><div class="sk-powers"></div></div>`);
     root.append(el);
+    const offPw = mountPowersSection(el.querySelector(".sk-powers"), save);
     const render = () => {
       const pts = talentPoints(save);
       const L = levelInfo(save.xp);
@@ -54,7 +56,7 @@ export const skillsScreen = {
           }).join("")}</div>`, { cls: "tree", tape: ti === 1, tilt: [-0.8, 0.6, -0.4][ti], style: `--t:${tree.color}` })).join("")}</div>`;
     };
     render();
-    return onAct(el, {
+    const offSk = onAct(el, {
       back,
       raise: (b) => {
         const t = TALENTS.find((x) => x.id === b.dataset.id);
@@ -62,6 +64,7 @@ export const skillsScreen = {
         save.talents[t.id] = tr(save, t.id) + 1; persist(); sfx.level(); render();
       },
     });
+    return () => { offSk(); offPw(); };
   },
 };
 
@@ -72,65 +75,140 @@ function exampleFor(key) {
   const [, sk, p] = key.split(":");
   try { let s = 0; for (const c of key) s = (s * 31 + c.charCodeAt(0)) >>> 0; const rng = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); return SKILLS[sk].patterns[p](rng).full; } catch { return p; }
 }
+const TIER_EN = ["", "seen", "bronze", "silver", "gold"];
+// JEDNO źródło liczb albumu (zakładki, nagłówek, podsumowanie liczą tak samo): found = karta odkryta (tier > 0)
+function setStats(save, sk) {
+  const items = itemsForSkill(sk);
+  const tiers = items.map((k) => cardTier(save.srs[k]));
+  const by = [0, 0, 0, 0, 0]; tiers.forEach((t) => by[t]++);
+  const found = items.length - by[0];
+  return { items, tiers, n: items.length, found, gold: by[4], by, complete: found === items.length && items.length > 0, allGold: by[4] === items.length && items.length > 0 };
+}
 
 export const cardsScreen = {
   mount(root, params = {}) {
     const save = app.save, profile = app.profile;
     const skills = [...activeSkills(save, profile).keys(), ...Object.keys(save.skills)].filter((v, i, a) => a.indexOf(v) === i && itemsForSkill(v).length);
-    skills.sort((a, b) => itemsForSkill(b).filter((k) => save.srs[k]).length - itemsForSkill(a).filter((k) => save.srs[k]).length);
+    const stats = Object.fromEntries(skills.map((sk) => [sk, setStats(save, sk)]));
+    skills.sort((a, b) => stats[b].found - stats[a].found);
     let cur = params.skill && skills.includes(params.skill) ? params.skill : skills[0];
-    const total = skills.reduce((a, s) => a + itemsForSkill(s).length, 0);
-    const got = skills.reduce((a, s) => a + itemsForSkill(s).filter((k) => cardTier(save.srs[k]) > 0).length, 0);
+    const total = skills.reduce((a, s) => a + stats[s].n, 0);
+    const got = skills.reduce((a, s) => a + stats[s].found, 0);
+    const gold = skills.reduce((a, s) => a + stats[s].gold, 0);
+    const sets = skills.filter((s) => stats[s].complete).length;
+    const goldCard = `<span class="mini-card t4"><i></i></span>`;
     const el = h(`<div class="screen page cards">${pageHead("Cards", save, { fish: false })}
-      <div class="section-title" style="margin-top:0">Collected <small>${got}/${total}</small></div>
-      <div class="album-tabs"></div><div class="album-grid"></div>
-      <div class="tier-key"><span><i style="background:#8a8299"></i>seen</span><span><i style="background:#c98a52"></i>bronze</span><span><i style="background:#a9b6cb"></i>silver</span><span><i style="background:#ffd23f"></i>gold</span></div>
+      ${panel(`<div class="al-sum">
+          <div class="al-stat"><span class="mini-card t2"><i></i></span><b>${got}<small>/${total}</small></b><em>cards</em></div>
+          <div class="al-stat">${goldCard}<b>${gold}</b><em>gold</em></div>
+          <div class="al-stat"><img class="px-ico" src="${iconSrc("trophy", 3)}" alt=""><b>${sets}<small>/${skills.length}</small></b><em>sets done</em></div>
+        </div>
+        <div class="al-bar"><i style="width:${total ? (got / total) * 100 : 0}%"></i><i class="g" style="width:${total ? (gold / total) * 100 : 0}%"></i></div>
+        <span class="hand al-doodle">${got ? "collect them all!" : "play to find cards!"}</span>`, { cls: "al-head", tilt: -0.8 })}
+      <div class="album-tabs"></div>
+      <div class="al-set"></div>
+      <div class="album-grid"></div>
+      <div class="tier-key"><span><i style="background:#8a8299"></i>seen</span><span><i style="background:#c98a52"></i>bronze</span><span><i style="background:#a9b6cb"></i>silver</span><span><i style="background:#ffd23f"></i>gold</span><span class="lex">right answers = better cards</span></div>
     </div>`);
     root.append(el);
     const render = () => {
       el.querySelector(".album-tabs").innerHTML = skills.map((sk) => {
-        const items = itemsForSkill(sk), got = items.filter((k) => cardTier(save.srs[k]) > 0).length, gold = items.filter((k) => cardTier(save.srs[k]) === 4).length;
+        const st = stats[sk];
         const th = sk.startsWith("v:") ? VOCAB[sk.slice(2)] : null;
-        return `<button class="album-tab ${sk === cur ? "on" : ""}" data-act="skill" data-s="${esc(sk)}">${th && th.icon ? `<img class="px-img" src="${picSrc(th.icon, 2)}" alt="">` : ico("cards", { scale: 2 })}<span>${esc(skillLabel(sk))}</span><small>${got}/${items.length}${gold ? ` · ${gold}★` : ""}</small></button>`;
+        return `<button class="album-tab ${sk === cur ? "on" : ""} ${st.allGold ? "gold" : st.complete ? "done" : ""}" data-act="skill" data-s="${esc(sk)}">${th && th.icon ? `<img class="px-img" src="${picSrc(th.icon, 2)}" alt="">` : ico("cards", { scale: 2 })}<span>${esc(skillLabel(sk))}</span><small>${st.found}/${st.n}${st.gold ? ` · ${st.gold}★` : ""}</small>${st.complete ? `<img class="px-ico tab-star" src="${iconSrc("star", 2)}" alt="">` : ""}</button>`;
       }).join("");
-      const g = el.querySelector(".album-grid");
-      if (!cur) { g.innerHTML = `<p class="muted">Play to find cards!</p>`; return; }
+      const g = el.querySelector(".album-grid"), head = el.querySelector(".al-set");
+      if (!cur) { head.innerHTML = ""; g.innerHTML = `<p class="muted">Play to find cards!</p>`; return; }
+      const st = stats[cur];
+      head.innerHTML = `<div class="al-set-name px">${esc(skillLabel(cur))}</div>
+        <div class="al-seg">${[4, 3, 2, 1].map((t) => st.by[t] ? `<i class="t${t}" style="flex:${st.by[t]}"></i>` : "").join("")}${st.by[0] ? `<i class="t0" style="flex:${st.by[0]}"></i>` : ""}</div>
+        <div class="al-set-n">${st.found}/${st.n} found · ${st.gold} gold ${st.allGold ? sticker(`<span class="sticker-label">GOLD SET!</span>`, { tilt: -6 }) : st.complete ? sticker(`<span class="sticker-label sticker-label--green">set done!</span>`, { tilt: -6 }) : ""}</div>`;
       const gram = !cur.startsWith("v:");
       g.className = `album-grid card-grid ${gram ? "gram" : ""}`;
-      g.innerHTML = itemsForSkill(cur).map((key) => {
-        const tier = cardTier(save.srs[key]);
-        if (!tier) return `<div class="wcard t0"><div class="art">?</div><span class="w">???</span></div>`;
-        if (gram) return `<div class="wcard t${tier} gram"><div class="art">${esc(exampleFor(key))}</div></div>`;
+      g.innerHTML = st.items.map((key, i) => {
+        const tier = st.tiers[i], no = `<span class="no">#${i + 1}</span>`;
+        if (!tier) return `<div class="wcard t0">${no}<div class="art">?</div><span class="w">???</span></div>`;
+        const rib = `<span class="rib">${TIER_EN[tier]}</span>`;
+        if (gram) return `<div class="wcard t${tier} gram">${no}<div class="art">${esc(exampleFor(key))}</div>${rib}</div>`;
         const w = wordOf(key);
-        return `<button class="wcard t${tier}" data-act="say" data-w="${esc(w.en)}"><div class="art"><img class="px-img" src="${picSrc(w.img, 3)}" alt=""></div><span class="w">${esc(w.en)}</span></button>`;
+        return `<button class="wcard t${tier}" data-act="card" data-k="${esc(key)}">${no}<div class="art"><img class="px-img" src="${picSrc(w.img, 3)}" alt=""></div><span class="w">${esc(w.en)}</span>${rib}</button>`;
       }).join("");
     };
     render();
+    const bigCard = (key) => {
+      const w = wordOf(key), tier = cardTier(save.srs[key]);
+      if (!w) return;
+      if (canSpeak()) speak(w.en);
+      const showPl = save.settings.pl !== false;
+      const m = h(`<div class="modal-back card-back"><div class="big-card wcard t${tier}">
+          <div class="art"><img class="px-img" src="${picSrc(w.img, 6)}" alt=""></div>
+          <span class="w">${esc(w.en)}</span>${showPl ? `<span class="pl lex">${esc(w.pl || "")}</span>` : ""}
+          <div class="stars">${[1, 2, 3, 4].map((t) => `<img class="px-ico ${t <= tier ? "" : "off"}" src="${iconSrc("star", 3)}" alt="">`).join("")}</div>
+          <span class="rib">${TIER_EN[tier]}</span>
+          <p class="lex next">${tier >= 4 ? "Gold! You know this word." : "Get it right again to make it " + TIER_EN[tier + 1] + "!"}</p>
+          <div class="row">${canSpeak() ? pxButton("Listen", { icon: "speaker", act: "say", variant: "paper", cls: "px-btn--sm" }) : ""}${pxButton("OK", { act: "close", variant: "ok", cls: "px-btn--sm" })}</div>
+        </div></div>`);
+      const close = () => { m.classList.add("out"); setTimeout(() => m.remove(), 180); };
+      m.addEventListener("click", (e) => { const b = e.target.closest("[data-act]"); if (b && b.dataset.act === "say") { speak(w.en); sfx.tap(); return; } if (e.target === m || (b && b.dataset.act === "close")) { sfx.tap(); close(); } });
+      document.body.append(m);
+      sfx.tap();
+    };
     return onAct(el, {
       back,
       skill: (b) => { cur = b.dataset.s; sfx.tap(); render(); },
-      say: (b) => { if (canSpeak()) speak(b.dataset.w); sfx.tap(); },
+      card: (b) => bigCard(b.dataset.k),
     });
   },
 };
 
 // =================== MOON DIARY ===================
 const stripEmoji = (s) => s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]️?/gu, "").replace(/\s+/g, " ").trim();
+// ilustracja każdej strony (pikselizowane emoji, spójne z resztą gry)
+const PAGE_ART = ["🌑", "🗼", "📜", "📚", "🔑", "👻", "👋", "🤫", "🐸", "🤴", "🌫️", "🌋", "🌙", "❄️", "🗺️", "☁️", "🐱", "🤖", "❓", "👑"];
+function moonCanvas(open, total) {
+  const R = 22, S = 4, c = document.createElement("canvas");
+  c.width = c.height = (R * 2 + 6) * S;
+  c.className = "moon-px px-canvas";
+  const x = c.getContext("2d"); x.setTransform(S, 0, 0, S, 0, 0);
+  const cx = R + 3, cy = R + 3, k = Math.min(1, open / Math.max(1, total));
+  for (let yy = -R; yy <= R; yy++) for (let xx = -R; xx <= R; xx++) {
+    const d = Math.sqrt(xx * xx + yy * yy);
+    if (d > R + 0.5) continue;
+    const ang = (Math.atan2(xx, -yy) / (Math.PI * 2) + 1) % 1; // kawałki zgodnie z zegarem
+    const filled = ang < k;
+    const edge = d > R - 1.2;
+    let col = filled ? ((xx * 3 + yy * 5) % 11 === 0 ? "#d9ceb4" : yy > 8 ? "#e7dfc8" : "#fff8e0") : "transparent";
+    if (filled && (xx + 7) * (xx + 7) + (yy + 6) * (yy + 6) < 18) col = "#d9ceb4";
+    if (filled && (xx - 9) * (xx - 9) + (yy - 4) * (yy - 4) < 10) col = "#e2d8bd";
+    if (!filled && edge && ((xx + yy) & 1)) col = "#7a7290";
+    if (filled && edge) col = "#0e0b16";
+    if (col !== "transparent") { x.fillStyle = col; x.fillRect(cx + xx, cy + yy, 1, 1); }
+  }
+  return c;
+}
 export const storyScreen = {
   mount(root) {
     const save = app.save;
-    try { localStorage.setItem(`ninelives:storySeen:${save.id}`, String(save.story || 0)); } catch {}
-    const open = save.story || 0;
+    const open = Math.min(save.story || 0, STORY.length);
+    try { localStorage.setItem(`ninelives:storySeen:${save.id}`, String(open)); } catch {}
     const showPl = save.settings.pl !== false;
+    const page = (p, i) => panel(`
+        <div class="dp-head"><span class="pn">page ${i + 1}</span><span class="hand dp-date">${["night", "later", "next day", "morning", "at night"][i % 5]}</span></div>
+        <div class="dp-body">
+          <div class="dp-art" style="--tilt:${i % 2 ? 4 : -4}deg"><i class="tape tape--c"></i><img class="px-img" src="${picSrc(PAGE_ART[i] || "⭐", 4)}" alt=""></div>
+          <div class="dp-text"><p class="en">${esc(stripEmoji(p.en))}</p>${showPl ? `<p class="pl" hidden>${esc(p.pl)}</p>` : ""}</div>
+        </div>
+        <div class="row">${canSpeak() ? pxButton("Listen", { icon: "speaker", act: "say", variant: "paper", cls: "px-btn--sm", attrs: `data-i="${i}"` }) : ""}${showPl ? pxButton("PL", { act: "pl", variant: "paper", cls: "px-btn--sm" }) : ""}</div>`,
+      { cls: `diary-page paper--lined ${i % 2 ? "odd" : ""}`, grid: false, tape: i % 3 === 0, tilt: [-0.8, 0.5, -0.3, 0.9][i % 4] });
     const el = h(`<div class="screen page story">${pageHead("Moon Diary", save, { fish: false })}
-      <div class="moon-head"><div class="moon-ring" style="--p:${Math.round((open / STORY.length) * 100)}%"><i></i></div>
-        <p>${open}/${STORY.length} pages</p><span class="note">beat a boss = new page</span></div>
-      <div class="diary">${STORY.map((p, i) => i < open
-        ? panel(`<span class="pn">${i + 1}</span><p class="en">${esc(stripEmoji(p.en))}</p>${showPl ? `<p class="pl" hidden>${esc(p.pl)}</p>` : ""}
-          <div class="row">${canSpeak() ? pxButton("Listen", { icon: "speaker", act: "say", variant: "paper", cls: "px-btn--sm", attrs: `data-i="${i}"` }) : ""}${showPl ? pxButton("PL", { act: "pl", variant: "paper", cls: "px-btn--sm" }) : ""}</div>`, { cls: "diary-page paper--lined", grid: false, tape: i % 3 === 0, tilt: [-0.8, 0.5, -0.3, 0.9][i % 4] })
-        : i === open ? panel(`<span class="pn">${i + 1}</span><p class="en">Beat the next boss!</p>`, { cls: "diary-page locked", grid: false, tape: false, tilt: 0.4 }) : "").join("")}</div>
+      <div class="moon-head"><div class="moon-slot"></div>
+        <p><b>${open}/${STORY.length}</b> Moon pieces</p><span class="note">beat a boss = new page</span></div>
+      <div class="diary">${STORY.map((p, i) => i < open ? page(p, i)
+        : i === open ? panel(`<div class="dp-locked"><img class="px-ico" src="${iconSrc("lock", 4)}" alt=""><div><span class="pn">page ${i + 1}</span><p class="en">Beat the next boss!</p></div><span class="dp-q px">?</span></div>`, { cls: "diary-page locked torn", grid: false, tape: false, tilt: 0.4 }) : "").join("")}
+        ${open < STORY.length - 1 ? `<p class="muted dp-more">${STORY.length - open - 1} more pages…</p>` : ""}</div>
     </div>`);
     root.append(el);
+    el.querySelector(".moon-slot").append(moonCanvas(open, STORY.length));
     return onAct(el, {
       back,
       say: (b) => speak(stripEmoji(STORY[+b.dataset.i].en), 0.8),

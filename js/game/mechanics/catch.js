@@ -63,7 +63,8 @@ export function create(ctx) {
   // ---------------- items ----------------
   const items = [];
   let spawnIn = 0.25, tt = 0, introK = 0, frozen = false, checkState = null, shakeK = 0, hintGlow = false;
-  const speed = () => 19 + 10 * d; // logical px / s — slow
+  // slow but never boring: an item needs ~6 s (5 s at high floors) from the top to the basket, whatever the screen height
+  const speed = () => Math.max(16, (catchY() - spawnY()) / (6 - 1 * d));
   const laneBusy = (li) => items.some((it) => it.lane === li && (it.state === "fall" || it.state === "grab"));
   function pickToken() {
     const falling = new Set(items.filter((it) => it.state === "fall").map((it) => it.tok));
@@ -77,17 +78,17 @@ export function create(ctx) {
     const real = other.filter((t) => realSet.has(t));
     return Math.random() < 0.55 && real.length ? real[Math.floor(Math.random() * real.length)] : other[Math.floor(Math.random() * other.length)];
   }
-  function spawn() {
+  function spawn(yAt = null) {
     const free = LANES.map((_, i) => i).filter((i) => !laneBusy(i));
     if (!free.length) return false;
-    const y0 = spawnY();
+    const y0 = yAt ?? spawnY();
     // arrivals spaced: no other falling item close to the top
     if (items.some((it) => it.state === "fall" && Math.abs(it.y - y0) < 26)) return false;
     const tok = pickToken();
     if (!tok) return false;
     // keep the needed item away from the lane the cat stands in when possible (no accidental auto-catch of wrong ones next to it)
     const lane = free[Math.floor(Math.random() * free.length)];
-    items.push({ tok, lane, x: LANES[lane], y: y0 - 30, state: "fall", k: 0, sway: Math.random() * 6, col: CHUTE[(Math.random() * CHUTE.length) | 0], w: itemW(tok), born: 0 });
+    items.push({ tok, lane, x: LANES[lane], y: yAt ?? y0 - 30, state: "fall", k: 0, sway: Math.random() * 6, col: CHUTE[(Math.random() * CHUTE.length) | 0], w: itemW(tok), born: 0 });
     return true;
   }
 
@@ -203,7 +204,16 @@ export function create(ctx) {
   const inst = {
     update(dt) {
       dt = Math.min(dt, 0.05);
-      if (introK < 1) { introK = Math.min(1, introK + dt * 2.6); if (introK >= 1 && !B.live) B.start(); }
+      if (introK < 1) {
+        introK = Math.min(1, introK + dt * 2.6);
+        if (introK >= 1 && !B.live) {
+          B.start();
+          // start with a few items already in the air (staggered), so there is something to catch at once
+          const top = spawnY(), span = catchY() - top;
+          for (const k of [0.42, 0.22, 0.02]) spawn(top + span * k);
+          spawnIn = 1.2;
+        }
+      }
       tt += dt;
       if (shakeK > 0) shakeK = Math.max(0, shakeK - dt * 2);
       if (undoBtn.press > 0) undoBtn.press = Math.max(0, undoBtn.press - dt * 6);

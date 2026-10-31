@@ -1,9 +1,11 @@
 // WYDARZENIA SEZONOWE — włączają się same według daty. Nic nie trzeba robić.
 // from/to w formacie "MM-DD" (rok nieważny; okno może przechodzić przez Nowy Rok).
 // vocab: temat słówek dorzucany każdemu w czasie wydarzenia. deco: emoji w tle.
+// mech: własna mechanika w biegu (run.js): "trickortreat" = dobra odpowiedź daje cukierek (+1 rybka),
+//       zła zamienia potwora na chwilę w coś śmiesznego (bez dodatkowej kary).
 
 export default [
-  { id: "halloween", name: "Halloween Night", from: "10-15", to: "11-07", vocab: "halloween", deco: "🎃🦇👻🕸️",
+  { id: "halloween", name: "Halloween Night", from: "10-15", to: "11-07", vocab: "halloween", mech: "trickortreat", deco: "🎃🦇👻🕸️",
     tint: ["#1a0f2e", "#5a2a7a", "#ff8a1f"], banner: "🎃 Halloween! Nowe skórki w sklepie", monTint: ["#ff8a1f", "#7a3cff", "#3ad65a"] },
   { id: "winter", name: "Winter Wonder", from: "12-01", to: "01-06", vocab: "winter", deco: "❄️⛄🎄✨",
     tint: ["#0f2a4a", "#3a6aa8", "#dff6ff"], banner: "❄️ Zima! Świąteczne skórki w sklepie", monTint: ["#ffffff", "#e53935", "#43a047"] },

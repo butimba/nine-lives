@@ -1,7 +1,7 @@
 // NAGRODY PO BIEGU (przeniesione z v1 battle.js).
 // run.js zwraca RunStats z coins/xp JUŻ pomnożonymi przez lives.rewardMult —
 // tutaj dokładamy tylko talenty/perki, zapisujemy postęp wieży, skrzynie, fabułę, serię dni.
-import { ECON, STORY, POWERS, MAX_EQUIPPED_POWERS } from "../data/progression.js";
+import { ECON, STORY, POWERS, MAX_EQUIPPED_POWERS, powerById } from "../data/progression.js";
 import { tr, chestForFloor, touchStreak, ensureWeek } from "./meta.js";
 import { persist, levelInfo, getSave } from "./state.js";
 import { gainLife, sleepyTier, rewardMult } from "./lives.js";
@@ -42,7 +42,8 @@ export function applyRunResults(save, stats = {}) {
   const lvlAfter = levelInfo(save.xp).lvl;
   const levelChests = [];
   for (let l = lvlBefore + 1; l <= lvlAfter; l++) if (l % 5 === 0) { const c = l % 10 === 0 ? "silver" : "wood"; save.chests.push(c); levelChests.push(c); }
-  const newPowers = syncPowers(save);
+  // moce odblokowane już na starcie biegu (run.js -> stats.unlockedPowers) + te z level-upu teraz
+  const newPowers = [...(Array.isArray(stats.unlockedPowers) ? stats.unlockedPowers : []).map(powerById).filter(Boolean), ...syncPowers(save)];
   // linie do ekranu wyników (H: msgs.push(...r.extras)) — { cls, icon (ICONS key), text }
   const extras = [];
   for (const p of newPowers) extras.push({ cls: "ok", icon: p.icon, text: `New power: ${p.name}!`, power: p.id });

@@ -360,6 +360,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     else pix(ctx, FISH, fishX, fishY, "#7ec4ff", "#0e0b16", 2);
     pxText(ctx, String(Math.round(S.coins)), fishX - 3, fishY + 1, { color: fp ? "#ffffff" : "#ffcf3f", align: "right", scale: 2 });
     HUD.fish = () => ({ x: fishX + 8, y: 10 });
+    if (magnet() > 1) pxText(ctx, "x2", fishX + 6, fishY + 13, { color: Math.floor(t * 6) % 2 ? "#6fe3d3" : "#ffffff" });
     // shields float over the cat's head
     if (S.shields > 0) {
       const cx = cat.wx, cy = toScreenY(cat.wy) - 62;
@@ -373,22 +374,22 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     // bottom bar: combo meter (left) + floor plaque (middle)
     const by = H - 25;
     const cm = S.combo % 8, full = S.combo > 0 && S.combo % 8 === 0;
-    ctx.fillStyle = "#0e0b16"; ctx.fillRect(3, by - 3, 116, 22);
-    ctx.fillStyle = "#1d1530"; ctx.fillRect(4, by - 2, 114, 20);
+    ctx.fillStyle = "#0e0b16"; ctx.fillRect(3, by - 3, 106, 22);
+    ctx.fillStyle = "#1d1530"; ctx.fillRect(4, by - 2, 104, 20);
     pxText(ctx, "COMBO", 8, by + 1, { color: S.combo >= 3 ? "#ffcf3f" : "#8a7aa8", outline: null });
     if (S.combo >= 2) pxText(ctx, `x${S.combo}`, 8, by + 8, { color: "#ffcf3f", outline: null, scale: 1 });
     for (let i = 0; i < 8; i++) {
       const on = full || i < cm;
       const hot = S.combo >= 6 && Math.floor(t * 10) % 2;
       ctx.fillStyle = on ? (hot ? "#ff6b2c" : "#ffcf3f") : "#3a2f4e";
-      ctx.fillRect(30 + i * 9, by + 1, 7, 12);
-      if (on) { ctx.fillStyle = "#fff2a8"; ctx.fillRect(30 + i * 9, by + 1, 7, 2); }
+      ctx.fillRect(30 + i * 8, by + 1, 6, 12);
+      if (on) { ctx.fillStyle = "#fff2a8"; ctx.fillRect(30 + i * 8, by + 1, 6, 2); }
     }
-    pix(ctx, HEART, 104, by + 2, cm >= 6 || full ? "#e8434f" : "#5a3a4e", "#0e0b16", 1);
-    if (cm >= 6) pxText(ctx, "+1", 105, by + 10, { color: "#ffb0b8", outline: null });
+    pix(ctx, HEART, 96, by + 2, cm >= 6 || full ? "#e8434f" : "#5a3a4e", "#0e0b16", 1);
+    if (cm >= 6) pxText(ctx, "+1", 97, by + 10, { color: "#ffb0b8", outline: null });
     // floor plaque
     const label = isShadow ? (S.dream ? "DREAM" : `CELLAR ${Math.max(1, -floor)}`) : mon && mon.boss ? `BOSS ${floor}` : `FLOOR ${Math.max(1, floor)}`;
-    const lw = Math.max(pxTextWidth(label) + 8, 30), lx = 124;
+    const lw = Math.max(pxTextWidth(label) + 8, 30), lx = 112;
     ctx.fillStyle = "#0e0b16"; ctx.fillRect(lx - 1, by - 3, lw + 2, 22);
     ctx.fillStyle = mon && mon.boss ? "#b8323a" : "#2a2238"; ctx.fillRect(lx, by - 2, lw, 20);
     ctx.fillStyle = mon && mon.boss ? "#ff6a5a" : "#4a3e60"; ctx.fillRect(lx, by - 2, lw, 1);
@@ -415,7 +416,163 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (b.sub) pxText(ctx, b.sub, 120 + off * 1.2, y + 25, { color: "#f4efe2", align: "center" });
     void k;
   }
+  // ---------- stage 2 extras: powers fx, frost, halloween tricks, merchant, secret floor ----------
+  let powerFx = null, merchantNPC = null, bonus = null, extraT = 0;
+  function updateExtras(dt, t) {
+    extraT += dt;
+    if (powerFx) { powerFx.t += dt; if (powerFx.t > 0.9) powerFx = null; }
+    if (mon && mon.trick) {
+      mon.trick.t += dt;
+      if (mon.trick.t > mon.trick.dur) {
+        const p = monScreen();
+        fx.burst(p.x, p.y - monH() / 2, { n: 16, colors: ["#8a55d6", "#d867d0", "#ffffff"], speed: 50, gravity: -30, size: 2 });
+        S_("pop"); mon.trick = null;
+      }
+    }
+    // frost: snow drifting while Freeze is on
+    if (S.freezeTasks > 0 && Math.random() < dt * 14) fx.burst(Math.random() * 240, 24, { n: 1, colors: ["#ffffff", "#bfe8ff"], speed: 8, gravity: 18, life: 2.2, size: 1 });
+    // claw storm: red sparks around the cat
+    if (S.clawHits > 0 && Math.random() < dt * 10) fx.burst(cat.wx + (Math.random() - 0.5) * 24, toScreenY(cat.wy) - 10 - Math.random() * 30, { n: 1, colors: ["#ff5d5d", "#ffcf3f"], speed: 20, gravity: -40, life: 0.5, size: 1 });
+    if (mon && mon.golden && !mon.dead && Math.random() < dt * 6) { const p = monScreen(); fx.burst(p.x + (Math.random() - 0.5) * monW(), p.y - Math.random() * monH(), { n: 1, colors: ["#fff1a8", "#ffd23f"], speed: 10, gravity: -20, life: 0.6, size: 1 }); }
+    if (merchantNPC) merchantNPC.t += dt;
+    if (bonus) updateBonus(dt);
+  }
+  function drawPowerFx(ctx) {
+    const k = powerFx.t / 0.9, d = powerFx.def;
+    const spr = ICONS[d.icon];
+    if (isStub(spr)) return;
+    const sc = Math.round(2 + ease.out(Math.min(1, k * 1.6)) * 3);
+    const cv = spr.canvas(0);
+    ctx.save();
+    ctx.globalAlpha = k < 0.6 ? 1 : Math.max(0, 1 - (k - 0.6) / 0.4);
+    const cx = Math.round(cat.wx), cy = Math.round(toScreenY(cat.wy) - 64 - k * 20); // the icon bursts out of the cat
+    // rays
+    ctx.fillStyle = d.color;
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + k * 2; for (let r = 18; r < 18 + 40 * k; r += 3) ctx.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 2, 2); }
+    ctx.drawImage(cv, Math.round(cx - (cv.width * sc) / 2), Math.round(cy - (cv.height * sc) / 2), cv.width * sc, cv.height * sc);
+    ctx.restore();
+  }
+  function drawFrost(ctx, t) {
+    // pixel ice crystals along the screen edges
+    const H = stage.h;
+    ctx.save();
+    ctx.globalAlpha = 0.75 + 0.1 * Math.sin(t * 3);
+    for (let y = 22; y < H - 28; y += 6) {
+      const a = 3 + ((y * 7) % 5), b = 3 + ((y * 13) % 5);
+      ctx.fillStyle = "#bfe8ff"; ctx.fillRect(0, y, a, 3); ctx.fillRect(240 - b, y, b, 3);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, y, Math.max(1, a - 2), 1); ctx.fillRect(240 - b, y, Math.max(1, b - 2), 1);
+    }
+    ctx.globalAlpha = 0.08; ctx.fillStyle = "#7ec4ff"; ctx.fillRect(0, 21, 240, H - 48);
+    ctx.restore();
+  }
+  // Halloween "trick": the monster becomes something silly for a moment (no extra penalty)
+  const TRICKS = {
+    pumpkin: { rows: [".....kk.....", "....kgk.....", "..kkkkkkkk..", ".koOOoOOOok.", "koOkkOOkkOok", "kOOkkOOkkOOk", "kOOOOOOOOOOk", "kOkOkOkOkOOk", "koOkkkkkkOok", ".koOOOOOOok.", "..kkkkkkkk.."], map: { k: "#0e0b16", g: "#3aa34f", O: "#ff8a1f", o: "#c85a10" } },
+    duck: { rows: ["...kkkk.....", "..kYYYYk....", "..kYkYYk....", "kkkYYYYkk...", "kOOkYYYYYk..", ".kkYYYYYYYkk", "..kYYYYYYYYk", "..kYYYYYYYk.", "...kYYYYYk..", "....kkkkk..."], map: { k: "#0e0b16", Y: "#ffd23f", O: "#ff8a1f" } },
+    ghost: { rows: ["...kkkkkk...", "..kWWWWWWk..", ".kWWWWWWWWk.", ".kkkkWkkkkk.", ".kkkkWkkkkk.", ".kWWWWWWWWk.", ".kWWWkkWWWk.", ".kWWWWWWWWk.", ".kWWWWWWWWk.", ".kWkWWkWWkWk", "..k.kk.kk.k."], map: { k: "#0e0b16", W: "#f4efe2" } },
+  };
+  function drawTrick(ctx, tr, t) {
+    const T = TRICKS[tr.kind] || TRICKS.pumpkin;
+    const s = 3, w = T.rows[0].length * s, h = T.rows.length * s;
+    const hop = Math.round(Math.abs(Math.sin(t * 9)) * 3);
+    T.rows.forEach((r, j) => [...r].forEach((c, i) => { if (c === ".") return; ctx.fillStyle = T.map[c]; ctx.fillRect(i * s - w / 2, j * s - h - hop, s, s); }));
+  }
+  function drawMerchant(ctx, t) {
+    const x = Math.round(merchantNPC.x), y = Math.round(toScreenY(floorY(floor)));
+    const k = Math.min(1, merchantNPC.t * 4);
+    ctx.save(); ctx.globalAlpha = k;
+    // stall: awning + counter
+    const ax = x - 26, ay = y - 62;
+    for (let i = 0; i < 9; i++) { ctx.fillStyle = "#0e0b16"; ctx.fillRect(ax + i * 6 - 1, ay - 1, 8, 9); }
+    for (let i = 0; i < 9; i++) { ctx.fillStyle = i % 2 ? "#f4efe2" : "#e8434f"; ctx.fillRect(ax + i * 6, ay, 6, 7); ctx.fillRect(ax + i * 6 + 1, ay + 7, 4, 2); }
+    ctx.fillStyle = "#5a3324"; ctx.fillRect(ax + 1, ay + 9, 2, 44); ctx.fillRect(ax + 51, ay + 9, 2, 44);
+    ctx.fillStyle = "#0e0b16"; ctx.fillRect(ax - 1, y - 17, 56, 17);
+    ctx.fillStyle = "#8e5434"; ctx.fillRect(ax, y - 16, 54, 15); ctx.fillStyle = "#c98a52"; ctx.fillRect(ax, y - 16, 54, 2);
+    merchantNPC.spr.draw(ctx, x, y - 12, { anim: "idle", t: merchantNPC.t, scale: AS, flip: true });
+    // fish sign
+    if (!isStub(ICONS.fish)) drawSprite(ctx, ICONS.fish, 0, ax + 12, y - 6, {});
+    ctx.restore();
+  }
+  // secret floor: fish rain, tap them (+3) or let them land (+1)
+  function updateBonus(dt) {
+    const b = bonus; b.t += dt;
+    if (b.n < b.total && b.t > b.next) { b.n++; b.next = b.t + 0.32; b.fish.push({ x: 24 + Math.random() * 192, y: 26, vy: 26 + Math.random() * 18, ph: Math.random() * 6, st: "fall" }); }
+    const ground = footY() - 6;
+    for (const f of b.fish) {
+      if (f.st !== "fall") continue;
+      f.y += f.vy * dt;
+      if (f.y >= ground) { f.st = "land"; b.got += 1; const h = HUD.fish(); fx.collect(f.x, f.y, h.x, h.y, { n: 1, color: "#7ec4ff", onArrive: () => { fishPulse = 0.2; } }); S.coins += 1; }
+    }
+  }
+  function drawBonus(ctx, t) {
+    ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = "#ffd23f"; ctx.fillRect(0, 21, 240, stage.h - 48); ctx.restore();
+    for (const f of bonus.fish) {
+      if (f.st !== "fall") continue;
+      const x = Math.round(f.x + Math.sin(t * 3 + f.ph) * 4), y = Math.round(f.y);
+      if (!isStub(ICONS.fish)) drawSprite(ctx, ICONS.fish, 0, x, y, { scale: 2 }); else pix(ctx, FISH, x - 8, y - 6, "#7ec4ff", "#0e0b16", 2);
+    }
+  }
+  function bonusTap(e) {
+    if (!bonus) return false;
+    let best = null, bd = 18;
+    for (const f of bonus.fish) { if (f.st !== "fall") continue; const d = Math.hypot(e.x - f.x, e.y - (f.y - 6)); if (d < bd) { bd = d; best = f; } }
+    if (!best) return false;
+    best.st = "got"; bonus.got += 3; S.coins += 3;
+    const h = HUD.fish();
+    fx.burst(best.x, best.y, { n: 10, colors: ["#7ec4ff", "#ffffff", "#ffd23f"], speed: 60, gravity: 60 });
+    fx.float(best.x, best.y - 10, "+3", { color: "#7ec4ff" });
+    fx.collect(best.x, best.y, h.x, h.y, { n: 3, color: "#7ec4ff", onArrive: () => { fishPulse = 0.25; } });
+    S_("coin");
+    return true;
+  }
+
+  // ---------- powers ----------
+  const PW = ((save.powers && save.powers.equipped) || []).map(powerById).filter(Boolean).slice(0, 2)
+    .map((def) => ({ id: def.id, def, n: 0, charge: def.charge, ready: false }));
+  ui.setPowers(PW.map((p) => ({ id: p.id, name: p.def.name, icon: p.def.icon, color: p.def.color, charge: p.def.charge })));
+  const pwSync = () => ui.updatePowers(PW.map((p) => ({ id: p.id, n: p.n, charge: p.charge, ready: p.ready })));
+  pwSync();
+  const chargePowers = () => {
+    for (const p of PW) {
+      if (p.ready) continue;
+      p.n = Math.min(p.charge, p.n + 1);
+      if (p.n >= p.charge) { p.ready = true; S_("perk"); fx.float(200, stage.h - 44, "READY!", { color: p.def.color }); }
+    }
+    pwSync();
+  };
+  ui.onPower = (id) => firePower(id);
+  function firePower(id) {
+    const p = PW.find((x) => x.id === id);
+    if (!p) return;
+    const c = { x: cat.wx, y: toScreenY(cat.wy) - 30 };
+    if (!p.ready || runState !== "task" || ui.modalOpen || !mech) { ui.powerFeedback(id, "no"); S_("tap"); return; }
+    let ok = true, why = "NOT NOW";
+    if (id === "owl_eye") { let r = false; try { r = !!(mech.hint && mech.hint()); } catch {} ok = r; }
+    else if (id === "freeze") { S.freezeTasks = 3; try { mech.freeze && mech.freeze(true); } catch {} }
+    else if (id === "claw_storm") S.clawHits = 3;
+    else if (id === "fish_magnet") S.magnetFloor = floor;
+    else if (id === "catnip") { if (S.livesN >= lives.MAX_LIVES) { ok = false; why = "FULL!"; } else { lives.gainLife(save, "catnip"); refreshLives(); heartFly(c); } }
+    if (!ok) { ui.powerFeedback(id, "no"); fx.float(c.x, c.y - 10, why, { color: "#ff9a8a" }); S_("tap"); return; }
+    p.n = 0; p.ready = false; pwSync(); ui.powerFeedback(id, "fire");
+    S.powersUsed++;
+    powerFx = { def: p.def, t: 0 };
+    fx.flash(p.def.color, 160); stage.shake(3, 300); stage.hitstop(70);
+    showBanner(p.def.name.toUpperCase() + "!", p.def.desc, 0.9, p.def.color);
+    fx.ring(c.x, c.y, p.def.color, { r: 4, vr: 160 });
+    fx.burst(c.x, c.y, { n: 30, colors: [p.def.color, "#ffffff"], speed: 110, gravity: 30, size: 2 });
+    if (id === "fish_magnet") { const h = HUD.fish(); fx.collect(c.x, c.y, h.x, h.y, { n: 8, color: "#6fe3d3" }); }
+    S_("cast"); S_("level");
+    dailyEv("power");
+    persist();
+  }
+  // daily challenges: progress + toast when one is done
+  const dailyEv = (e, amt = 1) => {
+    try { for (const c of progressDaily(save, e, amt)) { ui.toast("CHALLENGE DONE!", c.text, c.icon || "daily"); S_("level"); } } catch (err) { console.warn("daily", err); }
+  };
+  const magnet = () => (S.magnetFloor !== null && S.magnetFloor === floor ? 2 : 1);
+
   stage.setScene(scene);
+  stage.input.on("down", (e) => bonusTap(e), { priority: 20 });
 
   // ---------- helpers ----------
   const ms2 = (ms) => untilQuit(stage.sleep(ms));
@@ -497,6 +654,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       target: mon ? { x: mon.wx, y: toScreenY(mon.wy) - monH() / 2 } : { x: 190, y: footY() - 20 },
     });
     mech = m;
+    if (S.freezeTasks > 0) { try { m.freeze && m.freeze(true); } catch {} }
+    if (plan.mech === "catch" && mon) tween(0.25, (k) => { mon.off = 18 * ease.out(k); }); // make room for the lanes
     mechCount[plan.mech] = (mechCount[plan.mech] || 0) + 1;
     if (DBG) DBG.mech = { name: plan.mech, targets: () => (m.debug && m.debug.targets ? m.debug.targets() : []), answer: (g) => m.debug && m.debug.answer && m.debug.answer(g) };
     ui.setHints(S.hints.left, typeof m.hint === "function");
@@ -511,10 +670,18 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (S.quit || res === "quit") { m.destroy && m.destroy(); mech = null; ui.clearPrompt(); return null; }
     const tt = plan.task || task;
     S.answers++;
+    const prev = save.srs[tt.key];
+    const info = { wasNew: !prev || !prev.n, repeat: S.failedKeys.has(tt.key) };
     record(save, tt, res.ok, res.ms, res.tag, { hinted: res.hinted, shadowMode: isShadow });
     tickPlay();
-    if (res.ok) await onRight(tt, res);
-    else await onWrong(tt, m);
+    if (mon && mon.off) mon.off = 0;
+    if (S.freezeTasks > 0) S.freezeTasks--;
+    if (res.ok) {
+      dailyEv("correct"); if (tt.skill) dailyEv("skill:" + tt.skill);
+      if (["spell", "type"].includes(tt.type)) dailyEv("typed");
+      if (task.intro) dailyEv("new");
+      await onRight(tt, res);
+    } else { await onWrong(tt, m, info); S.failedKeys.add(tt.key); }
     try { m.destroy && m.destroy(); } catch {}
     if (mech === m) mech = null;
     ui.clearPrompt();
@@ -534,9 +701,13 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       if (has("lightning") && res.ms < 5000 && !["type", "spell", "build", "match"].includes(task.type)) dmg += 1;
       if (mon.firstHit !== false && tr(save, "pounce")) dmg *= tr(save, "pounce") + 1;
     }
+    let storm = false;
+    if (S.clawHits > 0) { dmg *= 2; S.clawHits--; storm = true; }
     mon.firstHit = false;
     S.weeklyDmg += dmg;
-    S.coins += ECON.coinPerCorrect; S.xp += ECON.xpPerCorrect;
+    S.coins += ECON.coinPerCorrect * magnet(); S.xp += ECON.xpPerCorrect;
+    chargePowers();
+    dailyEv("combo", S.combo);
     if (S.combo > 0 && S.combo % lives.COMBO_LIFE === 0) {
       lives.gainLife(save, "combo"); refreshLives();
       const c = { x: cat.wx, y: toScreenY(cat.wy) - 40 };
@@ -559,6 +730,15 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     fx.burst(p.x - 2, hy, { n: 6, colors: ["#ffffff"], speed: 120, gravity: 0, life: 0.18, spread: 0.4, angle: Math.PI * 0.25 });
     fx.float(p.x, hy - 12, crit ? `-${dmg}!` : `-${dmg}`, { color: crit ? "#ffcf3f" : "#ffffff", big: crit });
     if (crit) { fx.flash("#ffffff", 70); fx.float(p.x, hy - 28, "CRIT", { color: "#ff6b2c" }); }
+    if (storm) { fx.float(p.x, hy - (crit ? 40 : 28), "CLAW x2", { color: "#ff5d5d" }); fx.burst(p.x, hy, { n: 10, colors: ["#ff5d5d", "#ffffff"], speed: 130, gravity: 0, life: 0.2, spread: 0.5, angle: -Math.PI * 0.25 }); }
+    if (halloween) {
+      // trick or treat: a right answer = a treat (+1 fish) and candy
+      S.coins += 1;
+      const f = HUD.fish(), cc = ["#ff8a1f", "#d867d0", "#93e04c", "#ffd23f"];
+      fx.burst(p.x, hy, { n: 12, colors: cc, speed: 70, gravity: 120, size: 2 });
+      for (let i = 0; i < 3; i++) fx.collect(p.x, hy, f.x, f.y, { n: 1, color: cc[i], size: 2, onArrive: () => { fishPulse = 0.2; } });
+      if (S.correct % 3 === 1) fx.float(p.x - 20, hy - 20, "TREAT!", { color: "#ff8a1f" });
+    }
     if (S.combo === 3 || S.combo === 5 || S.combo >= 10 && S.combo % 5 === 0) { fx.float(cat.wx + 10, toScreenY(cat.wy) - 70, `COMBO x${S.combo}`, { color: "#ff9a3d", big: true, life: 1.1 }); S_("perk"); }
     await ms2(160);
     mon.lx = 0; mon.anim = "idle";
@@ -572,7 +752,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     cat.flip = false;
   }
 
-  async function onWrong(task, m) {
+  async function onWrong(task, m, info = {}) {
     S.combo = 0; S.xp += ECON.xpPerTry;
     session.failed(task.key);
     S_("wrong");
@@ -591,10 +771,16 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     else if (isShadow && S.cellarErrors < 2) { S.cellarErrors++; msg = ["FREE TRY", "#9ae86a"]; }
     else {
       if (isShadow) S.cellarErrors++;
-      if (Math.random() < tr(save, "thick_fur") * 0.1) msg = ["THICK FUR!", "#7ec4ff"];
+      // gentle lives (lives.mistakeCost): warm-up mistakes, brand-new items and repeats in a run are free
+      const cost = isShadow ? { free: null } : lives.mistakeCost(save, { newItem: !!info.wasNew, repeat: !!info.repeat });
+      if (cost.free) {
+        msg = [cost.free === "new" ? "NEW - FREE" : "FREE TRY", "#9ae86a"];
+        const hp = HUD.heart(Math.max(0, S.livesN - 1));
+        fx.ring(hp.x, hp.y, "#9ae86a", { r: 3 });
+      } else if (Math.random() < tr(save, "thick_fur") * 0.1) msg = ["THICK FUR!", "#7ec4ff"];
       else {
         const before = S.livesN;
-        lives.loseLife(save); refreshLives(); lost = true;
+        lives.loseLife(save); refreshLives(); lost = true; S.livesLost++;
         const hp = HUD.heart(Math.max(0, before - 1));
         heartPulse[Math.max(0, before - 1)] = 0.5;
         fx.burst(hp.x, hp.y, { n: 10, colors: ["#e8434f", "#ffb0b8"], speed: 50, gravity: 120 });
@@ -605,6 +791,16 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     }
     if (msg) fx.float(c.x, c.y - 8, msg[0], { color: msg[1] });
     await tween(0.22, (k) => { mon.lx = -reach * (1 - ease.out(k)); }, () => { mon.anim = "idle"; mon.lx = 0; });
+    if (halloween && !mon.mimic) {
+      // trick! the monster turns into something silly for a moment (no extra penalty)
+      const kinds = Object.keys(TRICKS);
+      mon.trick = { kind: kinds[Math.floor(Math.random() * kinds.length)], t: 0, dur: 1.8 };
+      const p = monScreen();
+      fx.burst(p.x, p.y - monH() / 2, { n: 18, colors: ["#8a55d6", "#d867d0", "#ffffff"], speed: 60, gravity: -30, size: 2 });
+      fx.float(p.x, p.y - monH() - 14, "TRICK!", { color: "#d867d0", big: true });
+      S_("pop");
+    }
+    if (mon.trick) await ms2(750); // let them see the silly monster before the card covers it
     if (cat.anim === "hurt") cat.anim = "idle";
     void lost;
     // reveal: our card ([data-act=next]); the mechanic highlights the right answer in-world
@@ -618,7 +814,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
   async function killMonster() {
     S.kills++;
     const boss = mon.boss;
-    const gain = boss ? ECON.coinPerBoss : isShadow ? ECON.coinShadowClear : ECON.coinPerKill;
+    let gain = (boss ? ECON.coinPerBoss : isShadow ? ECON.coinShadowClear : ECON.coinPerKill) * magnet();
+    if (mon.golden) { gain += RUN_EVENTS.golden.fish * magnet(); S.events.push("golden"); bumpEvent("goldenCaught"); }
     S.coins += gain; if (boss) S.xp += ECON.xpPerBoss;
     mon.dead = true; mon.anim = "die"; mon.animT = 0;
     if (fight) { fight.clear(); fight.destroy(); fight = null; }
@@ -631,6 +828,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const f = HUD.fish();
     fx.collect(p.x, hy, f.x, f.y, { n: Math.min(10, 3 + gain / 2), color: "#7ec4ff", onArrive: () => { fishPulse = 0.25; S_("coin"); } });
     fx.float(p.x, hy - 14, `+${gain}`, { color: "#7ec4ff", big: true });
+    if (mon.golden) { showBanner("GOLDEN!", `+${gain} fish`, 1.3, "#ffd23f"); fx.burst(p.x, hy, { n: 40, colors: ["#ffd23f", "#fff1a8", "#ffffff"], speed: 150, gravity: 120, size: 2 }); S_("chest"); }
+    if (mon.mimic) { S.eventChests.push(mon.mimic.chest); showBanner("CHEST!", "It is yours now!", 1.2, "#ffd23f"); S_("chest"); }
     await tween(0.5, (k) => { mon.alpha = 1 - k; mon.sy = 1 - k * 0.6; mon.sx = 1 + k * 0.4; });
     await ms2(boss ? 500 : 200);
   }
@@ -658,6 +857,87 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     cat.anim = "idle";
   }
 
+  // ---------- run events (golden / mimic / merchant / secret): never on a boss floor, max 1 per stage ----------
+  function rollEvent(kinds) {
+    if (isShadow || S.stageEvent) return null;
+    if (forceEvent) return kinds.includes(forceEvent) ? forceEvent : null;
+    for (const k of kinds) if (Math.random() < RUN_EVENTS[k].chance) return k;
+    return null;
+  }
+  async function mimicReveal() {
+    showBanner("A CHEST!", "Free stuff?", 1.0, "#ffcf3f");
+    await ms2(900);
+    if (S.quit) return;
+    await jumpWorld(CAT_X + 34, floorY(floor), 0.3, 14);
+    await ms2(250);
+    mon.mimic.revealed = true; mon.anim = "lunge"; mon.sx = 1.3; mon.sy = 0.7;
+    stage.shake(4, 350); stage.hitstop(90); fx.flash("#ff3a3a", 120);
+    S_("bossIntro"); S_("hurt");
+    const p = monScreen();
+    fx.burst(p.x, p.y - 20, { n: 20, colors: ["#b0703e", "#ffd23f", "#ffffff"], speed: 90, gravity: 120, size: 2 });
+    showBanner("MIMIC!", "It bites!", 1.2, "#ff5a4a");
+    await jumpWorld(CAT_X, floorY(floor), 0.3, 16);
+    mon.anim = "idle";
+    await ms2(500);
+  }
+  async function goldenFlee() {
+    mon.fled = true;
+    showBanner("IT RAN AWAY!", "So fast!", 1.2, "#ffcf3f");
+    S_("jump");
+    const x0 = mon.wx;
+    await tween(0.6, (k) => { mon.wx = x0 + k * 90; mon.lx = 0; mon.drop = -Math.sin(k * Math.PI) * 0.1; }, () => { mon.alpha = 0; });
+    fx.burst(240, toScreenY(mon.wy) - 10, { n: 10, colors: ["#d8ccb4", "#ffd23f"], speed: 40, gravity: -10 });
+    await ms2(500);
+  }
+  async function merchantEvent() {
+    S.stageEvent = "merchant"; bumpEvent("merchant");
+    setState("merchant"); runState = "merchant";
+    merchantNPC = { spr: getCat("tux", "tophat"), x: 184, t: 0 };
+    fx.burst(184, toScreenY(floorY(floor)) - 20, { n: 20, colors: ["#ffffff", "#d8ccb4"], speed: 50, gravity: -20, size: 2 });
+    S_("pop"); showBanner("SHOP!", "A cat is selling things", 1.0, "#6fe3d3");
+    await ms2(900);
+    if (S.quit) { merchantNPC = null; return; }
+    let portrait = ""; try { portrait = catURL("tux", "tophat", 4); } catch {}
+    const wallet = Math.round(S.coins) + Math.round(save.coins || 0);
+    const offer = await untilQuit(ui.merchantCard({ portrait, offers: MERCHANT_OFFERS, wallet }));
+    if (offer && offer !== "quit" && !S.quit) {
+      const fromRun = Math.min(S.coins, offer.price);
+      S.coins -= fromRun; save.coins = Math.max(0, (save.coins || 0) - (offer.price - fromRun));
+      bumpEvent("merchantBuy");
+      const c = { x: cat.wx, y: toScreenY(cat.wy) - 40 };
+      S_("coin"); S_("perk");
+      if (offer.id === "life") { lives.gainLife(save, "merchant"); refreshLives(); heartFly(c); fx.float(c.x, c.y, "+1 LIFE", { color: "#ff8a9a" }); }
+      else if (offer.id === "shield") { S.shields++; fx.float(c.x, c.y, "+1 SHIELD", { color: "#7ec4ff" }); }
+      else {
+        const pool = PERKS.filter((p) => !p.instant && !S.perks.includes(p.id));
+        const pk = pool[Math.floor(Math.random() * pool.length)];
+        if (pk) { S.perks.push(pk.id); fx.float(c.x, c.y, pk.name.toUpperCase(), { color: "#ffcf3f" }); }
+      }
+      fx.burst(c.x, c.y, { n: 16, colors: ["#ffcf3f", "#ffffff"], speed: 60, gravity: 40 });
+      cat.anim = "dance"; cat.animT = 0;
+      await ms2(600);
+      cat.anim = "idle";
+      persist();
+    } else await ms2(200);
+    fx.burst(merchantNPC.x, toScreenY(floorY(floor)) - 20, { n: 16, colors: ["#ffffff", "#d8ccb4"], speed: 50, gravity: -20, size: 2 });
+    merchantNPC = null;
+    setState("idle"); runState = "idle";
+  }
+  async function secretFloor() {
+    S.stageEvent = "secret"; bumpEvent("secret"); S.events.push("secret");
+    setState("bonus"); runState = "bonus";
+    fx.flash("#ffd23f", 200); stage.shake(3, 300); S_("chest");
+    showBanner("SECRET FLOOR!", "Tap the fish!", 1.6, "#ffd23f");
+    await ms2(1000);
+    const [lo, hi] = RUN_EVENTS.secret.fish;
+    bonus = { fish: [], t: 0, next: 0, n: 0, total: lo, got: 0, max: hi };
+    while (bonus.n < bonus.total || bonus.fish.some((f) => f.st === "fall")) { await ms2(200); if (S.quit) break; }
+    const got = bonus.got; bonus = null;
+    showBanner(`+${got} FISH`, "", 1.2, "#7ec4ff"); S_("win");
+    await ms2(1000);
+    setState("idle"); runState = "idle";
+  }
+
   // ---------- main loop ----------
   try { startMusic(isShadow ? "shadow" : "tower"); } catch {}
   await ms2(250);
@@ -671,7 +951,11 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (isShadow) showBanner(`CELLAR ${i + 1}`, i === 0 ? "Beat the shadows!" : "", 1.1, "#bfb4ff");
     else showBanner(isBossFloor ? "BOSS FLOOR" : `FLOOR ${floor}`, prevBiome !== b.id ? b.label.toUpperCase() : "", 1.1, isBossFloor ? "#ff6a5a" : "#ffcf3f");
     prevBiome = b.id;
-    await spawn(floor);
+    const startEv = !isBossFloor ? rollEvent(["golden", "mimic"]) : null;
+    if (startEv) { S.stageEvent = startEv; bumpEvent(startEv); }
+    await spawn(floor, startEv);
+    if (startEv === "mimic") { const ch = RUN_EVENTS.mimic.chest; mon.mimic.chest = ch[Math.floor(Math.random() * ch.length)]; await mimicReveal(); if (S.quit) break; }
+    if (startEv === "golden") { showBanner("GOLDEN!", "Quick! 3 turns!", 1.3, "#ffd23f"); S_("chest"); await ms2(600); }
     if (isBossFloor) {
       setState("bossIntro"); runState = "bossIntro";
       try { startMusic("boss"); } catch {}
@@ -688,11 +972,26 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       if (S.quit || !res) break outer;
       if (!isShadow && S.livesN <= 0) { S.asleep = true; break outer; }
       if (isShadow && S.dream && S.dreamErrors >= 3) break outer;
+      if (mon.golden && mon.hp > 0) {
+        mon.golden.turns--;
+        if (mon.golden.turns <= 0) { await goldenFlee(); break; }
+        fx.float(monScreen().x, toScreenY(mon.wy) - monH() - 18, `${mon.golden.turns} LEFT`, { color: "#ffcf3f" });
+      }
     }
-    if (mon.hp <= 0) {
-      await killMonster();
-      if (mon.boss) S.bossBeaten = true;
+    if (mon.hp <= 0 || mon.fled) {
+      if (mon.hp <= 0) await killMonster();
+      if (mon.boss) {
+        S.bossBeaten = true;
+        dailyEv("boss");
+        if (S.livesLost === 0) dailyEv("noLifeBoss");
+      }
+      if (!isShadow) dailyEv("floor");
       if (!isShadow && !mon.boss && (i === 1 || i === 3)) { await choosePerk(); if (S.quit) break; }
+      if (!isShadow && !mon.boss && i < nFloors - 1) {
+        const after = rollEvent(["merchant", "secret"]);
+        if (after === "merchant") { await merchantEvent(); if (S.quit) break; }
+        else if (after === "secret") { await secretFloor(); if (S.quit) break; }
+      }
     }
   }
 
@@ -716,6 +1015,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       setState("idle");
     } else if (isShadow) {
       const won = !(S.dream && S.dreamErrors >= 3);
+      if (won) dailyEv("cellar");
       cat.anim = won ? "dance" : "sleep";
       showBanner(won ? "CELLAR CLEAN!" : "WAKE UP!", "", 1.4, "#bfb4ff");
       await stage.sleep(1400);
@@ -727,6 +1027,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     answers: S.answers, correct: S.correct, bestCombo: S.bestCombo, kills: S.kills,
     coins: Math.round(S.coins * mult), xp: Math.round(S.xp * mult), weeklyDmg: S.weeklyDmg, ms: Date.now() - startedAt, perks: [...S.perks],
     rewardMult: mult, dream: isShadow && S.dream,
+    events: [...S.events], eventChests: [...S.eventChests], unlockedPowers, powersUsed: S.powersUsed, livesLost: S.livesLost,
   };
   persist();
   if (DBG) { DBG.runState = "idle"; DBG.task = null; DBG.mech = null; }
