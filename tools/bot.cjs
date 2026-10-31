@@ -153,7 +153,7 @@ async function playRun(p, { acc = 0.85, counts, onEvent = async () => {}, maxMs 
       counts.mechs[st.mech] = (counts.mechs[st.mech] || 0) + 1;
       counts.tasks++;
       if (!good) counts.wrongPlanned++;
-      await sleep(350); // dziecko też chwilę patrzy
+      await sleep(900); // dziecko też chwilę patrzy (>700 ms, żeby silnik zaliczał postęp)
       await onEvent("mech", st);
       log(`  task ${st.task.type} -> ${st.mech} ${good ? "good" : "BAD"}`);
     }

@@ -179,11 +179,16 @@ export const editorScreen = {
     cv.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       const i = cellAt(e);
-      if (i < 0 || !cells[i]) return;
-      if (cells[i].locked) { replay(cv, "nope"); return; }
+      if (tool === "fill") {
+        if (i < 0 || !cells[i]) return;
+        if (cells[i].locked) { replay(cv, "nope"); return; }
+        pushUndo();
+        if (fillAt(i)) { sfx.pop ? sfx.pop() : sfx.tap(); changed(); } else undo.pop();
+        return;
+      }
+      // pędzel/gumka: pociągnięcie może zacząć się poza kotem — malujemy tylko komórki kota
       pushUndo();
-      if (tool === "fill") { if (fillAt(i)) { sfx.pop ? sfx.pop() : sfx.tap(); changed(); } else undo.pop(); return; }
-      down = true; last = i; strokeChanged = paintAt(i);
+      down = true; last = i; strokeChanged = i >= 0 ? paintAt(i) : false;
       try { cv.setPointerCapture(e.pointerId); } catch {}
       if (strokeChanged) { sfx.tap(); changed(); }
     });

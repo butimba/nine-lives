@@ -8,6 +8,7 @@ import { bossIntro, createBossFight } from "./boss.js";
 import { createRunUI } from "./runui.js";
 import { planTask, MECHANICS } from "./mechanics/index.js";
 import { Session, record } from "../engine.js";
+import { SKILLS } from "../../data/grammar.js";
 import { PERKS, ECON, powerById, RUN_EVENTS, MERCHANT_OFFERS } from "../../data/progression.js";
 import { ensureDaily, progressDaily } from "../daily.js";
 import { syncPowers } from "../rewards.js";
@@ -637,6 +638,17 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       setState("intro"); runState = "intro";
       await untilQuit(ui.introCard(task, { autoSay: !!(save.settings.voice || profile.noReading) }));
       if (S.quit) return null;
+    }
+    if (task.kind === "grammar" && task.firstTry && !profile.noReading && !S._rulesShown?.has(task.key)) {
+      (S._rulesShown ||= new Set()).add(task.key);
+      const [, sk, pat] = task.key.split(":");
+      let ex = null;
+      try { for (let i = 0; i < 8 && (!ex || ex.full === task.q.full); i++) ex = SKILLS[sk].patterns[pat](Math.random); } catch {}
+      if (ex && ex.full !== task.q.full) {
+        setState("intro"); runState = "intro";
+        await untilQuit(ui.ruleCard(ex));
+        if (S.quit) return null;
+      }
     }
     const plan = planTask(task, profile, save.settings);
     const prompt = plan.prompt || {};

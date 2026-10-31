@@ -5,7 +5,6 @@ import { go } from "./router.js";
 import { sfx, stopMusic } from "../audio.js";
 import { livesState } from "../lives.js";
 import { dailyList } from "./daily.js";
-import { powersList, powerIcon } from "./powers.js";
 
 export const resultsScreen = {
   mount(root, r = {}) {
@@ -33,9 +32,8 @@ export const resultsScreen = {
       if (e.type === "streakChest") msgs.push({ cls: "gold", icon: "flame", text: `${e.n} days in a row! Silver chest!` });
       if (e.type === "streakLost") msgs.push({ icon: "flame", text: "New streak. Go go go!" });
     }
-    // nowe moce: progi unlockLevel przekroczone w tym biegu
-    for (const p of powersList()) if (r.lvlAfter > r.lvlBefore && p.unlockLevel > r.lvlBefore && p.unlockLevel <= r.lvlAfter)
-      msgs.push({ cls: "violet", img: powerIcon(p, 2), text: `New power: ${p.name}!`, power: true });
+    // dodatki z rewards.js (G): nowe moce, skrzynia z mimika, złoty potwór, sekretne piętro — [{cls, icon, text}]
+    for (const x of r.extras || []) msgs.push({ ...x, power: /power/i.test(x.text || "") });
     const daily = dailyList(save, app.profile);
     const sleepy = !shadow && (r.mult < 1 || (r.sleepy || 0) > 0);
     const hasChest = save.chests.length > 0;
@@ -69,11 +67,14 @@ export const resultsScreen = {
     const n = (k) => el.querySelector(`[data-n=${k}]`);
     let alive = true;
     (async () => {
-      await new Promise((ok) => setTimeout(ok, 450));
-      await countUp(n("coins"), 0, r.coins || 0, 800, { tick: (v) => v % 3 === 0 && sfx.coin() });
-      await countUp(n("xp"), 0, r.xp || 0, 700);
-      await countUp(n("combo"), 0, r.bestCombo || 0, 300);
-      await countUp(n("acc"), 0, acc, 400);
+      await new Promise((ok) => setTimeout(ok, 300));
+      // wszystkie liczniki naraz (krótko) — liczby szybko zgadzają się z resztą ekranu
+      await Promise.all([
+        countUp(n("coins"), 0, r.coins || 0, 800, { tick: (v) => v % 3 === 0 && sfx.coin() }),
+        countUp(n("xp"), 0, r.xp || 0, 800),
+        countUp(n("combo"), 0, r.bestCombo || 0, 600),
+        countUp(n("acc"), 0, acc, 700),
+      ]);
       if (!alive) return;
       const box = el.querySelector(".res-msgs");
       msgs.forEach((m, i) => setTimeout(() => {

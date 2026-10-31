@@ -55,6 +55,7 @@
 .rui-q { font-size: 1.55em; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
 .rui-gap { display: inline-block; min-width: 2.2em; color: transparent; border-bottom: calc(var(--u) * 1.5) solid var(--acc); line-height: .9; }
 .rui-pl { font-size: .95em; opacity: .62; margin-top: .2em; }
+.rui-why { font-size: .92em; margin-top: .45em; padding: .35em .6em; background: rgba(255,210,63,.18); border-left: 4px solid #ffd23f; text-align: left; }
 .rui-prompt .rui-spk { pointer-events: auto; flex: none; background: var(--acc); }
 .rui-prompt-img { flex: none; }
 

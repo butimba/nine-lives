@@ -51,8 +51,8 @@ export function gridHTML(save) {
     return `<button class="pw-card ${on ? "on" : ""} ${un ? "" : "locked"}" data-act="power-toggle" data-id="${esc(p.id)}" style="--tilt:${[-1.2, 0.8, -0.4, 1.1, -0.8][i % 5]}deg">
       <span class="pw-ico">${un ? `<img class="px-ico" src="${powerIcon(p, 3)}" alt="">` : `<img class="px-ico" src="${iconSrc("lock", 3)}" alt="">`}</span>
       <b>${esc(p.name)}</b>
-      <small>${un ? esc(p.desc || "") : `Level ${p.unlockLevel}`}</small>
-      ${un ? `<span class="pw-charge">${Array.from({ length: Math.min(8, p.charge || 4) }, () => "<i></i>").join("")}<em>${p.charge || "?"}</em></span>` : `<span class="pw-need">LV ${lvl}/${p.unlockLevel}</span>`}
+      <small>${esc(p.desc || "")}</small>
+      ${un ? `<span class="pw-charge">${Array.from({ length: Math.min(8, p.charge || 4) }, () => "<i></i>").join("")}<em>${p.charge || "?"}</em></span>` : `<span class="pw-need">level ${p.unlockLevel}</span>`}
     </button>`;
   }).join("")}</div>`;
 }

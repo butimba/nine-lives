@@ -4,6 +4,7 @@ import { go } from "./router.js";
 import { normLogin, loginHash } from "../util.js";
 import { loadSave, persist } from "../state.js";
 import { tickLives } from "../lives.js";
+import * as REWARDS from "../rewards.js";
 import { sfx, setAudio, stopMusic } from "../audio.js";
 import { randomCatName } from "../../data/catnames.js";
 import ROSTER from "../../data/roster.js";
@@ -21,6 +22,7 @@ export async function login(name) {
   tickLives(app.save);
   // prezenty od nauczyciela → skrzynie "gift:…"; własna skórka ucznia; zatwierdzone skórki dzieci (w tle)
   ensureMySkin(app.save);
+  try { if (REWARDS.syncPowers) REWARDS.syncPowers(app.save); } catch (e) { console.warn("syncPowers", e); }
   if (claimGifts(app.save, app.profile).length) persist(true);
   const s0 = app.save;
   syncCommunity(s0).then((r) => {

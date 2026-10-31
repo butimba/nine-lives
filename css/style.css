@@ -320,7 +320,7 @@ canvas.cat-live { display: block; image-rendering: pixelated; }
 .mini-claim { position: absolute; right: calc(var(--u) * -8); top: calc(var(--u) * -6); padding: 2px 4px; background: var(--px-ok); color: #fff; font: 700 11px/1 var(--f-px); transform: rotate(10deg); box-shadow: 0 0 0 2px #0e0b16; animation: blink .8s steps(2) infinite; }
 .duo-tag { position: absolute; transform: translate(-50%, -100%) rotate(-3deg); padding: 2px 5px 3px; background: var(--px-paper); color: var(--px-ink); font: 700 11px/1.1 var(--f-px); white-space: nowrap; box-shadow: 0 0 0 2px var(--px-ink); pointer-events: none; text-align: center; }
 .duo-tag small { display: block; font-size: 9px; color: var(--grey); }
-.event-sticker { position: absolute; z-index: 6; left: 10px; top: 10px; background: none; border: 0; padding: 0; cursor: pointer; }
+.event-sticker { position: absolute; z-index: 6; left: 10px; top: 10px; background: none; border: 0; padding: 0; cursor: pointer; pointer-events: auto; }
 .event-sticker .sticker { display: flex; align-items: center; gap: 0; }
 .ev-pic img { display: block; width: 40px; height: 40px; margin-right: -6px; position: relative; z-index: 1; }
 .nope { animation: shake .35s steps(6); }

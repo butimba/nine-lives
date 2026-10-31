@@ -215,6 +215,15 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
         <div class="rui-row"><button class="rui-btn rui-btn--big px-btn px-btn--big" data-act="next">OK</button></div>`, "rui-cardwrap--reveal");
       return waitAct(c, "[data-act=next]").then(clearLayer);
     },
+    // new grammar rule intro (first time a pattern appears): one solved example + the rule
+    ruleCard(ex) {
+      let line = esc(ex.full);
+      if (ex.text && ex.text.includes("___")) { const [a, b] = ex.text.split("___"); line = `${esc(a)}<b class="rui-ans">${esc(ex.answer)}</b>${esc(b)}`; }
+      const c = card(`<div class="rui-sticker sticker px">NEW RULE!</div>
+        <div class="rui-reveal"><div class="rui-sent lex">${line} ${spk(ex.full)}</div>${ex.why ? `<div class="rui-why lex"><b>${esc(ex.why)}</b></div>` : ""}${ex.hint && showPl ? `<div class="rui-pl lex">${esc(ex.hint)}</div>` : ""}</div>
+        <div class="rui-row"><button class="rui-btn rui-btn--big px-btn px-btn--big" data-act="next">Got it!</button></div>`, "rui-cardwrap--intro");
+      return waitAct(c, "[data-act=next]").then(clearLayer);
+    },
     // new word intro
     introCard(task, { autoSay = false } = {}) {
       const w = task.word || {};
