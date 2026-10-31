@@ -2,7 +2,8 @@
 import { h, esc, app, ico, catImg, pxButton, panel, pageHead, refreshFish, toast, modal, onAct, liveCat, sticker, RARITY_EN } from "./components.js";
 import { go } from "./router.js";
 import { persist } from "../state.js";
-import { shopItems, buy } from "../meta.js";
+import { shopItems, buy, ensureMySkin, MY_SKIN } from "../meta.js";
+import { registerSkin } from "../pixel/custom.js";
 import { sfx } from "../audio.js";
 import { SKINS, HATS } from "../../data/cosmetics.js";
 import { ECON } from "../../data/progression.js";
@@ -29,13 +30,15 @@ export const wardrobeScreen = {
     const cat = liveCat({ skin: save.equipped.skin, hat: save.equipped.hat, scale: 5 });
     $(".preview-cat").append(cat.el);
 
-    const skinsAll = SKINS.filter((s) => !s.retired || save.owned.skins.includes(s.id));
+    let skinsAll = SKINS.filter((s) => !s.retired || save.owned.skins.includes(s.id));
+    const mine = ensureMySkin(save);
     const hatsAll = HATS.filter((s) => s.id !== "none" && (!s.retired || save.owned.hats.includes(s.id)));
 
     const renderPreview = () => {
       const skin = tryOn && tryOn.kind === "skin" ? tryOn.id : save.equipped.skin;
       const hat = tryOn && tryOn.kind === "hat" ? tryOn.id : save.equipped.hat;
       cat.set({ skin, hat });
+      if (skin === MY_SKIN && mine.pixels) registerSkin(MY_SKIN, mine.pixels, { name: mine.name });
       const sk = SKINS.find((s) => s.id === skin);
       $(".preview-name").innerHTML = sticker(`<span class="sticker-label">${esc(tryOn ? tryOn.name : save.catName || (sk && sk.name) || "")}</span>`, { tilt: -3 });
       let act = "";
@@ -45,6 +48,7 @@ export const wardrobeScreen = {
     };
 
     const renderTabs = () => {
+      skinsAll = SKINS.filter((s) => !s.retired || save.owned.skins.includes(s.id));
       const nS = skinsAll.filter((s) => save.owned.skins.includes(s.id)).length;
       const nH = hatsAll.filter((s) => save.owned.hats.includes(s.id)).length;
       $(".tabs").innerHTML = [["skins", "Skins", `${nS}/${skinsAll.length}`], ["hats", "Hats", `${nH}/${hatsAll.length}`], ["shop", "Shop", ev ? "event!" : "fish"]]
@@ -57,7 +61,8 @@ export const wardrobeScreen = {
         ? catImg(it.id, "none", { scale: 2, silhouette: !owned && !price })
         : catImg(save.equipped.skin, it.id, { scale: 2, silhouette: !owned && !price });
       const name = owned || price ? esc(it.name) : "???";
-      const evTag = (it.source || "").startsWith("event:") ? `<span class="ev">${sticker(`<span class="sticker-label sticker-label--violet">event</span>`, { tilt: -8 })}</span>` : "";
+      const evTag = (it.source || "").startsWith("event:") ? `<span class="ev">${sticker(`<span class="sticker-label sticker-label--violet">event</span>`, { tilt: -8 })}</span>`
+        : it.community ? `<span class="ev">${sticker(`<span class="sticker-label sticker-label--green">kids</span>`, { tilt: -8 })}</span>` : "";
       const foot = price && !owned ? `<span class="price">${ico("fish", { scale: 2 })}${price}</span>` : !owned ? `<span class="price" style="color:var(--l,#b7b0c8)">${esc(srcHint(it) || "?")}</span>` : price ? `<span class="price" style="color:#93e04c">got it</span>` : "";
       return `<button class="item ${on ? "on" : ""} ${!owned && !price ? "locked" : ""} ${cant ? "cant" : ""}" style="--r:var(--px-r-${r})" data-act="${owned ? "equip" : price ? "try" : "locked"}" data-kind="${kind}" data-id="${it.id}" title="${esc(RARITY_EN[r])}">
         <i class="rar"></i>${evTag}${art}<span class="nm">${name}</span>${foot}</button>`;
@@ -69,7 +74,16 @@ export const wardrobeScreen = {
         const list = tab === "skins" ? skinsAll : hatsAll;
         const own = tab === "skins" ? save.owned.skins : save.owned.hats;
         const sorted = [...list].sort((a, b) => (own.includes(b.id) - own.includes(a.id)));
-        body.innerHTML = `<div class="item-grid">${sorted.map((it) => itemHTML(it, tab === "skins" ? "skin" : "hat", { owned: own.includes(it.id), on: (tab === "skins" ? save.equipped.skin : save.equipped.hat) === it.id })).join("")}</div>
+        const st = mine.sent && mine.sent !== mine.pixels ? "changed" : mine.status;
+        const stLabel = { pending: "waiting for teacher", approved: "in the game!", rejected: "try again", changed: "not sent yet" }[st];
+        const diy = tab === "skins" ? `<div class="diy-row">${panel(`
+            <div class="diy-art">${mine.pixels ? catImg(MY_SKIN, "none", { scale: 2 }) : `<span class="diy-blank">${catImg("snowball", "none", { scale: 2, silhouette: true })}</span>`}</div>
+            <div class="diy-txt"><b class="px">Make your own cat!</b><span class="lex">Paint it. Send it. Kids can win it!</span>
+              ${stLabel ? sticker(`<span class="sticker-label ${st === "approved" ? "sticker-label--green" : st === "rejected" ? "sticker-label--red" : ""}">${stLabel}</span>`, { tilt: -3 }) : ""}</div>
+            ${pxButton(mine.pixels ? "Paint" : "Start", { act: "skin-editor", variant: "gold", cls: "px-btn--sm diy-go" })}`, { cls: "diy-card", tilt: -1, tape: true })}<span class="hand diy-doodle">DIY!</span></div>` : "";
+        const myTile = tab === "skins" && mine.pixels ? `<button class="item item--mine ${save.equipped.skin === MY_SKIN ? "on" : ""}" style="--r:var(--px-ok)" data-act="equip" data-kind="skin" data-id="${MY_SKIN}">
+            <span class="ev">${sticker(`<span class="sticker-label sticker-label--green">mine</span>`, { tilt: -8 })}</span>${catImg(MY_SKIN, "none", { scale: 2 })}<span class="nm">${esc(mine.name || "My Cat")}</span></button>` : "";
+        body.innerHTML = `${diy}<div class="item-grid">${myTile}${sorted.map((it) => itemHTML(it, tab === "skins" ? "skin" : "hat", { owned: own.includes(it.id), on: (tab === "skins" ? save.equipped.skin : save.equipped.hat) === it.id })).join("")}</div>
           <div class="legend-row">${["common", "rare", "epic", "legendary"].map((r) => `<span><i style="background:var(--px-r-${r})"></i>${RARITY_EN[r]}</span>`).join("")}</div>`;
       } else {
         const items = shopItems(save);
@@ -118,6 +132,7 @@ export const wardrobeScreen = {
         equip(tryOn.kind, tryOn.id);
       },
       "hat-off": () => equip("hat", "none"),
+      "skin-editor": () => { sfx.tap(); go("editor"); },
       "buy-freeze": () => {
         if (save.streak.freezes >= ECON.freezeMax) return toast("You have the max!");
         if (save.coins < ECON.freezePrice) { sfx.wrong(); return toast("Not enough fish"); }
@@ -128,7 +143,9 @@ export const wardrobeScreen = {
         save.coins -= ECON.chestPrice; save.chests.unshift("wood"); persist(); sfx.coin(); go("chest", { from: "wardrobe" });
       },
     });
-    return off;
+    const onSkins = () => { if (el.isConnected) render(); };
+    window.addEventListener("nl:skins", onSkins);
+    return () => { off(); window.removeEventListener("nl:skins", onSkins); };
   },
 };
 

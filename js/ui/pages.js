@@ -89,9 +89,9 @@ export const cardsScreen = {
     root.append(el);
     const render = () => {
       el.querySelector(".album-tabs").innerHTML = skills.map((sk) => {
-        const items = itemsForSkill(sk), gold = items.filter((k) => cardTier(save.srs[k]) === 4).length;
+        const items = itemsForSkill(sk), got = items.filter((k) => cardTier(save.srs[k]) > 0).length, gold = items.filter((k) => cardTier(save.srs[k]) === 4).length;
         const th = sk.startsWith("v:") ? VOCAB[sk.slice(2)] : null;
-        return `<button class="album-tab ${sk === cur ? "on" : ""}" data-act="skill" data-s="${esc(sk)}">${th && th.icon ? `<img class="px-img" src="${picSrc(th.icon, 2)}" alt="">` : ico("cards", { scale: 2 })}<span>${esc(skillLabel(sk))}</span><small>${gold}/${items.length}</small></button>`;
+        return `<button class="album-tab ${sk === cur ? "on" : ""}" data-act="skill" data-s="${esc(sk)}">${th && th.icon ? `<img class="px-img" src="${picSrc(th.icon, 2)}" alt="">` : ico("cards", { scale: 2 })}<span>${esc(skillLabel(sk))}</span><small>${got}/${items.length}${gold ? ` · ${gold}★` : ""}</small></button>`;
       }).join("");
       const g = el.querySelector(".album-grid");
       if (!cur) { g.innerHTML = `<p class="muted">Play to find cards!</p>`; return; }

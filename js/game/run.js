@@ -8,12 +8,15 @@ import { bossIntro, createBossFight } from "./boss.js";
 import { createRunUI } from "./runui.js";
 import { planTask, MECHANICS } from "./mechanics/index.js";
 import { Session, record } from "../engine.js";
-import { PERKS, ECON } from "../../data/progression.js";
+import { PERKS, ECON, powerById, RUN_EVENTS, MERCHANT_OFFERS } from "../../data/progression.js";
+import { ensureDaily, progressDaily } from "../daily.js";
+import { syncPowers } from "../rewards.js";
 import EVENTS, { activeEvent } from "../../data/events.js";
 import { sfx, speak, startMusic, stopMusic } from "../audio.js";
 import { persist } from "../state.js";
 import * as lives from "../lives.js";
-import { getCat } from "../pixel/cat.js";
+import { getCat, catURL } from "../pixel/cat.js";
+import { chestSprite } from "../pixel/chests.js";
 import { makeMonster } from "../pixel/monsters.js";
 import { ICONS, iconURL } from "../pixel/icons.js";
 import { drawSprite } from "../pixel/sprite.js";
@@ -40,12 +43,22 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
   const debug = (() => { try { return new URLSearchParams(location.search).has("debug"); } catch { return false; } })();
   const DBG = debug ? (window.__nl = window.__nl || {}) : null;
   const setState = (s) => { if (DBG) DBG.runState = s; };
-  const ev = activeEvent(new Date(), EVENTS);
+  const qp = (k) => { try { return new URLSearchParams(location.search).get(k); } catch { return null; } };
+  // ?debug&season=halloween|none forces a seasonal event, ?debug&event=golden|mimic|merchant|secret forces a run event
+  const seasonQ = debug ? qp("season") : null;
+  const ev = seasonQ ? EVENTS.find((e) => e.id === seasonQ) || null : activeEvent(new Date(), EVENTS);
+  const halloween = !!(ev && ev.id === "halloween" && ev.mech === "trickortreat");
+  const forceEvent = debug ? qp("event") : null;
 
   const blank = (extra = {}) => ({ mode, startFloor: save.tower.checkpoint + 1, floorReached: save.tower.checkpoint, bossBeaten: false, quit: false,
     asleep: false, answers: 0, correct: 0, bestCombo: 0, kills: 0, coins: 0, xp: 0, weeklyDmg: 0, ms: 0, perks: [], ...extra });
 
   lives.tickLives(save);
+  try { ensureDaily(save, profile); } catch (e) { console.warn("daily", e); }
+  let unlockedPowers = [];
+  try { unlockedPowers = syncPowers(save).map((p) => p.id); } catch (e) { console.warn("powers", e); }
+  save.stats = save.stats || {}; save.stats.events = save.stats.events || {};
+  const bumpEvent = (k) => { save.stats.events[k] = (save.stats.events[k] || 0) + 1; };
   const startLives = lives.livesState(save).n;
   if (!isShadow && startLives <= 0) return blank({ asleep: true });
   const session = new Session(save, profile, mode);
@@ -57,6 +70,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     shields: tr(save, "nine_lives"), hints: { left: tr(save, "sixth_sense") > 0 ? tr(save, "sixth_sense") + 1 : 1 },
     startFloor: isShadow ? -1 : save.tower.checkpoint + 1, bossBeaten: false, quit: false, asleep: false,
     livesN: startLives, dream: isShadow && startLives <= 0, cellarErrors: 0, dreamErrors: 0,
+    livesLost: 0, failedKeys: new Set(), freezeTasks: 0, clawHits: 0, magnetFloor: null, powersUsed: 0,
+    stageEvent: null, events: [], eventChests: [],
   };
   const has = (id) => S.perks.includes(id);
   let floor = isShadow ? 0 : S.startFloor - 1; // the cat starts on the ledge below and climbs in
@@ -119,18 +134,23 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     get y() { return toScreenY(cat.wy); }, set y(v) { cat.wy = v + camY; },
     jumpTo(x, y) { return jumpWorld(x, y + camY, 0.24, 14); },
     attack() { cat.anim = "attack"; cat.animT = 0; return tween(0.2, () => {}, () => { if (cat.anim === "attack") cat.anim = "idle"; }); },
+    setAnim(a) { if (cat.anim === "attack" && a !== "attack") return; if (cat.anim !== a) { cat.anim = a; cat.animT = 0; } },
+    setFlip(f) { cat.flip = !!f; },
   };
 
   // ---------- monster ----------
   let mon = null;
-  function spawn(f) {
+  const GOLD_PAL = ["#ffd23f", "#fff1a8", "#c98a12"];
+  function spawn(f, kind = null) {
     const b = isShadow ? SHADOW_BIOME : biomeForFloor(f);
     const boss = !isShadow && f % ECON.floorsPerStage === 0;
-    const pal = ev && ev.monTint && !isShadow && Math.random() < 0.4 ? ev.monTint : b.mon;
-    const m = makeMonster(`${save.id}-${f}-${startedAt}`, pal, { boss, shadow: isShadow });
+    let pal = ev && ev.monTint && !isShadow && Math.random() < 0.4 ? ev.monTint : b.mon;
+    if (kind === "golden") pal = GOLD_PAL;
+    const m = kind === "mimic" ? makeMimic() : makeMonster(`${save.id}-${f}-${startedAt}`, pal, { boss, shadow: isShadow });
     const hp = isShadow ? 1 : boss ? ECON.bossHp(f) : ECON.monsterHp(f);
     mon = { m, boss, hp, max: hp, hpShow: hp, wx: 240 - (boss ? 58 : 50), wy: floorY(f), anim: "idle", animT: 0, flash: 0,
-      drop: 1, lx: 0, sx: 1, sy: 1, dead: false, alpha: 1, phase: 1, colors: [pal[0] || "#ff6b2c", pal[1] || "#ffcf3f"] };
+      drop: 1, lx: 0, off: 0, sx: 1, sy: 1, dead: false, alpha: 1, phase: 1, colors: kind === "mimic" ? ["#b0703e", "#ffd23f"] : [pal[0] || "#ff6b2c", pal[1] || "#ffcf3f"],
+      golden: kind === "golden" ? { turns: RUN_EVENTS.golden.turns } : null, mimic: kind === "mimic" ? { revealed: false } : null, trick: null, fled: false };
     return tween(0.45, (k) => { mon.drop = 1 - ease.out(k); }, () => {
       mon.sx = 1.3; mon.sy = 0.7; stage.shake(boss ? 3 : 1, 150);
       fx.burst(mon.wx, toScreenY(mon.wy), { n: 10, colors: ["#d8ccb4", "#a89c86"], speed: 40, gravity: -10, spread: Math.PI, angle: -Math.PI / 2 });
@@ -138,7 +158,35 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     });
   }
   const monW = () => (mon.m.w || 22) * AS, monH = () => (mon.m.h || 22) * AS;
-  const monScreen = () => ({ x: mon.wx + mon.lx, y: toScreenY(mon.wy) });
+  const monScreen = () => ({ x: mon.wx + mon.lx + (mon.off || 0), y: toScreenY(mon.wy) });
+
+  // ---------- mimic: a chest with teeth ----------
+  function makeMimic() {
+    const ch = chestSprite("wood");
+    const m = {
+      name: "Mimic", w: 20, h: 16, boss: false,
+      draw(ctx, x, y, { anim = "idle", t = 0, flash = false, scale = 1 } = {}) {
+        const rev = mon && mon.mimic && mon.mimic.revealed;
+        const chomp = rev && (anim === "lunge" || (anim === "idle" && Math.floor(t * 3) % 2 === 0));
+        const open = rev ? chomp || anim === "die" : false;
+        const peek = !rev && Math.floor(t * 0.8) % 4 === 3;
+        ch.draw(ctx, x, y, { open, shake: rev ? 0 : peek ? 1 : 0, scale, t, flash });
+        const px = (dx, dy, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x + dx * scale), Math.round(y + dy * scale), w * scale, h * scale); };
+        if (open) {
+          // eyes in the dark, tongue, teeth
+          px(-6, -15, 3, 2, "#ffd23f"); px(3, -15, 3, 2, "#ffd23f"); px(-5, -15, 1, 2, "#0e0b16"); px(4, -15, 1, 2, "#0e0b16");
+          px(-4, -11, 8, 2, "#e8434f"); px(-2, -11, 3, 1, "#ff9aa8");
+          for (let i = 0; i < 6; i++) { px(-9 + i * 3, -12, 2, 1, "#ffffff"); px(-8 + i * 3, -11, 1, 1, "#ffffff"); }
+        } else if (rev || peek) {
+          // eyes peeking from under the lid
+          px(-6, -11, 2, 1, "#ffd23f"); px(4, -11, 2, 1, "#ffd23f");
+          if (rev) for (let i = 0; i < 6; i++) px(-9 + i * 3, -10, 1, 1, "#ffffff");
+        }
+      },
+      portraitURL: () => "",
+    };
+    return m;
+  }
 
   // ---------- boss fight ----------
   let fight = null;
@@ -196,8 +244,9 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
         mon.sx += (1 - mon.sx) * Math.min(1, dt * 12); mon.sy += (1 - mon.sy) * Math.min(1, dt * 12);
         mon.hpShow += (mon.hp - mon.hpShow) * Math.min(1, dt * 5);
       }
-      if (fight) { fight.paused = runState !== "task" || typing() || !!(mech && mech.typing) || ui.modalOpen; fight.update(dt, t); }
+      if (fight) { fight.paused = runState !== "task" || typing() || !!(mech && mech.typing) || ui.modalOpen || S.freezeTasks > 0; fight.update(dt, t); }
       if (mech && mech.update) mech.update(dt, t);
+      updateExtras(dt, t);
       fx.update(dt);
       for (let i = 0; i < 9; i++) if (heartPulse[i] > 0) heartPulse[i] -= dt;
       if (fishPulse > 0) fishPulse -= dt;
@@ -206,12 +255,16 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     draw(ctx, t) {
       const w = 240, h = stage.h;
       drawTower(ctx, { w, h, camY, floorFrom, t, phase: dayPhase(), trophies: trophies() });
+      if (merchantNPC) drawMerchant(ctx, t);
       if (mon && !(mon.dead && mon.alpha <= 0)) drawMonster(ctx, t);
       drawCat(ctx, t);
       if (mech && mech.draw) { ctx.save(); try { mech.draw(ctx, t); } finally { ctx.restore(); } }
       if (fight) fight.draw(ctx, t);
+      if (bonus) drawBonus(ctx, t);
       fx.draw(ctx);
+      if (S.freezeTasks > 0) drawFrost(ctx, t);
       drawHud(ctx, t);
+      if (powerFx) drawPowerFx(ctx, t);
       if (banner) drawBanner(ctx, t);
     },
   };
@@ -253,9 +306,17 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (mon.phase === 2 && Math.floor(t * 6) % 2 === 0 && mon.flash <= 0) o.flash = false;
     ctx.translate(x, y + bob);
     if (mon.sx !== 1 || mon.sy !== 1) ctx.scale(mon.sx, mon.sy);
-    mon.m.draw(ctx, 0, 0, o);
+    if (mon.trick) drawTrick(ctx, mon.trick, t);
+    else mon.m.draw(ctx, 0, 0, o);
     ctx.restore();
-    if (mon.dead) return;
+    if (mon.golden && !mon.dead && Math.floor(t * 7) % 3 === 0) {
+      // twinkles on the golden monster
+      const k = Math.floor(t * 7);
+      const sx = Math.round(x + ((k * 37) % 40) - 20), sy = Math.round(y - ((k * 23) % monH()));
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(sx, sy - 2, 1, 5); ctx.fillRect(sx - 2, sy, 5, 1);
+    }
+    if (mon.dead || mon.fled) return;
+    if (mon.mimic && !mon.mimic.revealed) return; // just a chest... right?
     // HP bar + name
     const bw = mon.boss ? 56 : 36, bx = Math.round(x - bw / 2), by = Math.round(y - monH() - 10);
     ctx.fillStyle = "#0e0b16"; ctx.fillRect(bx - 1, by - 1, bw + 2, 7);
@@ -266,6 +327,13 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(bx, by, bw, 1);
     for (let i = 1; i < mon.max; i++) { ctx.fillStyle = "#0e0b16"; ctx.fillRect(bx + Math.round(bw * i / mon.max), by, 1, 5); }
     if (mon.boss) pxText(ctx, (mon.m.name || "BOSS").toUpperCase().slice(0, 18), x, by - 8, { color: "#ffcf3f", align: "center" });
+    if (mon.golden) {
+      // turns left before it runs away: clock + number
+      const tx = bx + bw + 3, ty = by - 2;
+      if (!isStub(ICONS.clock)) drawSprite(ctx, ICONS.clock, 0, tx + ICONS.clock.anchor.x, ty + ICONS.clock.anchor.y, {});
+      pxText(ctx, String(Math.max(0, mon.golden.turns)), tx + 11, ty + 1, { color: mon.golden.turns <= 1 ? "#ff6a5a" : "#ffcf3f" });
+      pxText(ctx, "GOLDEN!", x, by - 8, { color: "#ffcf3f", align: "center" });
+    }
   }
   function drawHud(ctx, t) {
     const H = stage.h;

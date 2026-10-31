@@ -7,6 +7,8 @@ import { wardrobeScreen } from "./ui/wardrobe.js";
 import { chestScreen } from "./ui/chest.js";
 import { resultsScreen } from "./ui/results.js";
 import { skillsScreen, cardsScreen, storyScreen, weeklyScreen, settingsScreen } from "./ui/pages.js";
+import { dailyScreen } from "./ui/daily.js";
+import { editorScreen } from "./ui/editor.js";
 import { persist, getSave } from "./state.js";
 import { tickLives } from "./lives.js";
 import { applyRunResults } from "./rewards.js";
@@ -49,6 +51,8 @@ register("cards", cardsScreen);
 register("story", storyScreen);
 register("weekly", weeklyScreen);
 register("settings", settingsScreen);
+register("daily", dailyScreen);
+register("editor", editorScreen);
 
 // ---------- debug / boty (?debug) ----------
 const DEBUG = new URLSearchParams(location.search).has("debug");
