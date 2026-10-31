@@ -9,7 +9,7 @@ export default {
     ["pumpkin", "dynia", "🎃"], ["ghost", "duch", "👻"], ["bat", "nietoperz", "🦇"],
     ["witch", "czarownica", "🧙‍♀️"], ["spider", "pająk", "🕷️"], ["spider web", "pajęczyna", "🕸️"],
     ["skull", "czaszka", "💀"], ["candy", "cukierek", "🍬"], ["lollipop", "lizak", "🍭"],
-    ["moon", "księżyc", "🌙"], ["owl", "sowa", "🦉"], ["broom", "miotła", "🧹"],
+    ["moon", "księżyc", "🌕"], ["owl", "sowa", "🦉"], ["broom", "miotła", "🧹"],
     ["zombie", "zombie", "🧟"], ["vampire", "wampir", "🧛"], ["candle", "świeca", "🕯️"],
     ["haunted house", "nawiedzony dom", "🏚️"], ["monster", "potwór", "👾"], ["black cat", "czarny kot", "🐈‍⬛"],
   ]},
@@ -66,7 +66,7 @@ export default {
   weather: { name: "Weather", icon: "🌦️", words: [
     ["sun", "słońce", "☀️"], ["rain", "deszcz", "🌧️"], ["snow", "śnieg", "❄️"], ["cloud", "chmura", "☁️"],
     ["wind", "wiatr", "🌬️"], ["storm", "burza", "⛈️"], ["rainbow", "tęcza", "🌈"], ["hot", "gorący / gorąco", "🥵"],
-    ["cold", "zimny / zimno", "🥶"], ["fog", "mgła", "🌫️"],
+    ["cold", "zimny / zimno", "🥶"], ["fog", "mgła", "🌁"],
   ]},
   toys: { name: "Toys", icon: "🧸", words: [
     ["ball", "piłka", "⚽"], ["teddy bear", "miś", "🧸"], ["kite", "latawiec", "🪁"], ["robot", "robot", "🤖"],

@@ -772,3 +772,7 @@ canvas.cat-live { display: block; image-rendering: pixelated; }
 .res-daily .dl-bar { height: 16px; }
 .res-daily .dl-bar span { font-size: 11px; }
 .res-daily.done span.lex { color: var(--px-ok); font-weight: 600; }
+@media (min-width: 900px) {
+  .home-dock { min-width: 0; }
+  .climb-wrap:has(.pw-pick) .climb { min-width: 220px; padding-left: 20px; padding-right: 20px; }
+}

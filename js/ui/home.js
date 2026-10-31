@@ -467,7 +467,7 @@ export const homeScreen = {
     showNotes();
     const onSkins = () => { showNotes(); if (String(save.equipped.skin).startsWith("custom:")) { try { catObj = getCat(save.equipped.skin, save.equipped.hat); } catch {} } };
     window.addEventListener("nl:skins", onSkins);
-    if (hasGift() && !params.first) setTimeout(() => toast("A gift from your teacher!", { icon: "star", ms: 3200 }), 500);
+    if (hasGift() && !params.first && !window.__giftToasted && (window.__giftToasted = true)) setTimeout(() => toast("A gift from your teacher!", { icon: "star", ms: 3200 }), 500);
 
     const onWin = () => setTimeout(() => { if (L && el.isConnected) scene.style.setProperty("--sky-bg", skyBg(scene, stage, phase.phase, L.H)); }, 150);
     window.addEventListener("resize", onWin);

@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><body style="background:#f4efe2;margin:8px;font:11px sans-serif">
+<div id="g" style="display:grid;grid-template-columns:repeat(12,76px);gap:4px"></div>
+<script type="module">
+import VOCAB from "../data/vocab.js"; import { pixelURL } from "../js/pixel/pixelizer.js";
+const g = document.getElementById("g");
+for (const [th, t] of Object.entries(VOCAB)) for (const w of t.words) {
+  const d = document.createElement("div"); d.style.cssText = "text-align:center";
+  d.innerHTML = `<img src="${pixelURL(w[2], 3)}" style="width:57px;image-rendering:pixelated"><br>${w[0]}`; g.append(d); }
+</script>
