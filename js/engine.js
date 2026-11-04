@@ -191,9 +191,10 @@ export class Session {
     const canType = !noRead && L <= MAX_TYPE, canSpell = !noRead && L <= MAX_SPELL;
     let types;
     if (noRead) types = box <= 1 ? ["listen2pic", "listen2pic", "pic2listen"] : ["listen2pic", "pic2listen", "pic2listen"];
-    else if (box <= 0) types = ["word2pic", "listen2pic", "pic2word"];
-    else if (box === 1) types = ["word2pic", "pic2word", "listen2pic", "pic2listen"];
-    else if (box === 2) types = ["pic2word", "pl2en", "listen2pic", "spell"];
+    // Czytający NIE dostają zadań opartych tylko na głosie syntezatora (jakość wymowy zależy od urządzenia).
+    else if (box <= 0) types = ["word2pic", "pic2word", "word2pic"];
+    else if (box === 1) types = ["word2pic", "pic2word", "pl2en", "word2pic"];
+    else if (box === 2) types = ["pic2word", "pl2en", "word2pic", "spell"];
     else if (box === 3) types = ["spell", "type", "pl2en", "pic2word"];
     else types = ["type", "type", "spell", "pl2en"];
     let type = pick(types, this.rng);

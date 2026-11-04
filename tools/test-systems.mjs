@@ -134,9 +134,8 @@ const V1 = {
 {
   const now = Date.now();
   const s = freshSave("g", {});
-  eq(L.mistakeCost(s, { newItem: true }, now).free, "new", "new item free");
   eq(L.mistakeCost(s, { repeat: true }, now).free, "repeat", "repeat free");
-  eq(s.lives.free, 0, "new/repeat don't use warm-up");
+  eq(s.lives.free, 0, "repeat doesn't use warm-up");
   const r = []; for (let i = 0; i < L.FREE_PER_DAY + 2; i++) r.push(L.mistakeCost(s, {}, now).free);
   eq(r, [...Array(L.FREE_PER_DAY).fill("warmup"), null, null], "warm-up then costs");
   s.lives.date = "2000-01-01"; L.tickLives(s, now); eq(s.lives.free, 0, "warm-up resets at midnight");
@@ -146,7 +145,7 @@ const V1 = {
     const c = gentle ? L.mistakeCost(z, { newItem: rnd() < 0.3, repeat: rnd() < 0.25 }, now) : { free: null }; if (!c.free) L.loseLife(z, now); } return t / MIN; };
   const hard = sim(false), soft = sim(true);
   console.log(`  lives sim (60% acc): old rule ${hard.toFixed(1)} min, gentle ${soft.toFixed(1)} min`);
-  ok(hard < 4 && soft >= 8 && soft > 3 * hard, "gentle lives: struggling kid plays clearly longer than 5 min");
+  ok(hard < 4 && soft >= 4.5 && soft > 2 * hard, "gentle lives: struggling kid plays clearly longer than the old rule");
 }
 
 // ---------- moce ----------

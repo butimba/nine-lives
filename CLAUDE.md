@@ -35,6 +35,6 @@ Gra edukacyjna (angielski) dla młodszych uczniów Maxa. Statyczna strona (GitHu
 
 ## Ekonomia (data/progression.js → ECON, js/lives.js)
 Etap = 5 pięter, boss na 5. Potwór 2 HP (<20 piętro), 3 HP (<60), 4 HP. Level = punkt talentu; co 5 leveli skrzynia (co 10 srebrna). Skrzynia za bossa: zwykle drewniana/srebrna, piętro 25/75… złota, 50/100… epicka.
-**9 żyć dziennie** (`save.lives`): zła odpowiedź −1, +1 co 20 min, +1 za combo 8, reset do 9 o północy. 0 żyć = kot śpi (Wieża zablokowana, Shadow Cellar działa w „dream mode”).
+**9 żyć dziennie** (`save.lives`): zła odpowiedź −1 (pierwsze 5 błędów dnia i powtórny błąd na tym samym elemencie w biegu są darmowe — `mistakeCost`), +1 co 20 min, +1 za combo 8, reset do 9 o północy. 0 żyć = kot śpi (Wieża zablokowana, Shadow Cellar działa w „dream mode”).
 **Malejące nagrody** wg czasu gry dziś (`save.daily.ms`): 0–20 min 100%, 20–30 min 70%, 30–45 min 35%, 45+ min 15% (rybki i XP; nauka i postęp wieży bez zmian). Shadow Cellar zawsze 100%. Progi: `REWARD_TIERS` w `js/lives.js`.
 Talenty/perki mnożą rybki/XP w `js/rewards.js` (lucky +10%/rangę, bell ×1.5, magnet ×1.3 XP); Cat Nap = +1/+2 życia po bossie.

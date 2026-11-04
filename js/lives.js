@@ -12,7 +12,7 @@ export const MAX_LIVES = 9, REGEN_MS = 20 * 60 * 1000, COMBO_LIFE = 8;
 //  2) to pierwsze w historii podejście do danej rzeczy (nowe słowo / nowy wzorzec — nie da się znać czegoś, czego się nie uczyło),
 //  3) ta sama rzecz była już źle w tym biegu (silnik i tak ją powtarza — nie karzemy dwa razy za tę samą lukę).
 // Nauka (srs, log, cienie) liczy się normalnie; zmienia się tylko koszt w życiach.
-export const FREE_PER_DAY = 3;
+export const FREE_PER_DAY = 5;
 // progi minut gry dziennie → mnożnik nagród
 export const REWARD_TIERS = [
   { min: 0, mult: 1 },
@@ -70,7 +70,7 @@ export function loseLife(save, now = Date.now()) {
 export function mistakeCost(save, ctx = {}, now = Date.now()) {
   tickLives(save, now);
   const l = save.lives;
-  if (ctx.newItem) return { free: "new" };
+  // (nowe słowo/reguła mają kartę NEW WORD/NEW RULE przed zadaniem, więc pierwszy błąd już kosztuje — inaczej pierwszego dnia można klikać na ślepo)
   if (ctx.repeat) return { free: "repeat" };
   if (l.free < FREE_PER_DAY) { l.free++; return { free: "warmup", left: FREE_PER_DAY - l.free }; }
   return { free: null };
