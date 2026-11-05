@@ -56,6 +56,22 @@ export default {
    "noReading": true
   },
   "nxqpf3": {
+   "voice": true,
+   "tester": true,
+   "gifts": [
+    "skin:shrimp"
+   ],
+   "focus": [
+    "v:animals",
+    "v:colors",
+    "v:numbers",
+    "v:food",
+    "v:toys",
+    "can"
+   ],
+   "duo": null
+  },
+  "16wd762": {
    "voice": false,
    "tester": true,
    "focus": [
@@ -77,6 +93,19 @@ export default {
    ],
    "gifts": [
     "skin:shrimp"
+   ],
+   "duo": null
+  },
+  "b6ql4d": {
+   "voice": true,
+   "tester": true,
+   "noReading": true,
+   "focus": [
+    "v:animals",
+    "v:colors",
+    "v:numbers",
+    "v:toys",
+    "v:food"
    ],
    "duo": null
   }
