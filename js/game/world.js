@@ -487,8 +487,66 @@ export function drawTower(ctx, o) {
     if (tr && typeof tr.draw === "function") { tr.draw(ctx, tx, ly); continue; }
     drawTrophy(ctx, tx, ly, t + f);
   }
-  if (p.phase === "night") drawFireflies(ctx, 8, 0, w - 16, h, t, 7);
+  if (o.season === "winter") {
+    for (let f = Math.max(fLo, floorFrom); f <= fHi; f++) {
+      if (f > floorTo) continue;
+      const ly = Math.round(floorY(f) - camY);
+      if (ly < -FH || ly - FH > h + 10) continue;
+      winterLedge(ctx, w, ly, f, t);
+    }
+    drawSnowfall(ctx, w, h, t, 34);
+  } else if (p.phase === "night") drawFireflies(ctx, 8, 0, w - 16, h, t, 7);
   ctx.restore();
+}
+
+// ---------- zima / Nowy Rok (wydarzenia: data/events.js decor/sky) ----------
+// padający śnieg (deterministyczny z czasu — bez stanu), na całą szerokość
+export function drawSnowfall(ctx, w, h, t, n = 26) {
+  for (let i = 0; i < n; i++) {
+    const sp = 9 + (i % 5) * 3, ph = hash(i, 77);
+    const y = ((t * sp + ph * h) % (h + 10)) - 5;
+    const x = Math.round((hash(i, 78) * w + Math.sin(t * 0.9 + i) * 6 + w) % w);
+    ctx.fillStyle = i % 4 === 0 ? "#ffffff" : "#dff0ff";
+    const big = i % 6 === 0;
+    ctx.fillRect(x, Math.round(y), big ? 2 : 1, big ? 2 : 1);
+  }
+}
+// fajerwerki na niebie: 3 rakiety w pętli, wybuch w pierścień pikseli
+export function drawFireworks(ctx, w, h, t) {
+  const cols = ["#ff5d8f", "#ffe14d", "#6fe3d3", "#93e04c", "#ffa04d", "#c77dff"];
+  for (let i = 0; i < 3; i++) {
+    const cyc = 3.2 + i * 0.7, ph = ((t + i * 1.3) % cyc) / cyc, round = Math.floor((t + i * 1.3) / cyc);
+    const bx = Math.round(20 + hash(i, round) * (w - 40)), by = Math.round(16 + hash(i + 9, round) * (h * 0.6));
+    const col = cols[(i + round) % cols.length];
+    if (ph < 0.25) { const k = ph / 0.25; ctx.fillStyle = "#fff1a8"; ctx.fillRect(bx, Math.round(by + (1 - k) * 50), 1, 2); }
+    else if (ph < 0.75) {
+      const k = (ph - 0.25) / 0.5, r = 2 + Math.round(k * 14);
+      ctx.globalAlpha = k > 0.6 ? (1 - k) / 0.4 : 1;
+      for (let j = 0; j < 12; j++) {
+        const a = (j / 12) * Math.PI * 2;
+        ctx.fillStyle = j % 2 ? col : "#ffffff";
+        ctx.fillRect(Math.round(bx + Math.cos(a) * r), Math.round(by + Math.sin(a) * r + k * 4), 1, 1);
+        ctx.fillStyle = col;
+        ctx.fillRect(Math.round(bx + Math.cos(a) * r * 0.6), Math.round(by + Math.sin(a) * r * 0.6 + k * 3), 1, 1);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+// śnieg na półkach i lampki w wieży biegu (drawTower: o.season = "winter")
+function winterLedge(ctx, w, ly, f, t) {
+  ctx.fillStyle = "#e8f2ff"; ctx.fillRect(0, ly - 2, w, 2);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, ly - 2, w, 1);
+  for (let i = 0; i < w; i += 3) { const r = hash(i, f, 40); if (r < 0.3) { ctx.fillStyle = "#ffffff"; ctx.fillRect(i, ly - 3, 2 + (r < 0.1 ? 2 : 0), 1); } }
+  // girlanda z lampkami pod sufitem piętra
+  const cy = ly - FH + SLAB + 6, cols = ["#ff3b4f", "#ffd23f", "#3ad65a", "#3b9bff"];
+  for (let i = 6; i < w - 6; i += 2) { ctx.fillStyle = "#1f4a2a"; ctx.fillRect(i, cy + Math.round(Math.abs(Math.sin((i / 26) * Math.PI)) * 5), 2, 1); }
+  for (let j = 0, x = 10; x < w - 8; j++, x += 13) {
+    const yy = cy + Math.round(Math.abs(Math.sin((x / 26) * Math.PI)) * 5) + 1;
+    const on = (j + Math.floor(t * 2.5) + f) % 3 !== 0, c = cols[(j + f) % 4];
+    if (on) { ctx.globalAlpha = 0.28; ctx.fillStyle = c; ctx.fillRect(x - 2, yy - 1, 6, 6); ctx.globalAlpha = 1; }
+    ctx.fillStyle = on ? c : "#3a3352"; ctx.fillRect(x, yy + 1, 2, 3);
+  }
 }
 
 export function drawTrophy(ctx, x, y, t = 0) {

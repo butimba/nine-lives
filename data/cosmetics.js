@@ -3,7 +3,9 @@
 // source: "shop" (za monety), "chest" (tylko ze skrzynek), "weekly" (nagroda za bossa tygodnia, po kolei wg "order"),
 //         "event:<id>" (do kupienia tylko w czasie wydarzenia), "start" (każdy ma od początku)
 // colors: fur, belly, stripe, ear, eye, nose. pattern: none | stripes | spots | tux | socks
-// fx: dodatkowe efekty rysowane przez grę (shrimp, fire, toxic, candy, ghost, galaxy, robot, ice, zombie, golden, pumpkin, rainbow)
+// fx: dodatkowe efekty rysowane przez grę (shrimp, fire, toxic, candy, ghost, galaxy, robot, ice, zombie, golden, pumpkin, rainbow,
+//     shark, santa, lights, xmastree, reindeer, snowman, elf, candycane, firework)
+// chest: true = przedmiot wydarzenia może też wypaść ze skrzyni w czasie wydarzenia (bez ceny = TYLKO ze skrzyni w czasie wydarzenia)
 
 export const SKINS = [
   { id: "ginger", name: "Ginger", rarity: "common", source: "start", pattern: "stripes",
@@ -20,7 +22,7 @@ export const SKINS = [
     colors: { fur: "#e9d3b0", belly: "#fff6e6", stripe: "#7a5232", ear: "#f7b6a0", eye: "#2f8f6b", nose: "#d8706b" } },
   { id: "candy", name: "Candy Cat", rarity: "rare", source: "shop", price: 450, pattern: "stripes", fx: ["candy"],
     colors: { fur: "#ffc4e1", belly: "#fff0f8", stripe: "#ff6fb5", ear: "#9ee6ff", eye: "#a66bff", nose: "#ff4f9a" } },
-  { id: "toxic", name: "Toxic Cat", rarity: "rare", source: "chest", pattern: "spots", fx: ["toxic"],
+  { id: "toxic", name: "Toxic Cat", rarity: "rare", source: "shop", price: 600, pattern: "spots", fx: ["toxic"],
     colors: { fur: "#8fe04a", belly: "#d8ff9e", stripe: "#3a8f1e", ear: "#2c4d14", eye: "#ff3df2", nose: "#2c4d14" } },
   { id: "robot", name: "Robo Cat", rarity: "rare", source: "shop", price: 500, pattern: "none", fx: ["robot"],
     colors: { fur: "#b8c4d6", belly: "#e3ebf5", stripe: "#7f8ea6", ear: "#ff5d5d", eye: "#38e8ff", nose: "#ff5d5d" } },
@@ -34,6 +36,8 @@ export const SKINS = [
     colors: { fur: "#ffcf3f", belly: "#fff1b0", stripe: "#d99a00", ear: "#ffe68a", eye: "#b8336a", nose: "#d99a00" } },
   { id: "rainbow", name: "Rainbow Cat", rarity: "legendary", source: "shop", price: 2500, pattern: "none", fx: ["rainbow"],
     colors: { fur: "#ffffff", belly: "#ffffff", stripe: "#ffffff", ear: "#ff9ad5", eye: "#5b3cff", nose: "#ff6fa5" } },
+  { id: "shark", name: "Shark Cat", rarity: "epic", source: "shop", price: 950, pattern: "none", fx: ["shark"],
+    colors: { fur: "#6f8fae", belly: "#eef4f8", stripe: "#4a6a8a", ear: "#9fb8d0", eye: "#101828", nose: "#3a4a5e" } },
   // --- wydarzenia ---
   { id: "pumpkin", name: "Pumpkin Cat", rarity: "rare", source: "event:halloween", price: 350, pattern: "stripes", fx: ["pumpkin"],
     colors: { fur: "#ff8a1f", belly: "#ffc27a", stripe: "#d45f00", ear: "#3d7a1a", eye: "#ffe14d", nose: "#3a1d00" } },
@@ -43,6 +47,23 @@ export const SKINS = [
     colors: { fur: "#8fb58a", belly: "#c4dbb9", stripe: "#5d7d58", ear: "#a35f6b", eye: "#ff2b2b", nose: "#5a2a33" } },
   { id: "gingerbread", name: "Gingerbread Cat", rarity: "rare", source: "event:winter", price: 400, pattern: "none", fx: ["candy"],
     colors: { fur: "#b8743c", belly: "#e9b27a", stripe: "#ffffff", ear: "#ffffff", eye: "#2a1405", nose: "#ff4b4b" } },
+  // --- Święta (winter, 1–27.12) i Nowy Rok (newyear, 28.12–6.01; sprzedaje też rzeczy zimowe) ---
+  { id: "santacat", name: "Santa Cat", rarity: "rare", source: "event:winter", price: 450, pattern: "none", fx: ["santa"],
+    colors: { fur: "#e8434f", belly: "#ffffff", stripe: "#a82848", ear: "#ffffff", eye: "#1d1d2b", nose: "#ff9aa8" } },
+  { id: "lights", name: "Lightbulb Cat", rarity: "epic", source: "event:winter", price: 800, chest: true, pattern: "none", fx: ["lights"],
+    colors: { fur: "#3a3352", belly: "#5a5076", stripe: "#2a2440", ear: "#ffd23f", eye: "#ffe96b", nose: "#ff5d8f" } },
+  { id: "xmastree", name: "Christmas Tree Cat", rarity: "epic", source: "event:winter", price: 750, pattern: "none", fx: ["xmastree"],
+    colors: { fur: "#2f8f4a", belly: "#5ac46a", stripe: "#1f6a34", ear: "#ffd23f", eye: "#ffd23f", nose: "#e8434f" } },
+  { id: "snowman", name: "Snowman Cat", rarity: "rare", source: "event:winter", price: 400, pattern: "none", fx: ["snowman"],
+    colors: { fur: "#f4f8ff", belly: "#ffffff", stripe: "#d0dcef", ear: "#cfe0f5", eye: "#1d1d2b", nose: "#ff8a1f" } },
+  { id: "elf", name: "Elf Cat", rarity: "rare", source: "event:winter", price: 380, pattern: "socks", fx: ["elf"],
+    colors: { fur: "#ffd0a8", belly: "#fff0e0", stripe: "#3aa34f", ear: "#ff9a8a", eye: "#2f8f4a", nose: "#ff7d8a" } },
+  { id: "candycane", name: "Candy Cane Cat", rarity: "common", source: "event:winter", price: 250, pattern: "stripes", fx: ["candycane"],
+    colors: { fur: "#ffffff", belly: "#fff4f4", stripe: "#e8434f", ear: "#ff9aa8", eye: "#3aa34f", nose: "#e8434f" } },
+  { id: "reindeer", name: "Reindeer Cat", rarity: "epic", source: "event:winter", chest: true, pattern: "socks", fx: ["reindeer"],
+    colors: { fur: "#9a6a42", belly: "#e8cfa8", stripe: "#6e4a2c", ear: "#c98a5a", eye: "#1d1d2b", nose: "#ff2b2b" } },
+  { id: "firework", name: "Firework Cat", rarity: "legendary", source: "event:newyear", price: 1500, chest: true, pattern: "none", fx: ["firework"],
+    colors: { fur: "#1d1b3a", belly: "#3a3570", stripe: "#14122a", ear: "#ff5d8f", eye: "#ffe14d", nose: "#ff5d8f" } },
   // --- nagrody za bossa tygodnia (kolejka) ---
   { id: "shrimp", name: "Shrimp Cat", rarity: "epic", source: "weekly", order: 1, pattern: "stripes", fx: ["shrimp"],
     colors: { fur: "#ff8f7a", belly: "#ffd0c2", stripe: "#e8573f", ear: "#ffb3a3", eye: "#1d1d2b", nose: "#c73b28" } },
@@ -71,6 +92,11 @@ export const HATS = [
   { id: "witch", name: "Witch hat", rarity: "rare", source: "event:halloween", price: 200 },
   { id: "pumpkinhat", name: "Pumpkin hat", rarity: "rare", source: "event:halloween", price: 220 },
   { id: "santa", name: "Santa hat", rarity: "rare", source: "event:winter", price: 200 },
+  { id: "elfhat", name: "Elf hat", rarity: "rare", source: "event:winter", price: 180 },
+  { id: "earmuffs", name: "Earmuffs", rarity: "common", source: "event:winter", price: 120 },
+  { id: "antlers", name: "Antlers", rarity: "epic", source: "event:winter", chest: true },
+  { id: "star", name: "Star topper", rarity: "epic", source: "event:winter", price: 350, chest: true },
+  { id: "nyhat", name: "New Year hat", rarity: "rare", source: "event:newyear", price: 220 },
   { id: "bunnyears", name: "Bunny ears", rarity: "rare", source: "event:spring", price: 200 },
   { id: "sunhat", name: "Sun hat", rarity: "rare", source: "event:summer", price: 200 },
 ];

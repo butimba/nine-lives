@@ -46,9 +46,10 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
   const setState = (s) => { if (DBG) DBG.runState = s; };
   const qp = (k) => { try { return new URLSearchParams(location.search).get(k); } catch { return null; } };
   // ?debug&season=halloween|none forces a seasonal event, ?debug&event=golden|mimic|merchant|secret forces a run event
-  const seasonQ = debug ? qp("season") : null;
-  const ev = seasonQ ? EVENTS.find((e) => e.id === seasonQ) || null : activeEvent(new Date(), EVENTS);
+  // (activeEvent itself honours ?debug&season=… — see data/events.js)
+  const ev = activeEvent(undefined, EVENTS);
   const halloween = !!(ev && ev.id === "halloween" && ev.mech === "trickortreat");
+  const winter = !!(ev && ev.mech === "presents");
   const forceEvent = debug ? qp("event") : null;
 
   const blank = (extra = {}) => ({ mode, startFloor: save.tower.checkpoint + 1, floorReached: save.tower.checkpoint, bossBeaten: false, quit: false,
@@ -149,9 +150,15 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (kind === "golden") pal = GOLD_PAL;
     const m = kind === "mimic" ? makeMimic() : makeMonster(`${save.id}-${f}-${startedAt}`, pal, { boss, shadow: isShadow });
     const hp = isShadow ? 1 : boss ? ECON.bossHp(f) : ECON.monsterHp(f);
+    if (winter && boss && kind !== "mimic") {
+      // winter boss: a frosty name, snowball shots, a Santa hat (drawn in drawMonster)
+      m.name = "Frosty " + String(m.name || "Boss").split(" ").pop();
+    }
     mon = { m, boss, hp, max: hp, hpShow: hp, wx: 240 - (boss ? 58 : 50), wy: floorY(f), anim: "idle", animT: 0, flash: 0,
       drop: 1, lx: 0, off: 0, sx: 1, sy: 1, dead: false, alpha: 1, phase: 1, colors: kind === "mimic" ? ["#b0703e", "#ffd23f"] : [pal[0] || "#ff6b2c", pal[1] || "#ffcf3f"],
-      golden: kind === "golden" ? { turns: RUN_EVENTS.golden.turns } : null, mimic: kind === "mimic" ? { revealed: false } : null, trick: null, fled: false };
+      golden: kind === "golden" ? { turns: RUN_EVENTS.golden.turns } : null, mimic: kind === "mimic" ? { revealed: false } : null, trick: null, fled: false,
+      jumper: null, xmasHat: winter && boss && kind !== "mimic" };
+    if (mon.xmasHat) mon.colors = ["#ffffff", "#bfe8ff"]; // snowballs
     return tween(0.45, (k) => { mon.drop = 1 - ease.out(k); }, () => {
       mon.sx = 1.3; mon.sy = 0.7; stage.shake(boss ? 3 : 1, 150);
       fx.burst(mon.wx, toScreenY(mon.wy), { n: 10, colors: ["#d8ccb4", "#a89c86"], speed: 40, gravity: -10, spread: Math.PI, angle: -Math.PI / 2 });
@@ -255,13 +262,14 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     },
     draw(ctx, t) {
       const w = 240, h = stage.h;
-      drawTower(ctx, { w, h, camY, floorFrom, t, phase: dayPhase(), trophies: trophies() });
+      drawTower(ctx, { w, h, camY, floorFrom, t, phase: dayPhase(), trophies: trophies(), season: winter && !isShadow ? "winter" : null });
       if (merchantNPC) drawMerchant(ctx, t);
       if (mon && !(mon.dead && mon.alpha <= 0)) drawMonster(ctx, t);
       drawCat(ctx, t);
       if (mech && mech.draw) { ctx.save(); try { mech.draw(ctx, t); } finally { ctx.restore(); } }
       if (fight) fight.draw(ctx, t);
       if (bonus) drawBonus(ctx, t);
+      if (gifts.length) drawGifts(ctx);
       fx.draw(ctx);
       if (S.freezeTasks > 0) drawFrost(ctx, t);
       drawHud(ctx, t);
@@ -308,7 +316,9 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     ctx.translate(x, y + bob);
     if (mon.sx !== 1 || mon.sy !== 1) ctx.scale(mon.sx, mon.sy);
     if (mon.trick) drawTrick(ctx, mon.trick, t);
+    else if (mon.jumper) drawJumper(ctx, o, t);
     else mon.m.draw(ctx, 0, 0, o);
+    if (!mon.trick && (mon.xmasHat || mon.jumper) && !mon.dead) drawXmasHat(ctx, t);
     ctx.restore();
     if (mon.golden && !mon.dead && Math.floor(t * 7) % 3 === 0) {
       // twinkles on the golden monster
@@ -422,6 +432,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
   function updateExtras(dt, t) {
     extraT += dt;
     if (powerFx) { powerFx.t += dt; if (powerFx.t > 0.9) powerFx = null; }
+    if (mon && mon.jumper) { mon.jumper.t += dt; if (mon.jumper.t > mon.jumper.dur) mon.jumper = null; }
     if (mon && mon.trick) {
       mon.trick.t += dt;
       if (mon.trick.t > mon.trick.dur) {
@@ -437,6 +448,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (mon && mon.golden && !mon.dead && Math.random() < dt * 6) { const p = monScreen(); fx.burst(p.x + (Math.random() - 0.5) * monW(), p.y - Math.random() * monH(), { n: 1, colors: ["#fff1a8", "#ffd23f"], speed: 10, gravity: -20, life: 0.6, size: 1 }); }
     if (merchantNPC) merchantNPC.t += dt;
     if (bonus) updateBonus(dt);
+    if (gifts.length) updateGifts(dt);
   }
   function drawPowerFx(ctx) {
     const k = powerFx.t / 0.9, d = powerFx.def;
@@ -477,6 +489,60 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const s = 3, w = T.rows[0].length * s, h = T.rows.length * s;
     const hop = Math.round(Math.abs(Math.sin(t * 9)) * 3);
     T.rows.forEach((r, j) => [...r].forEach((c, i) => { if (c === ".") return; ctx.fillStyle = T.map[c]; ctx.fillRect(i * s - w / 2, j * s - h - hop, s, s); }));
+  }
+  // Winter: presents that pop out and bounce on the ledge
+  const gifts = [];
+  function updateGifts(dt) {
+    const ground = toScreenY(floorY(floor)) - 1;
+    for (let i = gifts.length - 1; i >= 0; i--) {
+      const g = gifts[i]; g.t += dt; g.vy += 260 * dt; g.x += g.vx * dt; g.y += g.vy * dt;
+      if (g.y > ground) { g.y = ground; g.vy *= -0.35; g.vx *= 0.6; }
+      if (g.t > 1.6) gifts.splice(i, 1);
+    }
+  }
+  function drawGifts(ctx) {
+    for (const g of gifts) {
+      const x = Math.round(g.x), y = Math.round(g.y);
+      ctx.globalAlpha = g.t > 1.3 ? (1.6 - g.t) / 0.3 : 1;
+      ctx.fillStyle = "#0e0b16"; ctx.fillRect(x - 5, y - 9, 11, 10);
+      ctx.fillStyle = g.c; ctx.fillRect(x - 4, y - 8, 9, 8);
+      ctx.fillStyle = "#ffd23f"; ctx.fillRect(x, y - 8, 1, 8); ctx.fillRect(x - 4, y - 5, 9, 1);
+      ctx.fillStyle = "#ffd23f"; ctx.fillRect(x - 2, y - 11, 2, 2); ctx.fillRect(x + 1, y - 11, 2, 2);
+      ctx.globalAlpha = 1;
+    }
+  }
+  // Winter "trick": the monster wears a silly Christmas jumper (pattern painted only over its own pixels)
+  let jumperCv = null;
+  function drawJumper(ctx, o, t) {
+    const w = Math.ceil((mon.m.w || 22) * AS) + 8, hh = Math.ceil((mon.m.h || 22) * AS) + 8;
+    if (!jumperCv || jumperCv.width !== w || jumperCv.height !== hh) { jumperCv = document.createElement("canvas"); jumperCv.width = w; jumperCv.height = hh; }
+    const x = jumperCv.getContext("2d"); x.imageSmoothingEnabled = false;
+    x.globalCompositeOperation = "source-over"; x.clearRect(0, 0, w, hh);
+    mon.m.draw(x, Math.round(w / 2), hh - 4, o);
+    x.globalCompositeOperation = "source-atop";
+    const top = Math.round((hh - 4) - (mon.m.h || 22) * AS * 0.62), bot = Math.round((hh - 4) - (mon.m.h || 22) * AS * 0.12);
+    const base = ["#e8434f", "#3aa34f", "#3b78d8"][mon.jumper.pat];
+    x.fillStyle = base; x.fillRect(0, top, w, bot - top);
+    x.fillStyle = "#ffffff";
+    for (let i = 0; i < w; i += 4) { x.fillRect(i, top + 2 + ((i / 4) % 2) * 2, 2, 2); x.fillRect(i + 2, bot - 4 - ((i / 4) % 2) * 2, 2, 2); }
+    // a little tree + a snowflake on the front
+    const cx = Math.round(w / 2);
+    x.fillStyle = mon.jumper.pat === 1 ? "#ffd23f" : "#3aa34f";
+    x.fillRect(cx - 1, top + 6, 2, 2); x.fillRect(cx - 3, top + 8, 6, 2); x.fillRect(cx - 5, top + 10, 10, 2);
+    x.fillStyle = "#7a4a22"; x.fillRect(cx - 1, top + 12, 2, 2);
+    x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(0, bot - 2, w, 2);
+    x.globalCompositeOperation = "source-over";
+    const hop = Math.round(Math.abs(Math.sin(t * 7)) * 2);
+    ctx.drawImage(jumperCv, -Math.round(w / 2), -(hh - 4) - hop);
+  }
+  function drawXmasHat(ctx, t) {
+    const s = 2, hy = -Math.round((mon.m.h || 22) * AS) + 3, sway = Math.round(Math.sin(t * 3) * 1);
+    const rows = ["......WW", ".....RRW", "...RRRR.", "..RRRrRR", ".RRRRRRR", "WWWWWWWWW", "WWWWWWWWW"];
+    const map = { R: "#e8434f", r: "#a82848", W: "#f4efe2" };
+    const w = rows[0].length * s + 2;
+    ctx.fillStyle = "#0e0b16";
+    rows.forEach((r, j) => [...r].forEach((c, i) => { if (c !== ".") ctx.fillRect(i * s - w / 2 - 1 + sway, hy + j * s - rows.length * s - 1, s + 2, s + 2); }));
+    rows.forEach((r, j) => [...r].forEach((c, i) => { if (c === ".") return; ctx.fillStyle = map[c]; ctx.fillRect(i * s - w / 2 + sway, hy + j * s - rows.length * s, s, s); }));
   }
   function drawMerchant(ctx, t) {
     const x = Math.round(merchantNPC.x), y = Math.round(toScreenY(floorY(floor)));
@@ -751,6 +817,15 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       for (let i = 0; i < 3; i++) fx.collect(p.x, hy, f.x, f.y, { n: 1, color: cc[i], size: 2, onArrive: () => { fishPulse = 0.2; } });
       if (S.correct % 3 === 1) fx.float(p.x - 20, hy - 20, "TREAT!", { color: "#ff8a1f" });
     }
+    if (winter) {
+      // a present pops out of the monster (+1 fish) with a puff of snowflakes
+      S.coins += 1;
+      const f = HUD.fish(), cc = ["#e8434f", "#3aa34f", "#ffd23f", "#ffffff"];
+      fx.burst(p.x, hy, { n: 14, colors: ["#ffffff", "#dff6ff", "#bfe8ff"], speed: 60, gravity: 30, size: 2 });
+      gifts.push({ x: p.x, y: hy - 6, vx: -30 - Math.random() * 30, vy: -70, t: 0, c: cc[S.correct % 2] });
+      fx.collect(p.x, hy, f.x, f.y, { n: 1, color: "#ffd23f", size: 2, onArrive: () => { fishPulse = 0.2; } });
+      if (S.correct % 3 === 1) fx.float(p.x - 20, hy - 20, "PRESENT!", { color: "#ff6a7a" });
+    }
     if (S.combo === 3 || S.combo === 5 || S.combo >= 10 && S.combo % 5 === 0) { fx.float(cat.wx + 10, toScreenY(cat.wy) - 70, `COMBO x${S.combo}`, { color: "#ff9a3d", big: true, life: 1.1 }); S_("perk"); }
     await ms2(160);
     mon.lx = 0; mon.anim = "idle";
@@ -812,7 +887,15 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       fx.float(p.x, p.y - monH() - 14, "TRICK!", { color: "#d867d0", big: true });
       S_("pop");
     }
-    if (mon.trick) await ms2(750); // let them see the silly monster before the card covers it
+    if (winter && !mon.mimic && !mon.trick) {
+      // the monster gets a silly Christmas jumper for a moment (no extra penalty)
+      mon.jumper = { t: 0, dur: 2.2, pat: Math.floor(Math.random() * 3) };
+      const p = monScreen();
+      fx.burst(p.x, p.y - monH() / 2, { n: 18, colors: ["#e8434f", "#3aa34f", "#ffffff"], speed: 60, gravity: -20, size: 2 });
+      fx.float(p.x, p.y - monH() - 14, "NICE JUMPER!", { color: "#ff6a7a", big: true });
+      S_("pop");
+    }
+    if (mon.trick || mon.jumper) await ms2(750); // let them see the silly monster before the card covers it
     if (cat.anim === "hurt") cat.anim = "idle";
     void lost;
     // reveal: our card ([data-act=next]); the mechanic highlights the right answer in-world

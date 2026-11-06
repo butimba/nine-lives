@@ -1,14 +1,24 @@
 // WYDARZENIA SEZONOWE — włączają się same według daty. Nic nie trzeba robić.
 // from/to w formacie "MM-DD" (rok nieważny; okno może przechodzić przez Nowy Rok).
+// Kolejność ma znaczenie: wygrywa PIERWSZE pasujące okno (dlatego "newyear" stoi przed "winter").
 // vocab: temat słówek dorzucany każdemu w czasie wydarzenia. deco: emoji w tle.
-// mech: własna mechanika w biegu (run.js): "trickortreat" = dobra odpowiedź daje cukierek (+1 rybka),
-//       zła zamienia potwora na chwilę w coś śmiesznego (bez dodatkowej kary).
+// mech: własna mechanika w biegu (run.js):
+//   "trickortreat" = dobra odpowiedź daje cukierek (+1 rybka), zła zamienia potwora na chwilę w coś śmiesznego (bez dodatkowej kary).
+//   "presents"     = dobra odpowiedź: z potwora wypada prezent (+1 rybka) i płatki śniegu; zła: potwór na chwilę dostaje
+//                    śmieszny świąteczny sweter i czapkę Mikołaja (bez dodatkowej kary). Boss = zimowy wariant (śnieżki).
+// also: id innych wydarzeń, których przedmioty też są w sklepie/skrzyniach (Nowy Rok sprzedaje dalej rzeczy zimowe).
+// sky: "snow" (płatki śniegu), "fireworks" (fajerwerki na niebie). decor: "winter" = śnieg na półkach + lampki w wieży.
+// PODGLĄD przed datą: ?debug&season=winter (albo newyear / halloween / none).
 
 export default [
   { id: "halloween", name: "Halloween Night", from: "10-15", to: "11-07", vocab: "halloween", mech: "trickortreat", deco: "🎃🦇👻🕸️",
     tint: ["#1a0f2e", "#5a2a7a", "#ff8a1f"], banner: "🎃 Halloween! Nowe skórki w sklepie", monTint: ["#ff8a1f", "#7a3cff", "#3ad65a"] },
-  { id: "winter", name: "Winter Wonder", from: "12-01", to: "01-06", vocab: "winter", deco: "❄️⛄🎄✨",
-    tint: ["#0f2a4a", "#3a6aa8", "#dff6ff"], banner: "❄️ Zima! Świąteczne skórki w sklepie", monTint: ["#ffffff", "#e53935", "#43a047"] },
+  { id: "newyear", name: "Happy New Year", from: "12-28", to: "01-06", vocab: "winter", mech: "presents", also: ["winter"], deco: "🎆❄️✨",
+    sky: "fireworks", decor: "winter",
+    tint: ["#0f1a3a", "#3a3a8a", "#ffe9a8"], banner: "🎆 Nowy Rok! Fajerwerki i zimowe skórki", monTint: ["#ffffff", "#ffd23f", "#8a55d6"] },
+  { id: "winter", name: "Winter Wonder", from: "12-01", to: "12-27", vocab: "winter", mech: "presents", also: ["newyear"], deco: "🎄❄️⛄✨",
+    sky: "snow", decor: "winter",
+    tint: ["#0f2a4a", "#3a6aa8", "#dff6ff"], banner: "🎄 Zima! Świąteczne skórki w sklepie", monTint: ["#ffffff", "#e53935", "#43a047"] },
   { id: "friendship", name: "Friendship Week", from: "02-08", to: "02-16", vocab: "feelings", deco: "💌🤝🌸",
     tint: ["#5a1a3a", "#d14a8a", "#ffd0e6"], banner: "💌 Tydzień przyjaźni!", monTint: ["#ff6fa5", "#ffb3d1", "#ff3d6e"] },
   { id: "spring", name: "Spring Hunt", from: "03-21", to: "04-20", vocab: "spring", deco: "🐣🌷🦋🥚",
@@ -19,11 +29,42 @@ export default [
     tint: ["#2a2a5a", "#5a5ab0", "#ffe3a8"], banner: "🎒 Powrót do szkoły!", monTint: ["#5b8cff", "#ffd23f", "#ff6b6b"] },
 ];
 
-export function activeEvent(date = new Date(), list) {
+// ?debug&season=<id>|none — podgląd wydarzenia przed datą (tylko z ?debug, tylko w przeglądarce).
+// undefined = brak nadpisania; null = "none" (wyłącz wydarzenia); obiekt = wymuszone wydarzenie.
+export function seasonOverride(list) {
+  let q = null;
+  try {
+    if (typeof location === "undefined") return undefined;
+    const p = new URLSearchParams(location.search);
+    if (!p.has("debug")) return undefined;
+    q = p.get("season");
+  } catch { return undefined; }
+  if (!q) return undefined;
+  if (q === "none") return null;
+  return (list || []).find((e) => e.id === q) || undefined;
+}
+
+// Uwaga: z jawną datą (np. w testach) nadpisanie z adresu nie działa — liczy się tylko data.
+export function activeEvent(date, list) {
+  if (date === undefined || date === null) {
+    const o = seasonOverride(list);
+    if (o !== undefined) return o;
+    date = new Date();
+  } else if (date instanceof Date) {
+    // wywołania "new Date()" z kodu gry (bieżąca chwila, ±5 s) też respektują podgląd ?season=
+    if (Math.abs(date.getTime() - Date.now()) < 5000) { const o = seasonOverride(list); if (o !== undefined) return o; }
+  }
   const md = (date.getMonth() + 1) * 100 + date.getDate();
   const num = (s) => +s.slice(0, 2) * 100 + +s.slice(3);
   return (list || []).find((e) => {
     const a = num(e.from), b = num(e.to);
     return a <= b ? md >= a && md <= b : md >= a || md <= b;
   }) || null;
+}
+
+// czy przedmiot z source "event:<id>" jest teraz dostępny (wydarzenie lub jego "also")
+export function eventAllows(ev, source) {
+  if (!ev || typeof source !== "string" || !source.startsWith("event:")) return false;
+  const id = source.slice(6);
+  return id === ev.id || (Array.isArray(ev.also) && ev.also.includes(id));
 }

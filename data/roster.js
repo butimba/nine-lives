@@ -5,29 +5,72 @@ export default {
   "7njwyk": {
    "duo": "rkzkt9",
    "voice": false,
+   "subjects": "3s",
    "focus": [
-    "ps_3s",
-    "ps_neg",
-    "ps_q",
-    "pc",
-    "pc_vs_ps",
-    "v:actions",
-    "v:animals"
+    "ps_3s"
    ],
    "gifts": [
     "skin:shrimp"
+   ],
+   "path": [
+    "ps_3s",
+    "v:animals",
+    "v:actions",
+    "ps3_like",
+    "v:food",
+    "ladder:grade3:1",
+    "have_got",
+    "ladder:grade3:2",
+    "ps_neg",
+    "ladder:grade3:1",
+    "ps3_who",
+    "ladder:grade3:1",
+    "ps_q",
+    "ladder:grade3:1",
+    "ps3_routine",
+    "ladder:grade3:1",
+    "ps3_wh",
+    "ladder:grade3:1",
+    "ps3_freq",
+    "ladder:grade3:*",
+    "ladder:grade4:*"
+   ],
+   "pathExclude": [
+    "v:numbers"
    ]
   },
   "rkzkt9": {
    "duo": "7njwyk",
    "voice": false,
+   "subjects": "3s",
    "focus": [
+    "ps_3s"
+   ],
+   "path": [
     "ps_3s",
-    "be",
-    "have_got",
     "v:animals",
+    "v:actions",
+    "ps3_like",
     "v:food",
-    "v:actions"
+    "ladder:grade3:1",
+    "have_got",
+    "ladder:grade3:2",
+    "ps_neg",
+    "ladder:grade3:1",
+    "ps3_who",
+    "ladder:grade3:1",
+    "ps_q",
+    "ladder:grade3:1",
+    "ps3_routine",
+    "ladder:grade3:1",
+    "ps3_wh",
+    "ladder:grade3:1",
+    "ps3_freq",
+    "ladder:grade3:*",
+    "ladder:grade4:*"
+   ],
+   "pathExclude": [
+    "v:numbers"
    ]
   },
   "eiihyz": {

@@ -7,6 +7,7 @@
 import VOCAB, { CONFUSABLE } from "../data/vocab.js";
 import { SKILLS } from "../data/grammar.js";
 import EVENTS, { activeEvent } from "../data/events.js";
+import CURRICULUM_DATA from "../data/curriculum.js"; // Agent V: { THEME_GRADE, LADDER } — drabinka tematów słówek
 import { rngFrom } from "./art.js";
 import { shuffle, pick } from "./util.js";
 
@@ -21,6 +22,7 @@ const CONFUSION_SKILL = {
   be_agreement: "be", missing_be: "pc", s_after_modal: "can", to_after_modal: "can", have_for_there: "there",
   do_agreement: "ps_neg", missing_ing: "pc", have_agreement: "have_got", be_for_have: "have_got", do_for_have: "have_got",
   do_for_modal: "can", be_for_modal: "can", can_meaning: "can", there_agreement: "there", plural_missing: "plural", plural_form: "plural",
+  missing_do: "ps_neg", like_ing: "ps3_like", freq_order: "ps3_freq", who_meaning: "ps3_who",
 };
 export const CONFUSION_PL = {
   ps_for_pc: "używa present simple tam, gdzie trzeba continuous (teraz)", pc_for_ps: "używa continuous przy rutynach (every day)",
@@ -34,16 +36,30 @@ export const CONFUSION_PL = {
   plural_missing: "zapomina o liczbie mnogiej", plural_form: "zła forma liczby mnogiej (np. mouses, babys)",
   word_order: "szyk zdania (układanie z klocków)", spelling: "pisownia przy wpisywaniu", fix: "nie znajduje błędu w zdaniu",
   judge: "uznaje poprawne zdanie za błędne",
+  missing_do: "pomija doesn't / don't w przeczeniu (she not like)", like_ing: "zapomina o -ing po like (she likes swim)",
+  freq_order: "zły szyk: always / often / never stoi przed czasownikiem (goes always)",
+  who_meaning: "Who…?: wskazuje złą osobę (nie rozumie zdania)",
 };
 
 // ---------- katalog ----------
-export function itemsForSkill(skill) {
+// opts.subjects === "3s" (profil "subjects": "3s"): bez wzorców z listy skip3s (np. "they play" — ps_3s:no_s)
+export function itemsForSkill(skill, opts) {
   if (skill.startsWith("v:")) {
     const th = VOCAB[skill.slice(2)];
     return th ? th.words.map((w) => `v:${skill.slice(2)}:${w[0]}`) : [];
   }
   const sk = SKILLS[skill];
-  return sk ? Object.keys(sk.patterns).map((p) => `g:${skill}:${p}`) : [];
+  if (!sk) return [];
+  const skip = opts && opts.subjects === "3s" ? sk.skip3s || [] : [];
+  return Object.keys(sk.patterns).filter((p) => !skip.includes(p)).map((p) => `g:${skill}:${p}`);
+}
+// opcje generatora zdań dla profilu (przekazywane do patterns[p](rng, opts))
+export const genOpts = (profile) => ({ subjects: profile && profile.subjects === "3s" ? "3s" : null });
+// czy element wolno dać temu profilowi (tryb 3s wyklucza wzorce skip3s)
+export function keyAllowed(key, opts) {
+  if (isVocab(key) || !opts || opts.subjects !== "3s") return true;
+  const [, sk, p] = key.split(":");
+  return !(SKILLS[sk] && (SKILLS[sk].skip3s || []).includes(p));
 }
 export const skillOf = (key) => (key.startsWith("v:") ? key.split(":").slice(0, 2).join(":") : key.split(":")[1]);
 export const isVocab = (key) => key.startsWith("v:");
@@ -57,10 +73,118 @@ export function skillName(skill) {
   return SKILLS[skill] ? SKILLS[skill].name : skill;
 }
 
-// aktywne umiejętności gracza: plan od nauczyciela + wydarzenie + back-to-basics + wzorce błędów
-export function activeSkills(save, profile, date = new Date()) {
+// ---------- ŚCIEŻKA (drabinka) ----------
+// profile.path = uporządkowana lista kroków: id umiejętności ("ps_3s"), temat słówek ("v:family")
+// albo "ladder:grade3:2" = 2 kolejne tematy z drabinki klasy 3 (data/curriculum.js → LADDER; "*" = wszystkie pozostałe).
+// Stan odblokowania jest WYLICZANY z srs + log (bez nowego pola w zapisie):
+//  - krok widziany (jakikolwiek element w srs) = odblokowany na zawsze (stare kroki zostają w powtórkach),
+//  - pierwsze profile.pathStart (domyślnie 2) kroki są otwarte od początku,
+//  - następny krok otwiera się, gdy: najnowszy krok ma ≥70% elementów w pudełku ≥2 i ≥75% trafień w ostatnich 20 próbach (min. 8),
+//    każdy otwarty krok ma ≥50% w pudełku ≥2, zaległych powtórek ≤ 20, nie ma otwartego-a-niewidzianego kroku
+//    i dziś nie otwarto (nie zaczęto) żadnego kroku → najwyżej 1 nowy krok dziennie.
+export const PATH_RULES = { mastery: 0.7, acc: 0.75, accN: 20, minN: 8, floor: 0.5, maxDue: 20, start: 2 };
+// awaryjna drabinka (gdy brak data/curriculum.js) — tylko istniejące tematy, bez "numbers" (za łatwe dla klas 3–4)
+const FALLBACK_LADDER = {
+  grade1: ["animals", "colors", "toys", "food", "family", "body"],
+  grade2: ["clothes", "home", "school", "weather", "feelings", "actions"],
+  grade3: ["family", "body", "clothes", "school", "home", "toys", "weather", "feelings", "sports", "actions", "food", "animals"],
+  grade4: ["jobs", "transport", "nature", "sports", "home", "weather"],
+};
+let CURRICULUM = null; // { THEME_GRADE, LADDER } — ustawiane przez setCurriculum (data/curriculum.js, gdy istnieje)
+export function setCurriculum(c) { const x = c && (c.LADDER ? c : c.default); CURRICULUM = x && x.LADDER ? x : null; }
+setCurriculum(CURRICULUM_DATA);
+// tematy czysto sezonowe (dorzuca je wydarzenie, a nie drabinka) — chyba że są wpisane w path wprost
+const SEASONAL = new Set(["halloween", "winter", "spring", "summer", "christmas", "easter", "newyear", "valentines"]);
+const ladderFor = (g) => ((CURRICULUM && CURRICULUM.LADDER && CURRICULUM.LADDER[g]) || FALLBACK_LADDER[g] || []).map((t) => String(t).replace(/^v:/, ""));
+
+export function expandPath(profile) {
+  const raw = (profile && profile.path) || [];
+  const excl = new Set((profile && profile.pathExclude) || []);
+  const explicit = new Set(raw.filter((x) => !x.startsWith("ladder:")));
+  const used = new Set(), cursor = {}, out = [];
+  const opts = genOpts(profile);
+  const ok = (id) => !used.has(id) && !excl.has(id) && itemsForSkill(id, opts).length > 0 && !(profile.noReading && !id.startsWith("v:"));
+  for (const x of raw) {
+    if (!x.startsWith("ladder:")) { if (ok(x)) { out.push(x); used.add(x); } continue; }
+    const [, g, nRaw] = x.split(":");
+    const list = ladderFor(g);
+    let n = nRaw === "*" || nRaw == null ? Infinity : +nRaw || 1;
+    let i = cursor[g] || 0;
+    while (n > 0 && i < list.length) {
+      const id = "v:" + list[i++];
+      if (explicit.has(id) || (SEASONAL.has(id.slice(2)) && !explicit.has(id)) || !ok(id)) continue;
+      out.push(id); used.add(id); n--;
+    }
+    cursor[g] = i;
+  }
+  return out;
+}
+
+// element "opanowany" do drabinki: pudełko ≥2 (trafienie w dwóch różnych dniach) albo pewny dorobek (≥6 prób, ≥80% trafień)
+// — zdania gramatyczne wracają często w ciągu dnia, a pomyłka cofa pudełko, więc samo pudełko zaniżałoby opanowanie
+const known = (r) => r.b >= 2 || (r.n >= 6 && r.ok / r.n >= 0.8);
+function dayStart(now) { const d = new Date(now); d.setHours(0, 0, 0, 0); return +d; }
+
+// pełny stan ścieżki (dla silnika, UI i panelu nauczyciela)
+export function pathState(save, profile, now = Date.now()) {
+  const ids = expandPath(profile);
+  if (!ids.length) return null;
+  const opts = genOpts(profile);
+  const R = { ...PATH_RULES, ...((profile && profile.pathRules) || {}) };
+  const start = profile.pathStart ?? R.start;
+  const first = new Map(), recent = new Map();
+  const idSet = new Set(ids);
+  for (const l of save.log || []) {
+    const st = skillOf(l[1]);
+    if (!idSet.has(st)) continue;
+    if (!first.has(st)) first.set(st, l[0]);
+    const a = recent.get(st) || []; a.push(l[2]); if (a.length > R.accN) a.shift(); recent.set(st, a);
+  }
+  const d0 = dayStart(now);
+  const steps = ids.map((id, i) => {
+    const items = itemsForSkill(id, opts);
+    let seen = 0, good = 0, due = 0;
+    for (const k of items) { const r = save.srs[k]; if (!r) continue; seen++; if (known(r)) good++; if (r.due <= now) due++; }
+    const acc = recent.get(id) || [];
+    return {
+      id, i, name: skillName(id), items: items.length, seen, due,
+      mastery: items.length ? good / items.length : 0,
+      acc: acc.length ? acc.reduce((a, b) => a + b, 0) / acc.length : null, accN: acc.length,
+      since: seen ? (first.get(id) ?? 0) : null, unlocked: i < start || seen > 0, current: false,
+    };
+  });
+  const open = () => steps.filter((s) => s.unlocked);
+  // najnowszy krok = najpóźniej rozpoczęty (albo otwarty, ale jeszcze niewidziany)
+  const newestOf = (list) => list.reduce((a, s) => (!a || (s.since ?? Infinity) >= (a.since ?? Infinity) ? s : a), null);
+  const frontier = steps.find((s) => !s.unlocked);
+  let blocked = null;
+  if (frontier) {
+    const o = open(), newest = newestOf(o);
+    const dueAll = o.reduce((a, s) => a + s.due, 0);
+    if (o.some((s) => s.seen === 0)) blocked = "pending";            // otwarty krok czeka na pierwsze zadania
+    else if (o.some((s) => s.since != null && s.since >= d0)) blocked = "today"; // max 1 nowy krok dziennie
+    else if (dueAll > R.maxDue) blocked = "reviews";                  // najpierw powtórki
+    else if (o.some((s) => s !== newest && s.mastery < R.floor)) blocked = "floor"; // żaden starszy krok nie może leżeć
+    else if (!newest || newest.mastery < R.mastery || newest.accN < R.minN || newest.acc < R.acc) blocked = "mastery";
+    if (!blocked) frontier.unlocked = true;
+  }
+  const o = open();
+  const cur = newestOf(o); if (cur) cur.current = true;
+  return { steps, unlocked: o.map((s) => s.id), current: cur ? cur.id : null, next: steps.find((s) => !s.unlocked)?.id || null, blocked };
+}
+// dla UI / panelu: [{ id, name, unlocked, mastery, ... }]
+export function pathStatus(save, profile, now = Date.now()) {
+  const ps = pathState(save, profile || {}, now);
+  return ps ? ps.steps.map((s) => ({ id: s.id, name: s.name, unlocked: s.unlocked, mastery: Math.round(s.mastery * 100) / 100, current: s.current, seen: s.seen, items: s.items, acc: s.acc == null ? null : Math.round(s.acc * 100) / 100 })) : [];
+}
+
+// aktywne umiejętności gracza: (ścieżka albo plan od nauczyciela) + wydarzenie + back-to-basics + wzorce błędów
+export function activeSkills(save, profile, date = new Date(Date.now())) {
   const set = new Map();
-  for (const s of profile.focus || []) set.set(s, 1);
+  profile = profile || {};
+  const ps = profile.path ? pathState(save, profile, +date) : null;
+  if (ps) for (const id of ps.unlocked) set.set(id, id === ps.current ? 1.2 : 1);
+  for (const s of profile.focus || []) set.set(s, Math.max(set.get(s) || 0, 1));
   const ev = activeEvent(date, EVENTS);
   if (ev && ev.vocab && !profile.noEvents) set.set("v:" + ev.vocab, 1.2);
   // back to basics
@@ -72,7 +196,8 @@ export function activeSkills(save, profile, date = new Date()) {
   // wzorce błędów
   for (const [tag, score] of Object.entries(save.confusions)) {
     const sk = CONFUSION_SKILL[tag];
-    if (score >= 2.5 && sk && (set.has(sk) || hasGrammar(set))) set.set(sk, Math.max(set.get(sk) || 0, 1.8));
+    // ze ścieżką: wzmacniamy tylko już otwarte umiejętności (bez przeskakiwania drabinki)
+    if (score >= 2.5 && sk && (set.has(sk) || (!ps && hasGrammar(set)))) set.set(sk, Math.max(set.get(sk) || 0, 1.8));
   }
   if (profile.noReading) for (const k of [...set.keys()]) if (!k.startsWith("v:")) set.delete(k);
   return set;
@@ -109,7 +234,7 @@ export function vocabConflict(a, b) {
 }
 // czy zdanie nadaje się do układania z klocków jednoznacznie (tylko jedna poprawna kolejność)
 export function buildable(q) {
-  if (!q || !q.full || /[→—]/.test(q.full) || /[→—]/.test(q.text)) return false;
+  if (!q || q.nobuild || !q.full || /[→—]/.test(q.full) || /[→—]/.test(q.text)) return false;
   const w = q.full.split(" ");
   if (w.length < 3 || w.length > MAX_BUILD) return false;
   if (/ and /.test(q.full)) return false;                       // "Tom and Mia" = "Mia and Tom"
@@ -118,6 +243,18 @@ export function buildable(q) {
   return true;
 }
 const isSentence = (q) => !/[→—]/.test(q.text);
+const wpick = (cands, rng) => {
+  let t = cands.reduce((a, c) => a + c[1], 0) * rng();
+  for (const c of cands) { t -= c[1]; if (t <= 0) return c[0]; }
+  return cands[cands.length - 1][0];
+};
+// ze ścieżką: szansa, że przy zaległych powtórkach następne zadanie będzie powtórką (nowe rzeczy mają limity NEW_CAP / DAILY_NEW)
+export const REVIEW_FIRST = 0.8;
+const PS_PACK = new Set(["ps_3s", "ps_neg", "ps_q", "ps3_like", "ps3_routine", "ps3_who", "ps3_wh", "ps3_freq"]);
+// wabik w układaniu zdań (P1-3): zła forma czasownika jako dodatkowy klocek — build sprawdza też -s / bez -s
+const DECOY_TAGS = new Set(["no_s", "s_after_does", "s_after_modal", "do_agreement", "have_agreement", "like_ing"]);
+const DECOY_SKILLS = /^(ps_3s|ps_neg|ps_q|ps3_|have_got)/;
+const SPELL_TAGS = new Set(["s_spelling", "ing_spelling"]);
 
 export class Session {
   constructor(save, profile, mode = "tower", seed = Date.now()) {
@@ -125,16 +262,26 @@ export class Session {
     this.rng = rngFrom(seed);
     this.recent = []; this.requeue = []; this.newCount = { vocab: 0, grammar: 0 }; this.i = 0;
     this.newKeys = new Set();
+    this.gopts = genOpts(this.profile);
+    this.path = this.profile.path ? pathState(save, this.profile) : null;
     this.skills = activeSkills(save, this.profile);
-    let pool = mode === "shadow" ? shadowList(save) : [...this.skills.keys()].flatMap(itemsForSkill);
+    let pool = mode === "shadow" ? shadowList(save) : [...this.skills.keys()].flatMap((k) => itemsForSkill(k, this.gopts));
+    pool = pool.filter((k) => keyAllowed(k, this.gopts));
     if (this.profile.noReading) pool = pool.filter(isVocab); // dziecko nieczytające: tylko zadania dźwięk/obrazek
     this.pool = pool;
-    const f0 = (this.profile.focus || [])[0];
+    // temat główny: ze ścieżką = najnowszy otwarty krok, inaczej pierwszy element focus
+    const f0 = this.path ? this.path.current : (this.profile.focus || [])[0];
     this.main = mode !== "shadow" && f0 && this.skills.has(f0) ? f0 : null;
+    // P1-2: w trybie 3s temat główny "present simple" = pakiet (zwykłe zdanie +s, doesn't, Does…?, Who…?, What does…?),
+    // żeby ~68% nie zjadało samo ps_3s (tam -s da się zgadnąć bez czytania podmiotu)
+    if (this.main && this.gopts.subjects === "3s" && PS_PACK.has(this.main)) this.mainPack = new Set([...PS_PACK].filter((x) => this.skills.has(x)));
+    // świeżo otwarty krok (jeszcze niewidziany) pokazujemy już w tym biegu, żeby otwarcie było trwałe (krok widziany = otwarty na zawsze)
+    const pend = this.path && mode !== "shadow" && this.path.steps.find((x) => x.unlocked && x.seen === 0);
+    this.pending = pend && this.skills.has(pend.id) ? pend.id : null;
     this.introduced = new Set();
     this.newToday = newToday(save);
   }
-  isMain(key) { return !!this.main && skillOf(key) === this.main; }
+  isMain(key) { const sk = skillOf(key); return !!this.main && (sk === this.main || (this.mainPack && this.mainPack.has(sk))); }
   canIntroduce(key) {
     const kind = isVocab(key) ? "vocab" : "grammar";
     const grp = this.isMain(key) ? "main" : "other";
@@ -145,6 +292,11 @@ export class Session {
     const now = Date.now();
     const rq = this.requeue.findIndex((r) => r.at <= this.i);
     if (rq >= 0) return this.requeue.splice(rq, 1)[0].key;
+    if (this.pending && this.i >= 2) {
+      const fresh = this.pool.filter((k) => skillOf(k) === this.pending && !this.save.srs[k] && !this.recent.includes(k) && this.canIntroduce(k));
+      if (fresh.length) { this.pending = null; return pick(fresh, this.rng); }
+      if (this.pool.some((k) => skillOf(k) === this.pending && this.save.srs[k])) this.pending = null;
+    }
     const shadows = new Set(this.save.shadows);
     const mainC = [], otherC = [];
     for (const key of this.pool) {
@@ -161,13 +313,16 @@ export class Session {
       if (this.mode === "shadow") w = 3;
       w *= (1.6 - sk.m) * (this.skills.get(skillOf(key)) || 1);
       if (shadows.has(key)) w *= 1.5;
-      if (w > 0) (main ? mainC : otherC).push([key, w]);
+      if (w > 0) (main ? mainC : otherC).push([key, w, !!(r && r.due <= now)]);
+    }
+    // ŚCIEŻKA: najpierw powtórki — gdy są zaległe, z prawd. REVIEW_FIRST bierzemy tylko spośród nich
+    if (this.path && this.mode !== "shadow") {
+      const due = [...mainC, ...otherC].filter((c) => c[2]);
+      if (due.length && this.rng() < REVIEW_FIRST) return wpick(due, this.rng);
     }
     let cands = mainC.length && otherC.length ? (this.rng() < MAIN_SHARE ? mainC : otherC) : mainC.length ? mainC : otherC;
     if (!cands.length) return this.pool.length ? pick(this.pool, this.rng) : null;
-    let t = cands.reduce((a, c) => a + c[1], 0) * this.rng();
-    for (const [k, w] of cands) { t -= w; if (t <= 0) return k; }
-    return cands[cands.length - 1][0];
+    return wpick(cands, this.rng);
   }
   next() {
     const key = this.pickKey();
@@ -175,11 +330,18 @@ export class Session {
     this.i++;
     this.recent.push(key);
     const r = this.save.srs[key];
+    const fresh = !r && !this.newKeys.has(key);
     if (!r) { this.newCount[isVocab(key) ? "vocab" : "grammar"]++; this.newKeys.add(key); }
-    return isVocab(key) ? this.vocabTask(key, r) : this.grammarTask(key, r);
+    const t = isVocab(key) ? this.vocabTask(key, r) : this.grammarTask(key, r);
+    // P1-6: pierwsze spotkanie (karta NEW) → to zadanie nie daje pudełka; rzecz wraca za 3–5 zadań i dopiero wtedy liczy się 0 → 1
+    if (fresh) { t.justIntroduced = true; this.requeue.push({ key, at: this.i + 3 + Math.floor(this.rng() * 3) }); }
+    return t;
   }
   // pomyłka wraca za 2–4 zadania (natychmiastowe ponowne odpytanie po informacji zwrotnej)
-  failed(key) { this.requeue.push({ key, at: this.i + 2 + Math.floor(this.rng() * 3) }); }
+  failed(key) {
+    if (this.requeue.some((x) => x.key === key)) return;
+    this.requeue.push({ key, at: this.i + 2 + Math.floor(this.rng() * 3) });
+  }
 
   vocabTask(key, r) {
     const w = wordOf(key);
@@ -224,7 +386,7 @@ export class Session {
 
   grammarTask(key, r) {
     const [, skill, pat] = key.split(":");
-    const q = SKILLS[skill].patterns[pat](this.rng);
+    const q = SKILLS[skill].patterns[pat](this.rng, this.gopts);
     const box = r ? r.b : 0;
     const sent = isSentence(q);
     const can = {
@@ -239,7 +401,12 @@ export class Session {
     // losujemy z listy dla pudełka; niewykonalny typ → inny z tej samej listy (żeby nie zgubić produkcji), w ostateczności luka
     const type = shuffle(list, this.rng).find((x) => can[x]) || "cloze";
     const t = { key, skill, kind: "grammar", type, q, voice: this.save.settings.voice, v: this.rng(), firstTry: !r, canStrong: can.build || can.fix || can.type };
-    if (type === "cloze") t.options = shuffle([{ label: q.answer, ok: true }, ...q.wrong.slice(0, box <= 0 ? 2 : 3).map((x) => ({ label: x, ok: false, tag: q.tags[x] }))], this.rng);
+    if (type === "cloze") {
+      // P1-5: literówki (watchs, runing) w luce dopiero od pudełka 2 — na początku dziecko nie ogląda błędnych form
+      let ws = box < 2 ? q.wrong.filter((x) => !SPELL_TAGS.has(q.tags[x])) : q.wrong;
+      if (!ws.length) ws = q.wrong;
+      t.options = shuffle([{ label: q.answer, ok: true }, ...ws.slice(0, box <= 0 ? 2 : 3).map((x) => ({ label: x, ok: false, tag: q.tags[x] }))], this.rng);
+    }
     if (type === "fix") {
       const wrong = pick(q.fixable, this.rng);
       t.wrongWord = wrong; t.tag = q.tags[wrong];
@@ -255,7 +422,20 @@ export class Session {
     }
     if (type === "build") {
       t.words = q.full.split(" ");
-      t.tiles = shuffle(t.words.map((w, i) => ({ w, i })), this.rng);
+      const tiles = t.words.map((w, i) => ({ w, i }));
+      if (DECOY_SKILLS.test(skill) && !q.answer.includes(" ")) {
+        const lower = new Set(t.words.map((w) => w.toLowerCase().replace(/[.?!,]$/, "")));
+        const d = q.wrong.find((x) => !x.includes(" ") && DECOY_TAGS.has(q.tags[x]) && !lower.has(x.toLowerCase()));
+        if (d) {
+          const idx = t.words.findIndex((w) => w.replace(/[.?!,]$/, "") === q.answer || w.replace(/[.?!,]$/, "") === q.answer[0].toUpperCase() + q.answer.slice(1));
+          if (idx >= 0) {
+            const orig = t.words[idx], core = orig.replace(/[.?!,]$/, ""), punct = orig.slice(core.length);
+            const dw = (core[0] === core[0].toUpperCase() && core[0] !== core[0].toLowerCase() ? d[0].toUpperCase() + d.slice(1) : d) + punct;
+            t.decoy = dw; tiles.push({ w: dw, i: -1 });
+          }
+        }
+      }
+      t.tiles = shuffle(tiles, this.rng);
     }
     if (type === "type") {
       // wpisywanie brakującego słowa (mechanika Spell Cast): odpowiedź jednoznaczna dzięki podpowiedzi w nawiasie
@@ -294,7 +474,8 @@ export const TAG_WHY = {
   no_s: "he / she / it → verb + s", s_overuse: "I / you / we / they → no -s", s_spelling: "Look at the -s spelling!",
   ing_confusion: "A habit → no -ing here.", s_after_does: "After does / doesn't → no -s.", be_for_do: "Use do / does here.",
   do_for_be: "Use am / is / are + -ing.", ing_spelling: "Look at the -ing spelling!", be_agreement: "I am · he is · they are",
-  missing_be: "Don't forget am / is / are!", missing_ing: "Add -ing!", s_after_modal: "After can → no -s.", to_after_modal: "After can → no \"to\".",
+  missing_be: "Don't forget am / is / are!", missing_do: "she → doesn't + verb", like_ing: "likes + -ing: likes swimming",
+  freq_order: "always / often / never → before the verb", who_meaning: "Look at the pictures: who does it?", missing_ing: "Add -ing!", s_after_modal: "After can → no -s.", to_after_modal: "After can → no \"to\".",
   have_for_there: "There is / there are (not have).", ps_for_pc: "Now → am / is / are + -ing.", pc_for_ps: "Every day → no -ing.",
   do_agreement: "he / she / it → does · I / you / we / they → do", have_agreement: "he / she / it → has got",
   be_for_have: "has got / have got (not is)", do_for_have: "hasn't got / haven't got", do_for_modal: "Can you…? Can he…?",
@@ -331,18 +512,28 @@ export function record(save, task, ok, ms, tag, opts = {}) {
   const tooFast = ms < 700 && task.type !== "match";
   const pg = guessRate(task);
   r.n++; r.last = now;
+  // Terminy liczone od początku lokalnego dnia (P1-1): "jutro" = od północy, niezależnie od godziny gry.
+  // Odpowiedź na rzecz NIEwymagalną (powtórka w tym samym dniu) nie przesuwa terminu ani pudełka.
+  const isDue = r.due <= now || r.b === 0;
+  const d0 = dayStart(now);
   if (ok) {
     r.ok++;
     r.st = (r.st || 0) + 1; // dobre z rzędu (opcjonalne pole, brak = 0; nie zmienia kształtu zapisu)
-    let up = !opts.hinted && !tooFast && (r.due <= now || r.b === 0);
+    let up = !opts.hinted && !tooFast && isDue;
     if (pg > 0.34 && r.st < 2) up = false;
     if (r.b >= 3 && task.canStrong && !STRONG.has(task.type)) up = false;
-    if (up) r.b = Math.min(5, r.b + 1);
-    r.due = now + BOX_DAYS[r.b] * DAY - 3600000; // godzina zapasu, żeby "jutro rano" już liczyło się jako jutro
+    if (task.justIntroduced) up = false; // P1-6: pierwszy test tuż po karcie NEW nie liczy się do pudełka (wraca za 3–5 zadań)
+    if (up) { r.b = Math.min(5, r.b + 1); r.due = d0 + BOX_DAYS[r.b] * DAY; }
+    // brak awansu: rzecz zostaje wymagalna (np. czeka na 2. dobrą z rzędu albo na zadanie "mocne"), niewymagalna — bez zmian
   } else {
     r.st = 0;
-    r.b = Math.max(0, r.b - 2);
-    r.due = now;
+    if (isDue) { r.b = Math.max(0, r.b - 2); r.due = now; }
+    else {
+      // pomyłka przy powtórce w tym samym dniu: bez −2; drugi błąd tego dnia = −1; i tak wraca najpóźniej jutro (+ requeue w biegu)
+      if (r.lw && r.lw >= d0) r.b = Math.max(0, r.b - 1);
+      r.due = Math.min(r.due, d0 + DAY);
+    }
+    r.lw = now; // ostatni błąd (opcjonalne pole)
   }
   save.srs[key] = r;
   const sk = save.skills[task.skill] || { m: 0.3, n: 0 };
@@ -392,6 +583,7 @@ export function report(save, profile) {
     weakItems, conf,
     gold: Object.values(save.srs).filter((r) => r.b >= 5).length, seen: Object.keys(save.srs).length,
     shadows: shadowList(save).length, last: save.updatedAt,
+    path: profile && profile.path ? pathStatus(save, profile, now) : null,
   };
 }
 
@@ -403,6 +595,12 @@ export function reportText(save, profile, name) {
   L.push(`Słówka/wzorce: widziane ${r.seen}, opanowane na złoto ${r.gold}, cienie do powtórki ${r.shadows}`);
   L.push(`\nUMIEJĘTNOŚCI (opanowanie, od najsłabszych):`);
   for (const s of r.skills) L.push(`- ${s.name}: ${s.m}% (prób ${s.n}${s.recent != null ? `, ostatnio ${s.recent}%` : ""})`);
+  if (r.path && r.path.length) {
+    const ps = pathState(save, profile);
+    const why = { pending: "czeka na pierwsze zadania z nowego kroku", today: "dziś już był nowy krok", reviews: "najpierw zaległe powtórki", floor: "któryś starszy krok < 50% — najpierw powtórki", mastery: "bieżący krok jeszcze nieopanowany (70% / 75%)" };
+    L.push(`\nŚCIEŻKA (${r.path.filter((s) => s.unlocked).length}/${r.path.length} kroków otwartych${ps && ps.blocked ? `; następny: ${why[ps.blocked] || ps.blocked}` : ""}):`);
+    for (const s of r.path) L.push(`${s.unlocked ? (s.current ? "▶" : "✓") : "·"} ${s.name}: ${Math.round(s.mastery * 100)}% opanowane${s.acc != null ? `, ostatnio ${Math.round(s.acc * 100)}%` : ""}`);
+  }
   if (r.conf.length) { L.push(`\nWZORCE BŁĘDÓW:`); for (const c of r.conf) L.push(`- ${c.pl} (siła ${c.score})`); }
   if (r.weakItems.length) { L.push(`\nNAJSŁABSZE ELEMENTY:`); for (const w of r.weakItems) L.push(`- ${w.label}: ${w.acc}% z ${w.n}`); }
   return L.join("\n");

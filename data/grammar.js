@@ -2,7 +2,10 @@
 // Klucz postępu: "g:<skill>:<pattern>". Nie zmieniaj istniejących id — dodawaj nowe.
 // make(rng) zwraca:
 //   { text: "Tom ___ football every day.", answer, wrong:[...], tags:{opcja:tag}, full, hint, why,
-//     fixable:[...], judgeable:[...], cue?, typeText? }
+//     fixable:[...], judgeable:[...], cue?, typeText?, nobuild? }
+// make(rng, opts) — opts.subjects === "3s": TYLKO 3. osoba l. poj. (he / she / it / imiona / my teacher…),
+//   bez I / you / we / they i bez podmiotów w liczbie mnogiej (profil ucznia "subjects": "3s").
+//   Wzorce, które bez liczby mnogiej nie mają sensu, wypisuje skill.skip3s (silnik ich wtedy nie losuje).
 //   full      = pełne poprawne zdanie (układanie z klocków, "znajdź błąd", odsłona)
 //   hint      = polska reguła (pokazywana pod odpowiedzią, gdy PL włączone)
 //   why       = krótkie wyjaśnienie po angielsku (A1), konkretne dla tego zdania
@@ -46,7 +49,7 @@ export const VERBS = [
 const vb = (b) => VERBS.find((v) => v.b === b);
 
 // osoby 3. osoby liczby pojedynczej i inne
-const SUBJ_3S = ["He", "She", "Tom", "Mia", "My cat", "My mum", "The dog", "My brother", "Grandma", "The witch", "Zoe", "Leo"];
+const SUBJ_3S = ["He", "She", "Tom", "Mia", "My cat", "My mum", "The dog", "My brother", "Grandma", "The witch", "Zoe", "Leo", "My teacher", "My dad"];
 const SUBJ_PL = ["I", "You", "We", "They", "My friends", "Tom and Mia", "The cats", "My parents"];
 const subjFix = (s) => (s === "I" ? "I" : ["He", "She", "You", "We", "They", "It"].includes(s) || s.startsWith("My ") || s.startsWith("The ") ? s[0].toLowerCase() + s.slice(1) : s);
 
@@ -74,6 +77,11 @@ const pcCue = (rng, v, o) => {
   return pick(rng, opts);
 };
 
+// tryb "3s": pula podmiotów bez I / you / we / they i bez liczby mnogiej
+const only3 = (o) => !!(o && o.subjects === "3s");
+const PLURALISH = new Set(["I", "You", "We", "They", "My friends", "Tom and Mia", "The cats", "My parents", "i", "you", "we", "they"]);
+const S3 = (o, pool) => (only3(o) ? pool.filter((x) => !PLURALISH.has(x)) : pool);
+
 const beFor = (s) => (s === "I" ? "am" : SUBJ_3S.includes(s) || s === "It" || s === "The cat" ? "is" : "are");
 
 // podmiot + czasownik + obiekt, które do siebie pasują
@@ -87,6 +95,76 @@ function sv(rng, subjects, verbs) {
 }
 const timeFor = (rng, o) => pick(rng, TIME_FOR[o] || PS_TIME);
 
+
+// ---------- dane do wzorców 3. osoby ----------
+// [podmiot, zaimek dzierżawczy]
+const KIDS3 = [["She", "her"], ["He", "his"], ["Mia", "her"], ["Tom", "his"], ["Zoe", "her"], ["Leo", "his"], ["My brother", "his"], ["My sister", "her"]];
+const ADULTS3 = [["My mum", "her"], ["My dad", "his"], ["My teacher", "her"], ["Grandpa", "his"]];
+// czasowniki spoza VERBS (forma 3. os., -ing, błędna pisownia -s)
+const EXTRA = {
+  get: { s: "gets", ing: "getting" }, live: { s: "lives", ing: "living" }, teach: { s: "teaches", ing: "teaching", bad: "teachs" },
+  drive: { s: "drives", ing: "driving" }, speak: { s: "speaks", ing: "speaking" }, work: { s: "works", ing: "working" },
+  wear: { s: "wears", ing: "wearing" }, buy: { s: "buys", ing: "buying" }, want: { s: "wants", ing: "wanting" }, help: { s: "helps", ing: "helping" },
+  walk: { s: "walks", ing: "walking" }, tidy: { s: "tidies", ing: "tidying", bad: "tidys" },
+};
+const BADS = { go: "gos", do: "dos", watch: "watchs", wash: "washs", brush: "brushs", have: "haves", fly: "flys", study: "studys", carry: "carrys" };
+function vb3(b) {
+  const v = vb(b);
+  if (v) return { b, s: v.s, ing: v.ing, bad: BADS[b] || null }; // like → ing: null (nie wymyślamy "likeing")
+  const e = EXTRA[b];
+  return { b, s: e.s, ing: e.ing, bad: e.bad || null };
+}
+// podmiot w pytaniu: "My dad" → "your dad", "She" → "she", "Tom" → "Tom"
+const qSubj = (s) => (s.startsWith("My ") ? "your " + s.slice(3) : subjFix(s));
+export const EXTRA_VERBS = Object.keys(EXTRA);
+const hint3 = (b, s3) => (b === "have" ? "he / she / it + have → has" : /(ch|sh|o|ss|x)$/.test(b) ? `Po -ch, -sh, -o dodajemy -es: ${s3}` : /[^aeiou]y$/.test(b) ? `Spółgłoska + y → -ies: ${s3}` : `he / she / it → dodaj -s: ${s3}`);
+const why3 = (s, b, s3) => (b === "have" ? `${s} → has (not haves)` : /(ch|sh|o|ss|x)$/.test(b) ? `${s} → ${b} + es → ${s3}` : /[^aeiou]y$/.test(b) ? `${s} → ${b} → ${s3} (y → ies)` : `${s} → ${b} + s → ${s3}`);
+// codzienne czynności z godziną (who: kid / adult / any — "Grandpa does his homework" nie ma sensu)
+const R = (b, rest, times, who = "any") => ({ ...vb3(b), rest, times, who });
+const ROUTINE = [
+  R("get", () => " up", ["at seven o'clock", "at half past six", "at six o'clock", "at half past seven"]),
+  R("have", () => " breakfast", ["at seven o'clock", "at half past seven"]),
+  R("go", () => " to school", ["at eight o'clock", "at half past seven"], "kid"),
+  R("go", () => " to work", ["at eight o'clock", "at nine o'clock"], "adult"),
+  R("have", () => " lunch", ["at twelve o'clock", "at one o'clock"]),
+  R("do", (p) => ` ${p} homework`, ["at four o'clock", "at five o'clock"], "kid"),
+  R("watch", () => " TV", ["at six o'clock", "at seven o'clock"]),
+  R("have", () => " dinner", ["at six o'clock", "at seven o'clock"]),
+  R("brush", (p) => ` ${p} teeth`, ["at eight o'clock", "at half past seven"]),
+  R("go", () => " to bed", ["at eight o'clock", "at nine o'clock", "at half past eight"], "kid"),
+  R("go", () => " to bed", ["at ten o'clock", "at eleven o'clock"], "adult"),
+];
+// Who…? (pytanie o podmiot: czasownik z -s, bez does)
+const W = (b, rest, ans) => ({ ...vb3(b), rest, ans });
+const WHO = [
+  W("live", "in a castle", ["The king", "The princess"]), W("play", "the guitar", ["Tom", "My brother"]), W("teach", "English", ["My teacher", "Mrs Smith"]),
+  W("drive", "a bus", ["My dad", "Mr Brown"]), W("fly", "on a broom", ["The witch"]), W("cook", "dinner", ["My mum", "Grandpa"]),
+  W("live", "in the sea", ["The shark", "The octopus"]), W("speak", "French", ["Pierre", "My aunt"]), W("wash", "the dishes", ["Grandma", "My sister"]),
+  W("watch", "cartoons", ["My brother", "Leo"]), W("eat", "fish", ["My cat"]), W("go", "to school by bike", ["Zoe", "Mia"]),
+  W("read", "comics", ["Tom", "Zoe"]), W("tidy", "the room", ["Mia", "My sister"]),
+];
+// scena do "Who…?" — [emoji, czynność w 3. os.]; czynności różne od siebie, emoji jednoznaczne
+const SCENE = [["🎸", "plays the guitar"], ["⚽", "plays football"], ["🎹", "plays the piano"], ["🎾", "plays tennis"], ["📚", "reads books"],
+  ["🚲", "rides a bike"], ["🐴", "rides a horse"], ["🍕", "likes pizza"], ["🎤", "sings songs"], ["🍳", "cooks breakfast"], ["🏊", "swims in the pool"], ["🎨", "draws pictures"]];
+// What does she… ? (czasownik, reszta zdania z zaimkiem dzierżawczym)
+const WHAT = [
+  ["eat", () => "for breakfast"], ["drink", () => "in the morning"], ["read", () => "at bedtime"], ["watch", () => "on TV"],
+  ["play", () => "after school"], ["wear", () => "to school"], ["want", (p) => `for ${p} birthday`], ["cook", () => "for dinner"],
+];
+// przysłówki częstotliwości (dzieci jako podmiot)
+const FREQ = [
+  { b: "brush", rest: (p) => `${p} teeth in the morning`, adv: ["always", "usually"] },
+  { b: "go", rest: () => "to school by bus", adv: ["usually", "often", "sometimes"] },
+  { b: "eat", rest: () => "vegetables for dinner", adv: ["often", "sometimes", "never"] },
+  { b: "play", rest: () => "computer games after school", adv: ["sometimes", "often", "never"] },
+  { b: "drink", rest: () => "milk in the morning", adv: ["usually", "often", "sometimes"] },
+  { b: "watch", rest: () => "cartoons on Sundays", adv: ["often", "sometimes", "usually"] },
+  { b: "read", rest: () => "comics in bed", adv: ["often", "sometimes", "never"] },
+  { b: "help", rest: (p) => `${p} mum in the kitchen`, adv: ["often", "sometimes", "always"] },
+  { b: "walk", rest: () => "to school with Grandma", adv: ["usually", "often", "sometimes"] },
+  { b: "tidy", rest: (p) => `${p} room on Saturdays`, adv: ["usually", "sometimes", "never"] },
+];
+
 // ---------- tagi → co wolno w jakim zadaniu ----------
 // "Smash the mistake": błąd musi siedzieć w JEDNYM klocku i nie może dać się naprawić gdzie indziej.
 // Błędy zgodności podmiotu (he play) odpadają: "He play" → "We play" też jest poprawne.
@@ -96,12 +174,13 @@ const TENSE = new Set(["ps_for_pc", "pc_for_ps"]);
 // a "Fish can walk" jest gramatycznie poprawne (tylko nieprawdziwe).
 const NOT_JUDGEABLE = new Set(["ps_for_pc", "pc_for_ps", "can_meaning"]);
 
-function finalize(q, { cueSafe = false } = {}) {
+function finalize(q, { cueSafe = false, noFix = [] } = {}) {
   q.wrong = [...new Set(q.wrong.filter((w) => w && w !== q.answer))];
-  q.fixable = q.wrong.filter((w) => !w.includes(" ") && !q.answer.includes(" ") && (FIX_SAFE.has(q.tags[w]) || (cueSafe && TENSE.has(q.tags[w]))));
+  q.fixable = q.wrong.filter((w) => !w.includes(" ") && !q.answer.includes(" ") && !noFix.includes(q.tags[w]) && (FIX_SAFE.has(q.tags[w]) || (cueSafe && TENSE.has(q.tags[w]))));
   q.judgeable = q.wrong.filter((w) => !NOT_JUDGEABLE.has(q.tags[w]));
   if (q.cue) q.typeText = q.text.replace("___", `___ (${q.cue})`);
   else if (q.typeable) q.typeText = q.text;
+  if (!q.nobuild) delete q.nobuild;
   delete q._f; delete q.typeable;
   return q;
 }
@@ -119,31 +198,31 @@ export const SKILLS = {
   be: {
     name: "am / is / are", level: "A1", prereq: [],
     patterns: {
-      basic: (rng) => {
+      basic: (rng, op) => {
         const ADJ = [
           ["happy", []], ["tired", []], ["hungry", []], ["scared", []], ["in the garden", []],
-          ["ten years old", ["My mum", "Grandma", "The witch", "My parents", "They", "You", "My friends"]],
+          ["ten years old", ["My mum", "Grandma", "The witch", "My parents", "They", "You", "My friends", "My teacher", "My dad"]],
           ["at school", ["My cat", "The dog", "The cats", "Grandma", "The witch", "My parents"]],
           ["my friend", ["I", "We", "My friends", "My parents"]],
         ];
         const [adj, no] = pick(rng, ADJ);
-        const s = pick(rng, ["I", ...SUBJ_3S, ...SUBJ_PL.slice(1)].filter((x) => !no.includes(x)));
+        const s = pick(rng, S3(op, ["I", ...SUBJ_3S, ...SUBJ_PL.slice(1)]).filter((x) => !no.includes(x)));
         const a = beFor(s);
         const adjOk = adj === "my friend" && a === "are" ? "my friends" : adj;
         const wrong = ["am", "is", "are"].filter((x) => x !== a);
         return mk(`${s} ___ ${adjOk}.`, a, wrong, tagAll(wrong, "be_agreement"), `${s} ${a} ${adjOk}.`,
           "I → am, he / she / it → is, you / we / they → are", BE_WHY(s, a));
       },
-      neg: (rng) => {
-        const s = pick(rng, ["I", "He", "She", "We", "They", "My cat", "It"]);
+      neg: (rng, op) => {
+        const s = pick(rng, S3(op, ["I", "He", "She", "We", "They", "My cat", "It"]));
         const a = s === "I" ? "am not" : beFor(s) === "is" ? "isn't" : "aren't";
         const opts = ["am not", "isn't", "aren't"].filter((x) => x !== a);
         const adj = pick(rng, s === "It" ? ["cold", "late"] : s === "My cat" ? ["cold", "sad", "at home"] : ["cold", "sad", "at home", "late"]);
         return mk(`${s} ___ ${adj}.`, a, opts, tagAll(opts, "be_agreement"), `${s} ${a} ${adj}.`,
           "Przeczenie: I am not, he / she / it isn't, you / we / they aren't", BE_WHY(s, a));
       },
-      q: (rng) => {
-        const s = pick(rng, ["you", "he", "she", "they", "your mum", "it"]);
+      q: (rng, op) => {
+        const s = pick(rng, S3(op, ["you", "he", "she", "they", "your mum", "it"]));
         const a = s === "you" || s === "they" ? "Are" : "Is";
         const adj = pick(rng, ["hungry", "OK", "at home", "ready", "scared"]);
         const wrong = ["Am", "Is", "Are"].filter((x) => x !== a);
@@ -156,27 +235,47 @@ export const SKILLS = {
   have_got: {
     name: "have got / has got", level: "A1", prereq: [],
     patterns: {
-      basic: (rng) => {
-        const s = pick(rng, [...SUBJ_3S.slice(0, 8), ...SUBJ_PL]);
+      basic: (rng, op) => {
+        const s = pick(rng, S3(op, [...SUBJ_3S.slice(0, 8), ...SUBJ_PL]));
         const a = SUBJ_3S.includes(s) ? "has" : "have";
         const o = pick(rng, isAnimal(s) ? ["blue eyes", "long hair", "a toy mouse"] : ["a dog", "a black cat", "two sisters", "a new bike", "blue eyes", "long hair", "a big pumpkin"]);
         const w1 = a === "has" ? "have" : "has";
         return mk(`${s} ___ got ${o}.`, a, [w1, "is"], { [w1]: "have_agreement", is: "be_for_have" }, `${s} ${a} got ${o}.`,
           "he / she / it → has got, I / you / we / they → have got", `${s} → ${a} got`);
       },
-      neg: (rng) => {
-        const s = pick(rng, ["I", "He", "She", "We", "They", "My cat"]);
+      neg: (rng, op) => {
+        const s = pick(rng, S3(op, ["I", "He", "She", "We", "They", "My cat"]));
         const a = ["He", "She", "My cat"].includes(s) ? "hasn't" : "haven't";
         const o = pick(rng, s === "My cat" ? ["a car", "a phone", "any brothers"] : ["a car", "any brothers", "a phone", "a tail"]);
         const w1 = a === "hasn't" ? "haven't" : "hasn't";
         return mk(`${s} ___ got ${o}.`, a, [w1, "doesn't"], { [w1]: "have_agreement", "doesn't": "do_for_have" }, `${s} ${a} got ${o}.`,
           "Przeczenie: haven't got / hasn't got (nie: doesn't got)", `${s} → ${a} got`);
       },
+      // 3. osoba: pytanie i krótka odpowiedź (Bugs Team 3: "Has she got…? Yes, she has.")
+      q3: (rng) => {
+        const [s, o] = pick(rng, [
+          ["your cat", pick(rng, ["a long tail", "blue eyes", "a toy mouse"])], ["your teacher", pick(rng, ["a car", "a dog", "a bike", "long hair"])],
+          ["Mia", pick(rng, ["a pet", "a sister", "a new bike", "a red bag"])], ["Tom", pick(rng, ["a brother", "a skateboard", "a cat", "a big bag"])],
+          ["she", pick(rng, ["a dog", "a pencil", "a sister"])], ["he", pick(rng, ["a bike", "a ruler", "a brother"])],
+        ]);
+        return mk(`___ ${s} got ${o}?`, "Has", ["Have", "Does", "Is"], { Have: "have_agreement", Does: "do_for_have", Is: "be_for_have" }, `Has ${s} got ${o}?`,
+          "Pytanie: Has + he / she / it + got…?", `${s} → Has … got?`);
+      },
+      short3: (rng) => {
+        const [s, p, o] = pick(rng, [["Mia", "she", "a dog"], ["Tom", "he", "a bike"], ["your mum", "she", "a car"], ["your dad", "he", "a guitar"],
+          ["your cat", "it", "a long tail"], ["Zoe", "she", "a sister"], ["Leo", "he", "a skateboard"], ["your teacher", "she", "a cat"]]);
+        const yes = rng() < 0.5;
+        const Y = yes ? "Yes" : "No";
+        const a = yes ? "has" : "hasn't", w1 = yes ? "does" : "doesn't", w2 = yes ? "is" : "isn't";
+        const text = `Has ${s} got ${o}? — ${Y}, ${p} ___.`;
+        return mk(text, a, [w1, w2], { [w1]: "do_for_have", [w2]: "be_for_have" }, text.replace("___", a),
+          "Krótka odpowiedź powtarza has: Yes, she has. / No, she hasn't.", `Has…? → ${Y}, ${p} ${a}.`);
+      },
     },
   },
   // CAN
   can: {
-    name: "can / can't", level: "A1", prereq: [],
+    name: "can / can't", level: "A1", prereq: [], skip3s: ["facts"],
     patterns: {
       facts: (rng) => {
         const f = pick(rng, [
@@ -189,8 +288,8 @@ export const SKILLS = {
         return mk(`${f[0]} ___ ${f[2]}.`, f[1], [w], { [w]: "can_meaning" }, `${f[0]} ${f[1]} ${f[2]}.`,
           "can = umie / potrafi, can't = nie umie", `${f[0]} ${f[1]} ${f[2]}: ${f[1] === "can" ? "yes!" : "no!"}`);
       },
-      form: (rng) => {
-        const s = pick(rng, ["She", "He", "My cat", "Tom", "I", "We"]);
+      form: (rng, op) => {
+        const s = pick(rng, S3(op, ["She", "He", "My cat", "Tom", "I", "We"]));
         const v = pick(rng, s === "My cat" ? ["swim", "climb trees", "jump high"] : ["swim", "dance", "sing", "ride a bike", "play chess", "speak English"]);
         const [head, ...rest] = v.split(" ");
         const tail = rest.length ? " " + rest.join(" ") : "";
@@ -198,8 +297,8 @@ export const SKILLS = {
         return mk(`${s} can ___.`, v, [ws, wt], { [ws]: "s_after_modal", [wt]: "to_after_modal" }, `${s} can ${v}.`,
           "Po can zawsze forma podstawowa: can swim (nie: can swims, can to swim)", `can + ${head} (no -s, no "to")`);
       },
-      q: (rng) => {
-        const s = pick(rng, ["you", "he", "she", "your dog", "they"]);
+      q: (rng, op) => {
+        const s = pick(rng, S3(op, ["you", "he", "she", "your dog", "they"]));
         const v = pick(rng, ["swim", "cook", "jump high", "count to ten", "whistle"]);
         // dystraktory nie mogą tworzyć poprawnego pytania ("Do you swim?" jest poprawne!)
         const plural = s === "you" || s === "they";
@@ -241,12 +340,31 @@ export const SKILLS = {
   },
   // PRESENT SIMPLE — końcówka -s
   ps_3s: {
-    name: "present simple: he plays", level: "A1", prereq: [],
+    name: "present simple: he plays", level: "A1", prereq: [], skip3s: ["no_s"],
     patterns: {
       plain: (rng) => ps3(rng, ["play", "like", "eat", "drink", "read", "ride", "sing", "cook", "draw", "climb", "sleep", "write", "dance", "run", "swim"]),
       es: (rng) => ps3(rng, ["watch", "go", "do", "wash", "brush"]),
       ies: (rng) => ps3(rng, ["study", "fly", "carry"]),
       has: (rng) => ps3(rng, ["have"]),
+      // kontrast w 3. osobie (P1-2): ta sama osoba, raz zwykłe zdanie (+s), raz po can / doesn't / Does (bez -s).
+      // Opcje zawsze mają i formę z -s, i bazową — decyduje składnia, nie wygląd opcji.
+      vs_base: (rng) => {
+        const { v, s, os } = sv(rng, SUBJ_3S.filter((x) => !isAnimal(x)), ["play", "eat", "read", "watch", "ride", "drink", "cook", "draw", "sing", "swim", "wash"]);
+        const frame = pick(rng, ["plain", "plain", "can", "doesnt", "does"]);
+        if (frame === "plain") {
+          const t = " " + timeFor(rng, os.trim());
+          return mk(`${s} ___${os}${t}.`, v.s, [v.b, v.ing], { [v.b]: "no_s", [v.ing]: "ing_confusion" }, null,
+            `he / she → ${v.s} (+s)`, `${s} → ${v.s} (+s)`);
+        }
+        if (frame === "does") {
+          const sl = subjFix(s);
+          return mk(`Does ${sl} ___${os}?`, v.b, [v.s, v.ing], { [v.s]: "s_after_does", [v.ing]: "ing_confusion" }, null,
+            "Po Does czasownik BEZ -s: Does she play…?", `Does + ${v.b} (no -s)`, { _f: { noFix: ["ing_confusion"] } }); // "Does Tom playing" → "Is Tom playing" też OK
+        }
+        const aux = frame === "can" ? "can" : "doesn't";
+        return mk(`${s} ${aux} ___${os}.`, v.b, [v.s, v.ing], { [v.s]: aux === "can" ? "s_after_modal" : "s_after_does", [v.ing]: "ing_confusion" }, null,
+          `Po ${aux} czasownik BEZ -s: ${aux} ${v.b}`, `${aux} + ${v.b} (no -s)`, { _f: { noFix: ["ing_confusion"] } }); // "can playing" → "is playing" też OK
+      },
       no_s: (rng) => {
         const { v, s, os } = sv(rng, SUBJ_PL, ["play", "like", "eat", "read", "watch", "go"]);
         const t = STATIVE.has(v.b) ? "" : " " + timeFor(rng, os.trim());
@@ -259,8 +377,8 @@ export const SKILLS = {
   ps_neg: {
     name: "present simple: don't / doesn't", level: "A1", prereq: ["ps_3s"],
     patterns: {
-      neg: (rng) => {
-        const s3 = rng() < 0.55;
+      neg: (rng, op) => {
+        const s3 = rng() < 0.55 || only3(op);
         const { v, s, os } = sv(rng, s3 ? SUBJ_3S : SUBJ_PL, ["like", "play", "eat", "watch", "go", "drink"]);
         const a = s3 ? "doesn't" : "don't";
         const w1 = s3 ? "don't" : "doesn't", w2 = s3 ? "isn't" : "aren't";
@@ -277,8 +395,8 @@ export const SKILLS = {
   ps_q: {
     name: "present simple: Do / Does…?", level: "A1", prereq: ["ps_3s"],
     patterns: {
-      q: (rng) => {
-        const s3 = rng() < 0.55;
+      q: (rng, op) => {
+        const s3 = rng() < 0.55 || only3(op);
         const r = sv(rng, s3 ? SUBJ_3S : SUBJ_PL.filter((x) => x !== "I"), ["like", "play", "eat", "watch", "go", "drink", "read"]);
         const s = subjFix(r.s), v = r.v;
         const a = s3 ? "Does" : "Do";
@@ -286,8 +404,8 @@ export const SKILLS = {
         return mk(`___ ${s} ${v.b}${r.os}?`, a, [w1, w2], { [w1]: "do_agreement", [w2]: "be_for_do" }, `${a} ${s} ${v.b}${r.os}?`,
           "Does + he / she / it, Do + I / you / we / they", `${s} → ${a}`);
       },
-      short: (rng) => {
-        const s3 = rng() < 0.5;
+      short: (rng, op) => {
+        const s3 = rng() < 0.5 || only3(op);
         const s = s3 ? pick(rng, ["she", "he", "your cat"]) : pick(rng, ["you", "they"]);
         const v = s === "your cat" ? pick(rng, ["like milk", "eat fish"]) : pick(rng, ["like pizza", "play football", "eat candy"]);
         const yes = rng() < 0.5;
@@ -306,8 +424,8 @@ export const SKILLS = {
   pc: {
     name: "present continuous: is playing", level: "A1", prereq: ["be"],
     patterns: {
-      form: (rng) => {
-        const { v, s, os } = sv(rng, [...SUBJ_3S, ...SUBJ_PL], ["play", "eat", "read", "watch", "sing", "dance", "cook", "sleep", "draw", "write", "drink"]);
+      form: (rng, op) => {
+        const { v, s, os } = sv(rng, S3(op, [...SUBJ_3S, ...SUBJ_PL]), ["play", "eat", "read", "watch", "sing", "dance", "cook", "sleep", "draw", "write", "drink"]);
         const be = beFor(s);
         const a = `${be} ${v.ing}`;
         const wrongBe = be === "is" ? "are" : "is";
@@ -329,17 +447,17 @@ export const SKILLS = {
           b.endsWith("e") ? "Nieme -e znika: dance → dancing" : "Krótki czasownik: podwajamy ostatnią literę: run → running",
           b.endsWith("e") ? `${b} → ${ing} (no e)` : `${b} → ${ing} (double ${b.slice(-1)})`, { cue: b });
       },
-      neg: (rng) => {
+      neg: (rng, op) => {
         const v = vb(pick(rng, ["play", "eat", "sleep", "watch", "read"]));
-        const s = pick(rng, v.b === "sleep" || v.b === "eat" ? ["I", "He", "She", "We", "They", "The cat"] : ["I", "He", "She", "We", "They"]);
+        const s = pick(rng, S3(op, v.b === "sleep" || v.b === "eat" ? ["I", "He", "She", "We", "They", "The cat"] : ["I", "He", "She", "We", "They"]));
         const a = s === "I" ? "am not" : beFor(s) === "is" ? "isn't" : "aren't";
         const be = ["am not", "isn't", "aren't"].filter((x) => x !== a);
         const opts = [be[0], "doesn't"];
         return mk(`${s} ___ ${v.ing} now.`, a, opts, { [be[0]]: "be_agreement", "doesn't": "do_for_be" }, `${s} ${a} ${v.ing} now.`,
           "Przeczenie: am not / isn't / aren't + -ing", `${s} → ${a} + ${v.ing}`);
       },
-      q: (rng) => {
-        const s = pick(rng, ["you", "he", "she", "they", "your cat", "Tom"]);
+      q: (rng, op) => {
+        const s = pick(rng, S3(op, ["you", "he", "she", "they", "your cat", "Tom"]));
         const v = vb(pick(rng, s === "your cat" ? ["eat", "sleep"] : ["play", "eat", "sleep", "watch", "read", "cook"]));
         const a = s === "you" || s === "they" ? "Are" : "Is";
         const w1 = a === "Is" ? "Are" : "Is";
@@ -368,6 +486,137 @@ export const SKILLS = {
       },
     },
   },
+  // ===== 3. OSOBA (he / she / it) — ścieżka Bugs Team 3 (Łucja, Matylda). Zawsze tylko 3. osoba l. poj. =====
+  ps3_like: {
+    name: "he likes / she doesn't like", level: "A1", prereq: ["ps_3s"], only3s: true,
+    patterns: {
+      likes: (rng) => {
+        const [s] = pick(rng, KIDS3.concat([["My teacher", "her"], ["My dad", "his"], ["Grandma", "her"]]));
+        const o = pick(rng, ["pizza", "cats", "ice cream", "football", "chocolate", "horses", "maths", "spiders", "carrots", "comics"]);
+        return mk(`${s} ___ ${o}.`, "likes", ["like", "liking"], { like: "no_s", liking: "ing_confusion" }, `${s} likes ${o}.`,
+          "he / she / it → likes (z -s)", `${s} → like + s → likes`, { cue: "like" });
+      },
+      doesnt: (rng) => {
+        const [s, poss] = pick(rng, KIDS3);
+        const p = poss === "her" ? "she" : "he";
+        const [a, b] = pick(rng, [["cats", "dogs"], ["pizza", "soup"], ["football", "tennis"], ["apples", "bananas"], ["summer", "winter"], ["maths", "art"], ["chocolate", "carrots"], ["cartoons", "the news"]]);
+        const [o1, o2] = rng() < 0.5 ? [a, b] : [b, a];
+        return mk(`${s} likes ${o1}, but ${p} ___ ${o2}.`, "doesn't like", ["don't like", "doesn't likes", "not like"],
+          { "don't like": "do_agreement", "doesn't likes": "s_after_does", "not like": "missing_do" }, null,
+          "he / she → doesn't like (bez -s po doesn't)", `${p} → doesn't + like (no -s)`);
+      },
+      like_ing: (rng) => {
+        const [s, poss] = pick(rng, KIDS3);
+        const [b, ing, rest, bad] = pick(rng, [["swim", "swimming", "", "swiming"], ["dance", "dancing", "", "danceing"], ["ride", "riding", ` ${poss} bike`, "rideing"],
+          ["run", "running", "", "runing"], ["draw", "drawing", " cats", null], ["sing", "singing", "", null], ["read", "reading", " comics", null], ["skate", "skating", "", "skateing"]]);
+        return mk(`${s} likes ___${rest}.`, ing, [b, b + "s", bad], { [b]: "like_ing", [b + "s"]: "like_ing", ...(bad ? { [bad]: "ing_spelling" } : {}) }, `${s} likes ${ing}${rest}.`,
+          "like + czynność → -ing: she likes swimming", `likes + ${ing} (-ing)`, { cue: b });
+      },
+    },
+  },
+  ps3_routine: {
+    name: "she gets up at seven", level: "A1", prereq: ["ps_3s"], only3s: true,
+    patterns: {
+      routine: (rng) => {
+        const r = pick(rng, ROUTINE);
+        const [s, poss] = pick(rng, r.who === "adult" ? ADULTS3 : r.who === "kid" ? KIDS3 : KIDS3.concat(ADULTS3));
+        const rest = r.rest(poss), t = pick(rng, r.times);
+        const wrong = [r.b, r.ing, r.bad].filter(Boolean);
+        const tags = { [r.b]: "no_s", ...(r.ing ? { [r.ing]: "ing_confusion" } : {}), ...(r.bad ? { [r.bad]: "s_spelling" } : {}) };
+        return mk(`${s} ___${rest} ${t}.`, r.s, wrong, tags, `${s} ${r.s}${rest} ${t}.`, hint3(r.b, r.s), why3(s, r.b, r.s), { cue: r.b });
+      },
+      what_time: (rng) => {
+        const r = pick(rng, ROUTINE);
+        const [s, poss] = pick(rng, r.who === "adult" ? ADULTS3 : r.who === "kid" ? KIDS3 : KIDS3.concat(ADULTS3));
+        const sl = qSubj(s);
+        return mk(`What time ___ ${sl} ${r.b}${r.rest(poss)}?`, "does", ["do", "is"], { do: "do_agreement", is: "be_for_do" }, null,
+          "Pytanie o godzinę: What time does he / she…?", `${sl} → What time does…?`);
+      },
+    },
+  },
+  ps3_who: {
+    name: "Who plays…? — Tom does.", level: "A1", prereq: ["ps_3s"], only3s: true,
+    patterns: {
+      who_q: (rng) => {
+        const w = pick(rng, WHO);
+        const wrong = [w.b, w.ing, w.bad].filter(Boolean);
+        const tags = { [w.b]: "no_s", ...(w.ing ? { [w.ing]: "ing_confusion" } : {}), ...(w.bad ? { [w.bad]: "s_spelling" } : {}) };
+        return mk(`Who ___ ${w.rest}?`, w.s, wrong, tags, `Who ${w.s} ${w.rest}?`,
+          "Who…? = kto? → czasownik jak przy he / she: Who plays…?", `Who…? → ${w.s} (+s, like he / she)`, { cue: w.b });
+      },
+      // zadanie na ZNACZENIE (P1-7): scena z 3 osobami i ikonkami; kto robi to, o co pyta zdanie? (dokładnie 1 osoba pasuje)
+      who_scene: (rng) => {
+        const acts = [];
+        while (acts.length < 3) { const a = pick(rng, SCENE); if (!acts.includes(a)) acts.push(a); }
+        const names = [];
+        while (names.length < 3) { const n = pick(rng, ["Tom", "Mia", "Zoe", "Leo", "Grandma", "Grandpa"]); if (!names.includes(n)) names.push(n); }
+        const k = Math.floor(rng() * 3);
+        const scene = names.map((n, i) => ({ name: n, img: acts[i][0], act: acts[i][1] }));
+        const text = `${scene.map((x) => `${x.img} ${x.name}`).join(" · ")}. Who ${acts[k][1]}? — ___ does.`;
+        const wrong = names.filter((_, i) => i !== k);
+        return mk(text, names[k], wrong, tagAll(wrong, "who_meaning"), null,
+          "Popatrz na obrazki: kto to robi?", `${acts[k][0]} → ${names[k]} ${acts[k][1]}.`, { scene, ask: acts[k][1] });
+      },
+      who_short: (rng) => {
+        const w = pick(rng, WHO);
+        const text = `Who ${w.s} ${w.rest}? — ${pick(rng, w.ans)} ___.`;
+        return mk(text, "does", ["do", "is"], { do: "do_agreement", is: "be_for_do" }, text.replace("___", "does"),
+          "Odpowiedź na Who…?: Tom does. / Mia does.", "Who plays…? → Tom does.");
+      },
+    },
+  },
+  ps3_wh: {
+    name: "What does she…? Where does he…?", level: "A1", prereq: ["ps_q"], only3s: true,
+    patterns: {
+      what_does: (rng) => {
+        const [s, poss] = pick(rng, KIDS3.concat(ADULTS3));
+        const [b, rest] = pick(rng, WHAT);
+        const sl = qSubj(s);
+        return mk(`What ___ ${sl} ${b} ${rest(poss)}?`, "does", ["do", "is"], { do: "do_agreement", is: "be_for_do" }, null,
+          "Pytanie: What does + he / she + czasownik (bez -s)?", `${sl} → What does…?`);
+      },
+      where_does: (rng) => {
+        const [s, b, rest] = pick(rng, [
+          ["Tom", "live", ""], ["your teacher", "live", ""], ["Mia", "live", ""], ["your dad", "work", ""], ["your mum", "work", ""], ["your cat", "sleep", ""],
+          ["she", "play", " football"], ["he", "go", " after school"], ["Zoe", "swim", " in the summer"], ["your grandma", "live", ""], ["Leo", "buy", " comics"],
+        ]);
+        return mk(`Where ___ ${s} ${b}${rest}?`, "does", ["do", "is"], { do: "do_agreement", is: "be_for_do" }, null,
+          "Pytanie: Where does + he / she + czasownik?", `${s} → Where does…?`);
+      },
+      base_after: (rng) => {
+        const [s, poss] = pick(rng, KIDS3.concat(ADULTS3));
+        const [b, rest] = pick(rng, WHAT);
+        const v = vb3(b);
+        const sl = qSubj(s);
+        return mk(`What does ${sl} ___ ${rest(poss)}?`, b, [v.s, v.ing], { [v.s]: "s_after_does", [v.ing]: "ing_confusion" }, null,
+          "Po does czasownik BEZ -s: What does she eat?", `does + ${b} (no -s)`, { _f: { noFix: ["ing_confusion"] } }); // "What does she eating" → "What is she eating" też poprawne
+      },
+    },
+  },
+  ps3_freq: {
+    name: "she always plays (always / often / never)", level: "A1", prereq: ["ps_3s"], only3s: true,
+    patterns: {
+      freq_s: (rng) => {
+        const [s, poss] = pick(rng, KIDS3);
+        const f = pick(rng, FREQ);
+        const adv = pick(rng, f.adv);
+        const v = vb3(f.b);
+        const bad = v.bad;
+        const wrong = [f.b, v.ing, bad].filter(Boolean);
+        return mk(`${s} ${adv} ___ ${f.rest(poss)}.`, v.s, wrong, { [f.b]: "no_s", [v.ing]: "ing_confusion", ...(bad ? { [bad]: "s_spelling" } : {}) }, null,
+          `${adv} nie zmienia reguły: he / she → ${v.s}`, why3(s, f.b, v.s), { cue: f.b, nobuild: true });
+      },
+      freq_order: (rng) => {
+        const [s, poss] = pick(rng, KIDS3);
+        const f = pick(rng, FREQ);
+        const adv = pick(rng, f.adv);
+        const v = vb3(f.b);
+        const a = `${adv} ${v.s}`, w1 = `${v.s} ${adv}`, w2 = `${adv} ${f.b}`;
+        return mk(`${s} ___ ${f.rest(poss)}.`, a, [w1, w2], { [w1]: "freq_order", [w2]: "no_s" }, null,
+          "always / usually / often / sometimes / never stoją PRZED czasownikiem", `${adv} + ${v.s} (before the verb)`, { nobuild: true });
+      },
+    },
+  },
 };
 
 // ---------- helpers ----------
@@ -375,10 +624,11 @@ function ps3(rng, verbs) {
   const { v, s, o, os } = sv(rng, SUBJ_3S, verbs);
   const t = STATIVE.has(v.b) ? "" : " " + timeFor(rng, o);
   // zła pisownia -s: play → plaies, study → studys, watch → watchs, go → gos, have → haves, like → likees
-  const bad = v.b === "have" ? "haves" : /[aeiou]y$/.test(v.b) ? v.b.slice(0, -1) + "ies" : v.b.endsWith("y") ? v.b + "s" : /(ch|sh|o)$/.test(v.b) ? v.b + "s" : v.b + "es";
-  const wrong = [v.b, rng() < 0.5 && v.ing ? v.ing : bad];
+  // realne błędy pisowni tylko tam, gdzie jest reguła (-es / -ies / has): watchs, gos, studys, haves — nie "plaies", "likees"
+  const bad = v.b === "have" ? "haves" : /[^aeiou]y$/.test(v.b) ? v.b + "s" : /(ch|sh|o)$/.test(v.b) ? v.b + "s" : null;
+  const wrong = [v.b, v.ing, bad].filter(Boolean);
   const why = v.b === "have" ? `${s} → has (not haves)` : /(ch|sh|o|ss|x)$/.test(v.b) ? `${s} → ${v.b} + es → ${v.s}` : /[^aeiou]y$/.test(v.b) ? `${s} → ${v.b} → ${v.s} (y → ies)` : `${s} → ${v.b} + s → ${v.s}`;
-  return mk(`${s} ___${os}${t}.`, v.s, wrong, { [v.b]: "no_s", ...(v.ing ? { [v.ing]: "ing_confusion" } : {}), [bad]: "s_spelling" }, `${s} ${v.s}${os}${t}.`,
+  return mk(`${s} ___${os}${t}.`, v.s, wrong, { [v.b]: "no_s", ...(v.ing ? { [v.ing]: "ing_confusion" } : {}), ...(bad ? { [bad]: "s_spelling" } : {}) }, `${s} ${v.s}${os}${t}.`,
     v.b === "have" ? "he / she / it + have → has" : /(ch|sh|o|ss|x)$/.test(v.b) ? `Po -ch, -sh, -o dodajemy -es: ${v.s}` : /[^aeiou]y$/.test(v.b) ? `Spółgłoska + y → -ies: ${v.s}` : `he / she / it → dodaj -s: ${v.s}`,
     why);
 }

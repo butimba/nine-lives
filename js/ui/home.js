@@ -1,11 +1,13 @@
 // EKRAN GŁÓWNY = WIEŻA. Scena canvas (stage B) + hotspoty DOM.
 // Od dołu: Shadow Cellar (drzwi, oczy, licznik) → piętra (kot w oknie swojego piętra) → trofea bossów
 // → plakat WANTED (boss tygodnia) → niebo z brakującym Księżycem (Moon Diary).
-import { h, esc, app, ico, iconSrc, picSrc, pxButton, sticker, toast, onAct, fmtTime, GEAR, replay } from "./components.js";
+import { h, esc, app, ico, iconSrc, picSrc, pxButton, sticker, toast, onAct, fmtTime, GEAR, replay, countUp, liveCat } from "./components.js";
 import { go } from "./router.js";
 import { levelInfo, talentPoints, persist } from "../state.js";
 import { livesState, tickLives, sleepyTier, MAX_LIVES } from "../lives.js";
-import { streakAlive, weeklyStatus, weeklyBossInfo, isGift } from "../meta.js";
+import { streakAlive, weeklyStatus, weeklyBossInfo, isGift, loadPartner, receiveGifts, sendGift, canSendGift, duoChallenge } from "../meta.js";
+import ROSTER from "../../data/roster.js";
+import { SKINS } from "../../data/cosmetics.js";
 import { dailySummary, loadDaily } from "./daily.js";
 import { hasPowers, slotsHTML, powerPicker } from "./powers.js";
 import { shadowList } from "../engine.js";
@@ -18,7 +20,7 @@ import { chestSprite } from "../pixel/chests.js";
 import { makeMonster } from "../pixel/monsters.js";
 import { createStage } from "../game/stage.js";
 import { createFx, pxText } from "../game/juice.js";
-import { dayPhase, drawSky, drawTrophy, biomeForFloor } from "../game/world.js";
+import { dayPhase, drawSky, drawTrophy, biomeForFloor, drawSnowfall, drawFireworks } from "../game/world.js";
 
 // ---------- geometria sceny (logiczne px, szer. 240) ----------
 const W = 240, TX0 = 62, TX1 = 178, TCX = 120;  // wieża
@@ -65,7 +67,7 @@ function layoutFor(H, save) {
 }
 
 // ---------- statyczna wieża (cache per układ + pora dnia) ----------
-function bakeTower(L, phase) {
+function bakeTower(L, phase, winter = false) {
   const [c, x] = mkCanvas(W, L.H);
   const tint = TINT[phase];
   // pasy pięter
@@ -93,6 +95,7 @@ function bakeTower(L, phase) {
     x.fillStyle = b.ledge; x.fillRect(TX0 - 4, ly, TX1 - TX0 + 8, 3);
     x.fillStyle = b.ledgeHi; x.fillRect(TX0 - 4, ly, TX1 - TX0 + 8, 1);
     x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(TX0, ly + 5, TX1 - TX0, 2);
+    if (winter) snowLedge(x, TX0 - 4, ly, TX1 - TX0 + 8, band.f);
     // tabliczka z numerem
     const boss = band.f % ECON.floorsPerStage === 0;
     const label = String(band.f), pw = Math.max(13, label.length * 4 + 5), px = TX1 - 8 - pw;
@@ -136,11 +139,26 @@ function bakeTower(L, phase) {
   const grass = phase === "night" ? ["#24412e", "#33603e"] : phase === "day" ? ["#3c6e47", "#6ea04a"] : ["#33563a", "#55804a"];
   x.fillStyle = grass[0]; x.fillRect(0, g, W, 4); x.fillStyle = grass[1]; x.fillRect(0, g, W, 1);
   for (let i = 0; i < W; i += 2) if (hash(i, 9) < 0.45 && (i < TX0 - 2 || i > TX1 + 2)) { x.fillStyle = grass[1]; x.fillRect(i, g - 1 - (hash(i, 8) < 0.3 ? 1 : 0), 1, 1 + (hash(i, 8) < 0.3 ? 1 : 0)); }
+  if (winter) { // śnieg na ziemi
+    x.fillStyle = "#e8f2ff"; x.fillRect(0, g, W, 3); x.fillStyle = "#ffffff"; x.fillRect(0, g, W, 1);
+    for (let i = 0; i < W; i += 3) if (hash(i, 21) < 0.5) { x.fillStyle = "#ffffff"; x.fillRect(i, g - 1, 2 + (i % 2), 1); }
+    for (let i = 0; i < 40; i++) { x.fillStyle = "#cfe0f5"; x.fillRect(Math.floor(hash(i, 22) * W), g + 3 + Math.floor(hash(i, 23) * 3), 2, 1); }
+  }
   // cień wieży na ziemi
   x.fillStyle = "rgba(0,0,0,.3)"; x.fillRect(TX0 - 6, g, TX1 - TX0 + 12, 2);
   return c;
 }
 
+// czapa śniegu na półce (zima): biały pas + nieregularne zaspy i sople
+function snowLedge(x, x0, ly, w, seed) {
+  x.fillStyle = "#e8f2ff"; x.fillRect(x0, ly - 2, w, 2);
+  x.fillStyle = "#ffffff"; x.fillRect(x0 + 1, ly - 2, w - 2, 1);
+  for (let i = 0; i < w; i += 2) {
+    const r = hash(i + seed * 7, 31);
+    if (r < 0.35) { x.fillStyle = "#ffffff"; x.fillRect(x0 + i, ly - 3, 2 + (r < 0.12 ? 2 : 0), 1); }
+    if (r > 0.9) { x.fillStyle = "#cfeaff"; x.fillRect(x0 + i, ly + 5, 1, 2 + (r > 0.96 ? 2 : 0)); }
+  }
+}
 function smallWindow(x, b, wx, wy, lit) {
   x.fillStyle = "#0e0b16"; x.fillRect(wx - 1, wy + 2, 14, 17); x.fillRect(wx + 1, wy, 10, 3);
   x.fillStyle = lit ? b.light : "#120f20"; x.fillRect(wx + 1, wy + 3, 10, 14); x.fillRect(wx + 2, wy + 1, 8, 2);
@@ -185,6 +203,7 @@ export const homeScreen = {
     const ph0 = dayPhase();
     startMusic(ph0.phase === "night" || ph0.phase === "dusk" ? "home-night" : "home-day");
     const ev = activeEvent(new Date(), EVENTS);
+    const winter = !!(ev && ev.decor === "winter");
     const shadows = shadowList(save).length;
     const pts = talentPoints(save);
     const el = h(`<div class="screen home">
@@ -254,11 +273,13 @@ export const homeScreen = {
     };
     renderClimb();
     renderHud();
+    let duoReady = 0; // wspólne wyzwanie gotowe do odebrania (liczone po wczytaniu partnera)
     const renderDaily = () => {
       const b = $(".dl-badge"); if (!b) return;
       const d = dailySummary(save, profile);
-      b.innerHTML = d.claimable ? `<em class="badge badge--go">${d.claimable}</em>` : d.total ? `<span class="dl-mini">${d.done}/${d.total}</span>` : "";
-      $("[data-act=daily]").classList.toggle("has-claim", d.claimable > 0);
+      const cl = d.claimable + duoReady;
+      b.innerHTML = cl ? `<em class="badge badge--go">${cl}</em>` : d.total ? `<span class="dl-mini">${d.done}/${d.total}</span>` : "";
+      $("[data-act=daily]").classList.toggle("has-claim", cl > 0);
     };
     loadDaily().then(() => { if (el.isConnected) { renderDaily(); renderClimb(); } });
     renderDaily();
@@ -306,13 +327,27 @@ export const homeScreen = {
         </button>
         ${nC ? `<button class="hot hot--chest ${hasGift() ? "hot--gift" : ""}" data-act="chest" aria-label="${hasGift() ? "Open your gift" : "Open chest"}" style="${pos(211, L.groundY - 10)};${size(48, 30)}">
           <span class="chest-count">${sticker(`<span class="sticker-label sticker-label--red">${hasGift() ? "gift!" : nC}</span>`, { tilt: 8 })}</span></button>` : ""}
-        ${partner ? `<span class="duo-tag" style="${pos(L.partner.x, L.groundY - 40)}">${esc(partner.name)}<small>${partner.ago}</small></span>` : ""}
+        ${partner ? `<span class="duo-tag" style="${pos(L.partner.x, L.groundY - 36)}">${esc(partner.name)}<small>${partner.ago}</small></span>
+          <button class="hot hot--duo ${partner.canGift ? "can" : "sent"}" data-act="${partner.canGift ? "duo-gift" : "duo-sent"}" aria-label="${partner.canGift ? "Send a fish to " + esc(partner.name) : "Fish sent"}" style="${pos(L.partner.x, L.groundY - 72)}">
+            ${partner.canGift ? `<span class="duo-gift">${ico("fish", { scale: 2 })}<b>send a fish</b></span>` : `<span class="duo-gift duo-gift--sent">${ico("check", { scale: 2 })}<b>sent!</b></span>`}</button>
+          <button class="hot hot--pcat" data-act="duo-pet" aria-label="${esc(partner.name)}" style="${pos(L.partner.x, L.groundY - 12)};${size(30, 26)}"></button>
+          ${partner.flag ? `<button class="hot hot--flag" data-act="duo-flag" aria-label="${esc(partner.name)}'s flag" style="${pos(partner.flag.x - 4, partner.flag.y - 9)};${size(18, 22)}"></button>` : ""}` : ""}
       `;
     };
 
+    // flaga przyjaciółki na najwyższym piętrze, które przeszła (pub.best); poza widokiem → przy krawędzi ze strzałką
+    const flagPos = () => {
+      if (!partner || !L || !(partner.best >= 1)) return null;
+      const fb = L.bands.find((b) => b.f === partner.best && b.bottom > 14 && b.bottom < L.lobbyTop + 1);
+      if (fb) return { x: TX1 - 26, y: fb.bottom - 4, dir: 0 };
+      const top = L.bands.filter((b) => b.bottom > 14).reduce((a, b) => (a && a.f > b.f ? a : b), null);
+      if (top && partner.best > top.f) return { x: TX1 - 26, y: Math.max(26, top.bottom - BH + 22), dir: -1 };
+      return { x: TX1 - 26, y: L.bands[0].bottom - 4, dir: 1 };
+    };
     const relayout = () => {
       L = layoutFor(stage.h, save);
       bakedKey = "";
+      if (partner) partner.flag = flagPos();
       renderHot();
       scene.style.setProperty("--sky-bg", skyBg(scene, stage, phase.phase, L.H));
     };
@@ -323,7 +358,7 @@ export const homeScreen = {
       const key = `${L.H}|${phase.phase}|${L.cp}`;
       if (key === bakedKey) return;
       bakedKey = key;
-      towerC = bakeTower(L, phase.phase);
+      towerC = bakeTower(L, phase.phase, winter);
       hillsC = bakeHills(L.H, phase.phase);
       scene.style.setProperty("--sky-bg", skyBg(scene, stage, phase.phase, L.H));
     };
@@ -338,7 +373,8 @@ export const homeScreen = {
       draw(ctx, t) {
         bake();
         const night = phase.phase === "night";
-        drawSky(ctx, W, L.H, phase, t, { moon: true, moonX: MOON.x, moonY: MOON.y, birds: true, fireflies: false });
+        drawSky(ctx, W, L.H, phase, t, { moon: true, moonX: MOON.x, moonY: MOON.y, birds: !winter, fireflies: false });
+        if (ev && ev.sky === "fireworks") drawFireworks(ctx, W, L.H * 0.45, t);
         ctx.drawImage(hillsC, 0, 0);
         ctx.drawImage(towerC, 0, 0);
         // blask okien i pochodni
@@ -372,6 +408,21 @@ export const homeScreen = {
         }
         // trofea
         for (const band of L.bands) if (band.f % ECON.floorsPerStage === 0 && band.f <= L.cp) drawTrophy(ctx, TX1 + 8, band.bottom - 5, t + band.f);
+        // zima: lampki choinkowe pod każdą półką
+        if (winter) for (const band of L.bands) {
+          if (band.bottom < 0 || band.bottom > L.H) continue;
+          const ly = band.bottom + 1, cols = ["#ff3b4f", "#ffd23f", "#3ad65a", "#3b9bff"];
+          ctx.fillStyle = "#1f4a2a";
+          for (let i = TX0; i < TX1; i += 2) ctx.fillRect(i, ly + Math.round(Math.sin((i - TX0) / 9 * Math.PI) * 1.5) + 1, 2, 1);
+          for (let i = 0, lx = TX0 + 4; lx < TX1 - 2; i++, lx += 9) {
+            const on = (i + Math.floor(t * 2.5) + band.f) % 3 !== 0, c = cols[(i + band.f) % 4];
+            const yy = ly + Math.round(Math.sin((lx - TX0) / 9 * Math.PI) * 1.5) + 2;
+            if (on) { ctx.globalAlpha = 0.3; ctx.fillStyle = c; ctx.fillRect(lx - 1, yy - 1, 4, 4); ctx.globalAlpha = 1; }
+            ctx.fillStyle = on ? c : "#3a3352"; ctx.fillRect(lx, yy, 2, 2);
+          }
+        }
+        // flaga przyjaciółki (kolor jej kota)
+        if (partner && partner.flag) drawFlag(ctx, partner.flag, partner.color, t);
         // kot w oknie
         const ls = livesState(save);
         const anim = performance.now() < catAnimUntil ? catAnim : ls.asleep ? "sleep" : "idle";
@@ -395,7 +446,8 @@ export const homeScreen = {
           if (isGift(ty)) giftRibbon(ctx, Math.round(p.x + sh), yy, s, t);
         });
         // kot z duetu
-        if (partner && partner.cat) try { partner.cat.draw(ctx, L.partner.x, L.partner.y, { anim: "idle", t: t + 0.4 }); } catch {}
+        if (partner && partner.cat) try { partner.cat.draw(ctx, L.partner.x, L.partner.y, { anim: performance.now() < (partner.animUntil || 0) ? partner.anim : "idle", t: t + 0.4 }); } catch {}
+        if (winter) drawSnowfall(ctx, W, L.groundY, t);
         // chmurki z przodu
         ctx.globalAlpha = night ? 0.5 : 0.85;
         const cc = night ? "#2a2860" : phase.phase === "day" ? "#f4f8ff" : "#f6c4c0";
@@ -414,15 +466,61 @@ export const homeScreen = {
       if (el.isConnected) renderHot();
     }).catch(() => {});
 
-    // ---------- duet ----------
-    if (cloud.enabled() && profile && profile.duo) cloud.loadPublic(profile.duo).then((p) => {
+    // ---------- duet (offline / bez partnera → nic się nie pokazuje) ----------
+    const fishChip = () => el.querySelector(".chip--fish");
+    const flyFish = (fromX, fromY, toEl, n = 5, { reverse = false, toXY = null } = {}) => {
+      const r = stage.canvas.getBoundingClientRect();
+      const sx = r.left + (fromX / W) * r.width, sy = r.top + (fromY / L.H) * r.height;
+      let ex, ey;
+      if (toXY) { ex = r.left + (toXY[0] / W) * r.width; ey = r.top + (toXY[1] / L.H) * r.height; }
+      else { const b = toEl.getBoundingClientRect(); ex = b.left + b.width / 2; ey = b.top + b.height / 2; }
+      for (let i = 0; i < n; i++) {
+        const img = h(`<img class="px-ico dl-fly" src="${iconSrc("fish", 3)}" alt="">`);
+        document.body.append(img);
+        const mx = (sx + ex) / 2 + (Math.random() - 0.5) * 120, my = Math.min(sy, ey) - 50 - Math.random() * 60;
+        img.animate([
+          { transform: `translate(${sx - 12}px,${sy - 12}px) scale(.5)`, opacity: 0 },
+          { transform: `translate(${mx - 12}px,${my - 12}px) scale(1.3)`, opacity: 1, offset: 0.4 },
+          { transform: `translate(${ex - 12}px,${ey - 12}px) scale(.8)`, opacity: 1 },
+        ], { duration: 700 + Math.random() * 200, delay: i * 90, easing: "cubic-bezier(.5,0,.6,1)", fill: "both" }).onfinish = () => {
+          img.remove(); sfx.coin(); if (!reverse && toEl) replay(toEl.closest(".chip") || toEl, "bump");
+        };
+      }
+    };
+    const giftPop = (name, fish) => {
+      const pop = h(`<div class="duo-pop" role="status">${sticker(`<span class="duo-pop-in"><span class="duo-pop-cat"></span><b class="px">${esc(name)}<br>sent you a fish!</b><span class="duo-pop-n">${ico("fish", { scale: 3 })}<b>+${fish}</b></span></span>`, { tilt: -3 })}</div>`);
+      try { const c = liveCat({ skin: partner.skin, hat: partner.hat, anim: "dance", scale: 3 }); pop.querySelector(".duo-pop-cat").append(c.el); } catch {}
+      el.append(pop);
+      const close = () => { pop.classList.add("out"); setTimeout(() => pop.remove(), 300); };
+      pop.addEventListener("click", close);
+      setTimeout(close, 3200);
+    };
+    const showPartner = (p) => {
       if (!p || !p.name || !el.isConnected) return;
       const hrs = p.updated_at ? (Date.now() - new Date(p.updated_at)) / 3600000 : null;
       let cat = null; try { cat = getCat(p.skin || "ginger", p.hat || "none"); } catch {}
-      partner = { name: p.name, cat, ago: hrs == null ? "" : hrs < 24 ? "played today" : `${Math.round(hrs / 24)} days ago` };
+      const sk = SKINS.find((k) => k.id === p.skin);
+      partner = { name: p.name, cat, skin: p.skin || "ginger", hat: p.hat || "none", best: +p.best || 0, color: sk ? sk.colors.fur : "#ff8fb1",
+        ago: hrs == null ? "" : hrs < 20 ? "played today" : hrs < 48 ? "played yesterday" : "", canGift: canSendGift(save), anim: "idle", animUntil: 0 };
+      partner.flag = flagPos();
+      try { const c = duoChallenge(save, profile, p, { young: !!((ROSTER.players[profile.duo] || {}).noReading || profile.noReading) }); duoReady = c.done && !c.claimed ? 1 : 0; renderDaily(); } catch {}
+      // prezent od niej dla mnie?
+      const got = receiveGifts(save, p);
+      if (got.fish) {
+        persist(true);
+        const chip = fishChip(); const b = chip && chip.querySelector("[data-fish]");
+        if (b) b.textContent = save.coins - got.fish;
+        setTimeout(() => {
+          if (!el.isConnected) return;
+          sfx.chest(); giftPop(p.name, got.fish);
+          partner.anim = "dance"; partner.animUntil = performance.now() + 2200;
+          flyFish(L.partner.x, L.partner.y - 14, chip, Math.min(8, got.fish));
+          setTimeout(() => { if (b && el.isConnected) countUp(b, save.coins - got.fish, save.coins, 600); }, 700);
+        }, 600);
+      }
       renderHot();
-    }).catch(() => {});
-
+    };
+    if (profile && profile.duo) loadPartner(profile, { fresh: true }).then(showPartner).catch(() => {});
     // ---------- zdarzenia ----------
     const pet = () => {
       sfx.purr();
@@ -449,6 +547,19 @@ export const homeScreen = {
       cards: () => { sfx.tap(); go("cards"); },
       daily: () => { sfx.tap(); go("daily"); },
       "power-pick": async () => { sfx.tap(); await powerPicker(save); if (el.isConnected) renderClimb(); },
+      "duo-gift": () => {
+        if (!partner || !sendGift(save, profile)) return;
+        persist(true); sfx.coin();
+        partner.canGift = false; partner.anim = "jump"; partner.animUntil = performance.now() + 900;
+        catAnim = "dance"; catAnimUntil = performance.now() + 900;
+        flyFish(L.cat.x, L.cat.y - 14, null, 5, { reverse: true, toXY: [L.partner.x, L.partner.y - 14] });
+        setTimeout(() => { if (!el.isConnected) return; fx.burst(L.partner.x, L.partner.y - 16, { n: 10, colors: ["#7ec4ff", "#ffd23f", "#ff8fa3"], speed: 30, gravity: -20, life: 0.9 }); fx.float(L.partner.x, L.partner.y - 34, "YUM!", { color: "#ffd23f" }); }, 900);
+        toast(`Fish gift for ${partner.name}! It is free.`, { icon: "fish" });
+        renderHot();
+      },
+      "duo-sent": () => { sfx.tap(); toast("You sent a fish today. Again tomorrow!", { icon: "fish" }); },
+      "duo-pet": () => { if (!partner) return; sfx.purr(); partner.anim = "dance"; partner.animUntil = performance.now() + 900; fx.float(L.partner.x, L.partner.y - 34, "HI!", { color: "#ffc9d3" }); },
+      "duo-flag": () => { if (!partner) return; sfx.tap(); toast(`${partner.name} was here!`, { icon: "star" }); },
     });
 
     // event (Halloween…) jako naklejka
@@ -477,6 +588,26 @@ export const homeScreen = {
   },
 };
 
+// flaga przyjaciółki: maszt + trójkątny proporzec w kolorze jej kota (dir: -1 wyżej, 1 niżej → strzałka)
+function drawFlag(ctx, f, color, t) {
+  const x = Math.round(f.x), y = Math.round(f.y);
+  ctx.fillStyle = "#0e0b16"; ctx.fillRect(x - 1, y - 17, 3, 18);
+  ctx.fillStyle = "#d8ccb4"; ctx.fillRect(x, y - 16, 1, 16);
+  const wave = Math.floor(t * 4) % 2;
+  ctx.fillStyle = "#0e0b16";
+  for (let r = -1; r < 8; r++) { const w = Math.max(1, 9 - Math.abs(r - 3) * 2) + 1; ctx.fillRect(x - w, y - 16 + r, w, 1); }
+  ctx.fillStyle = color;
+  for (let r = 0; r < 7; r++) { const w = Math.max(1, 9 - Math.abs(r - 3) * 2 - (wave && r % 2 ? 1 : 0)); ctx.fillRect(x - w, y - 16 + r, w, 1); }
+  ctx.fillStyle = "rgba(255,255,255,.45)"; ctx.fillRect(x - 4, y - 16, 4, 1);
+  ctx.fillStyle = "#ffd23f"; ctx.fillRect(x, y - 18, 1, 1);
+  if (f.dir) { // strzałka: dalej w górę / w dół
+    const ay = f.dir < 0 ? y - 24 : y + 3, k = Math.floor(t * 3) % 2;
+    ctx.fillStyle = "#0e0b16"; ctx.fillRect(x - 3, ay - 1 + k * f.dir, 7, 5);
+    ctx.fillStyle = color;
+    if (f.dir < 0) { ctx.fillRect(x, ay + k * f.dir, 1, 1); ctx.fillRect(x - 1, ay + 1 + k * f.dir, 3, 1); ctx.fillRect(x - 2, ay + 2 + k * f.dir, 5, 1); }
+    else { ctx.fillRect(x - 2, ay + k, 5, 1); ctx.fillRect(x - 1, ay + 1 + k, 3, 1); ctx.fillRect(x, ay + 2 + k, 1, 1); }
+  }
+}
 // wstążka na skrzyni-prezencie przy wieży (sprite w skali 1)
 function giftRibbon(ctx, x, y, s, t) {
   const top = y - s.h;

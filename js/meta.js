@@ -1,7 +1,7 @@
 // Meta-gra: skrzynki, sklep, talenty, seria dni, boss tygodnia, duety.
 import { SKINS, HATS } from "../data/cosmetics.js";
 import { CHESTS, ECON, TALENTS, DUP_COINS } from "../data/progression.js";
-import EVENTS, { activeEvent } from "../data/events.js";
+import EVENTS, { activeEvent, eventAllows } from "../data/events.js";
 import { today, dayDiff, isoWeek } from "./util.js";
 import * as cloud from "./cloud.js";
 
@@ -9,7 +9,7 @@ export const tr = (save, id) => save.talents[id] || 0;
 
 export function shopItems(save, date = new Date()) {
   const ev = activeEvent(date, EVENTS);
-  const ok = (it) => !it.retired && !it.community && it.price && (it.source === "shop" || (ev && it.source === "event:" + ev.id));
+  const ok = (it) => !it.retired && !it.community && it.price && (it.source === "shop" || eventAllows(ev, it.source));
   return {
     skins: SKINS.filter(ok).map((s) => ({ ...s, kind: "skin", owned: save.owned.skins.includes(s.id) })),
     hats: HATS.filter(ok).map((s) => ({ ...s, kind: "hat", owned: save.owned.hats.includes(s.id) })),
@@ -62,7 +62,14 @@ function openGift(save, type) {
 }
 
 // ---- skrzynki ----
-export function openChest(save, type) {
+// przedmioty wydarzenia, które mogą wypaść ze skrzyni TERAZ (chest: true albo bez ceny = tylko ze skrzyni)
+export function eventChestItems(date = new Date()) {
+  const ev = activeEvent(date, EVENTS);
+  if (!ev) return [];
+  const ok = (it) => !it.retired && eventAllows(ev, it.source) && (it.chest || !it.price);
+  return [...SKINS.filter(ok).map((s) => ({ ...s, kind: "skin" })), ...HATS.filter(ok).map((s) => ({ ...s, kind: "hat" }))];
+}
+export function openChest(save, type, date = new Date()) {
   if (isGift(type)) return openGift(save, type);
   const c = CHESTS[type] || CHESTS.wood;
   const luck = tr(save, "treasure") * 8;
@@ -74,9 +81,12 @@ export function openChest(save, type) {
   const coinAmt = c.coins || [40, 90];
   if (cat !== "coins") {
     const pool = [
-      ...SKINS.filter((s) => s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })),
-      ...HATS.filter((s) => s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.hats.includes(s.id)).map((s) => ({ ...s, kind: "hat" })),
+      ...SKINS.filter((s) => !s.retired && s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })),
+      ...HATS.filter((s) => !s.retired && s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.hats.includes(s.id)).map((s) => ({ ...s, kind: "hat" })),
     ];
+    // w czasie wydarzenia: przedmioty wydarzenia mają podwójną wagę (żeby skrzynie pachniały świętami)
+    const evPool = eventChestItems(date).filter((it) => it.rarity === cat && !(it.kind === "skin" ? save.owned.skins : save.owned.hats).includes(it.id));
+    if (evPool.length) pool.push(...evPool, ...evPool);
     if (pool.length) {
       const it = pool[Math.floor(Math.random() * pool.length)];
       (it.kind === "skin" ? save.owned.skins : save.owned.hats).push(it.id);
@@ -200,3 +210,79 @@ export async function syncCommunity(save) {
   }
   return res;
 }
+
+// ---- DUET (co-op, bez rankingów): prezent 5 rybek raz dziennie + wspólne wyzwanie dnia + flaga przyjaciółki ----
+// Bez nowego SQL: mój status idzie w saves.pub.duo (cloud.saveSave), partner czyta go przez cloud.loadPublic(profile.duo).
+// Wszystko offline-safe: brak chmury / brak partnera / błąd sieci → duetUI się chowa (partner = null).
+import { freshDuo } from "./state.js";
+export const DUO = { gift: 5, goal: 30, goalYoung: 20, fish: 30, chest: "wood" };
+export function ensureDuo(save, d = today()) {
+  if (!save.duo || typeof save.duo !== "object") save.duo = freshDuo();
+  const u = save.duo;
+  if (!Array.isArray(u.got)) u.got = [];
+  if (!Array.isArray(u.sent)) u.sent = [];
+  if (u.nDay !== d) { u.nDay = d; u.n = 0; }
+  return u;
+}
+// moje dobre odpowiedzi dziś (wkład do wspólnego wyzwania) — rewards.applyRunResults
+export function duoAddCorrect(save, n, d = today()) {
+  const u = ensureDuo(save, d);
+  u.n += Math.max(0, Math.floor(+n || 0));
+  return u.n;
+}
+export const canSendGift = (save, d = today()) => ensureDuo(save, d).sentDay !== d;
+// wysłanie prezentu nic nie kosztuje i nic nie daje wysyłającemu (bez przewagi w nauce)
+export function sendGift(save, profile, d = today()) {
+  if (!profile || !profile.duo) return false;
+  const u = ensureDuo(save, d);
+  if (u.sentDay === d) return false;
+  u.partner = profile.duo; u.sentDay = d;
+  u.sent = [...u.sent.filter((x) => x !== d), d].slice(-7);
+  return true;
+}
+// prezenty od partnera dla MNIE (pub = cloud.loadPublic(partnerId)). Każdy dzień liczy się raz. -> { n, fish }
+export function receiveGifts(save, pub, d = today()) {
+  const u = ensureDuo(save, d);
+  const g = pub && pub.duo;
+  if (!g || !save.id || g.giftTo !== save.id) return { n: 0, fish: 0 };
+  const days = (Array.isArray(g.gifts) && g.gifts.length ? g.gifts : g.giftDay ? [g.giftDay] : [])
+    .filter((x) => typeof x === "string" && /^\d{4}-\d\d-\d\d$/.test(x) && x <= d && dayDiff(x, d) <= 7);
+  const fresh = [...new Set(days)].filter((x) => !u.got.includes(x));
+  if (!fresh.length) return { n: 0, fish: 0 };
+  u.got = [...u.got, ...fresh].sort().slice(-14);
+  u.gotGiftDay = u.got[u.got.length - 1];
+  const fish = DUO.gift * fresh.length;
+  save.coins += fish;
+  return { n: fresh.length, fish };
+}
+// wspólne wyzwanie dnia: oboje dostają nagrodę, gdy razem osiągną cel I każde dało co najmniej 1
+export function duoChallenge(save, profile, pub, { young = false } = {}, d = today()) {
+  const u = ensureDuo(save, d);
+  const g = pub && pub.duo;
+  const them = g && g.day === d ? Math.max(0, g.duoN | 0) : 0;
+  const goal = young || (profile && profile.noReading) ? DUO.goalYoung : DUO.goal;
+  const me = u.n;
+  const done = me >= 1 && them >= 1 && me + them >= goal;
+  return { goal, me, them, total: Math.min(goal, me + them), done, claimed: u.duoClaimDay === d, needMe: me < 1, needThem: them < 1,
+    text: `Together: ${goal} right answers` };
+}
+export function claimDuo(save, profile, pub, opts = {}, d = today()) {
+  const c = duoChallenge(save, profile, pub, opts, d);
+  if (!c.done || c.claimed) return null;
+  save.duo.duoClaimDay = d;
+  save.coins += DUO.fish;
+  save.chests.push(DUO.chest);
+  return { fish: DUO.fish, chest: DUO.chest };
+}
+// partner z chmury (cache 45 s). null = brak duetu / offline / błąd → UI duetu się chowa.
+let partnerCache = { id: null, at: 0, pub: null };
+export async function loadPartner(profile, { fresh = false } = {}) {
+  if (!profile || !profile.duo || !cloud.enabled()) return null;
+  if (!fresh && partnerCache.id === profile.duo && Date.now() - partnerCache.at < 45000) return partnerCache.pub;
+  try {
+    const pub = await cloud.loadPublic(profile.duo);
+    partnerCache = { id: profile.duo, at: Date.now(), pub: pub && pub.name ? pub : null };
+  } catch (e) { partnerCache = { id: profile.duo, at: Date.now(), pub: null }; }
+  return partnerCache.pub;
+}
+export const forgetPartner = () => { partnerCache = { id: null, at: 0, pub: null }; };

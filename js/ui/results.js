@@ -13,7 +13,6 @@ export const resultsScreen = {
     const shadow = r.mode === "shadow";
     const won = !!r.won;
     const ls = livesState(save);
-    const acc = r.answers ? Math.round((r.correct / r.answers) * 100) : 0;
     let st, stColor, title, sub;
     if (r.quit) { st = "Bye!"; stColor = "ink"; title = "See you soon!"; sub = shadow ? "" : `Floor ${r.floorReached || "-"}`; }
     else if (shadow) { st = won ? "Clear!" : "Zzz"; stColor = won ? "violet" : "ink"; title = won ? "Shadows gone!" : "The shadows hide…"; sub = "Shadow Cellar"; }
@@ -46,12 +45,12 @@ export const resultsScreen = {
           <div class="res-stat big">${ico("fish", { scale: 3 })}<b>+<span data-n="coins">0</span></b><small>fish</small></div>
           <div class="res-stat big">${ico("xp", { scale: 3 })}<b>+<span data-n="xp">0</span></b><small>XP</small></div>
           <div class="res-stat">${ico("flame", { scale: 3 })}<b data-n="combo">0</b><small>best combo</small></div>
-          <div class="res-stat">${ico("check", { scale: 3 })}<b><span data-n="acc">0</span>%</b><small>right</small></div>
+          <div class="res-stat">${ico("check", { scale: 3 })}<b><span data-n="acc">0</span></b><small>right answers</small></div>
         </div>`, { cls: "res-board", tilt: -1 })}
       <div class="res-msgs"></div>
       ${daily.length ? panel(`<div class="res-daily-head px">Daily ${daily.some((c) => c.done && !c.claimed) ? `<button class="px-btn px-btn--gold px-btn--sm" data-act="daily">Claim!</button>` : `<small>${daily.filter((c) => c.done).length}/${daily.length}</small>`}</div>
         ${daily.map((c) => `<div class="res-daily ${c.done ? "done" : ""}"><span class="lex">${esc(c.text || "")}</span><div class="dl-bar ${c.done ? "full" : ""}"><i style="width:${Math.round((c.n / (c.goal || 1)) * 100)}%"></i><span>${c.n}/${c.goal}</span></div></div>`).join("")}`, { cls: "res-daily-card", tape: false, tilt: 0.5 }) : ""}
-      ${sleepy ? panel(`<img class="px-ico" src="${iconSrc("zzz", 4)}" alt=""><span>Your cat is getting sleepy… rewards are smaller now. The Shadow Cellar still gives full rewards!</span>`, { cls: "sleepy-note", tape: false, tilt: 0.6 }) : ""}
+      ${sleepy ? panel(`<img class="px-ico" src="${iconSrc("zzz", 4)}" alt=""><span>Your cat is sleepy. Less fish now. The Shadow Cellar gives all the fish!</span>`, { cls: "sleepy-note", tape: false, tilt: 0.6 }) : ""}
       <div class="res-actions">
         ${hasChest ? pxButton("Open chest", { act: "open-chest", big: true, variant: "gold" }) : ""}
         ${pxButton("Continue", { act: "continue", big: !hasChest, variant: hasChest ? "paper" : "ok" })}
@@ -73,7 +72,7 @@ export const resultsScreen = {
         countUp(n("coins"), 0, r.coins || 0, 800, { tick: (v) => v % 3 === 0 && sfx.coin() }),
         countUp(n("xp"), 0, r.xp || 0, 800),
         countUp(n("combo"), 0, r.bestCombo || 0, 600),
-        countUp(n("acc"), 0, acc, 700),
+        countUp(n("acc"), 0, r.correct || 0, 700), // count, not % — easier for kids
       ]);
       if (!alive) return;
       const box = el.querySelector(".res-msgs");

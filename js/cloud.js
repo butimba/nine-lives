@@ -17,8 +17,17 @@ export async function loadSave(id) {
   const rows = await req(`saves?id=eq.${encodeURIComponent(id)}&select=data`);
   return rows && rows[0] ? rows[0].data : null;
 }
+// publiczny status duetu (bez imion — tylko dni, liczby i id zapisu przyjaciółki); czyta go partner przez loadPublic
+export function duoPub(data) {
+  const d = data && data.duo;
+  if (!d) return null;
+  const sent = Array.isArray(d.sent) ? d.sent.filter((x) => typeof x === "string").slice(-7) : [];
+  return { day: d.nDay || null, duoN: Math.max(0, d.n | 0), giftTo: d.partner || null, giftDay: d.sentDay || null, gifts: sent };
+}
 export async function saveSave(id, data) {
   const pub = { name: data.catName, skin: data.equipped.skin, hat: data.equipped.hat, best: data.tower.best, lvl: data._lvl || 1, last: data.updatedAt };
+  const duo = duoPub(data);
+  if (duo) pub.duo = duo;
   await req("saves", { method: "POST", headers: { Prefer: "resolution=merge-duplicates" },
     body: JSON.stringify({ id, data, pub, updated_at: new Date().toISOString() }) });
 }

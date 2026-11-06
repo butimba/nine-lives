@@ -177,6 +177,7 @@ async function playRun(p, { acc = 0.85, counts, onEvent = async () => {}, maxMs 
     if (pickT && sameTicks < 60 && pickT.x >= 0 && pickT.y >= 0 && pickT.x <= vp.width && pickT.y <= vp.height) {
       await p.mouse.click(pickT.x, pickT.y);
       counts.clicks++;
+      await onEvent(pickT.ok ? "hit" : "miss", st); // zrzuty: prezent / sweter (zima), cukierek / psikus (Halloween)
       await sleep(good ? 260 : 400);
       if (!good) good = true; // po jednej pomyłce reszta sekwencji dobrze (catch / pary)
     } else if (sameTicks >= 25) {

@@ -1,6 +1,7 @@
 // Zrzuty ekranu v2: dom o 7/13/19/23, bieg, intro bossa, każda mechanika, wyniki, rytuał prezentu (gift) i skrzyni,
 // Daily, wybór mocy, Skills, Cards (+ duża karta), Moon Diary, Wardrobe, edytor skórek.
 // Użycie: node tools/shots-v2.cjs [port=8765] [login=lucja] [viewports=mobile,desktop]
+// SHOTS_QUERY="season=winter" — podgląd wydarzenia (np. Święta przed 1.12). Duet: tools/duo-test.cjs.
 // Wynik: $SHOTS_DIR (domyślnie /tmp/shots)/v2-<viewport>-<nazwa>.png
 const fs = require("fs");
 const { chromium } = require("playwright");
@@ -13,7 +14,7 @@ const [port = "8765", loginName = "lucja", vps = "mobile,desktop"] = process.arg
   const browser = await chromium.launch();
   const allErrors = [];
   for (const vp of vps.split(",")) {
-    const p = await B.newGame(browser, { vp, port: +port });
+    const p = await B.newGame(browser, { vp, port: +port, query: process.env.SHOTS_QUERY || "" });
     const shot = (name) => p.screenshot({ path: `${B.SHOTS}/v2-${vp}-${name}.png` }).catch(() => {});
     const made = [];
     const S = async (name) => { await shot(name); made.push(name); };
@@ -82,6 +83,7 @@ const [port = "8765", loginName = "lucja", vps = "mobile,desktop"] = process.arg
       await B.sleep(600);
       if (await B.tap(p, "[data-act=wardrobe]") && await B.waitFor(p, "[data-act=skin-editor]", 4000)) {
         await B.sleep(700); await S("wardrobe");
+        if (await B.tap(p, "[data-act=tab][data-tab=shop]")) { await B.sleep(700); await S("wardrobe-shop"); await p.screenshot({ path: `${B.SHOTS}/v2-${vp}-wardrobe-shop-full.png`, fullPage: true }).catch(() => {}); await B.tap(p, "[data-act=tab][data-tab=skins]"); await B.sleep(400); }
         if (await B.tap(p, "[data-act=skin-editor]")) {
           await B.sleep(700);
           const box = await p.evaluate(() => { const r = document.querySelector(".ed-canvas").getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });

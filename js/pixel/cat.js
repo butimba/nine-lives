@@ -379,7 +379,7 @@ function buildSkin(skinId) {
     for (let x = 0; x < CAT_W; x++) { let y = 0; while (y < CAT_H && !g[y * CAT_W + x]) y++; t.push(y < CAT_H ? y : -1); }
     return t;
   });
-  const rec = { skin, fx, sprites, furMask, map, top, frames: FRAMES, ox: PADX, oy: PADT, tails: FRAMES.map((f) => TAIL_TIP[f.body]) };
+  const rec = { skin, fx, sprites, chars: custom ? null : CHAR_FRAMES, furMask, map, top, frames: FRAMES, ox: PADX, oy: PADT, tails: FRAMES.map((f) => TAIL_TIP[f.body]) };
   catCache.set(skinId, rec);
   return rec;
 }

@@ -253,12 +253,14 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
       });
     },
     // boss intro card (auto closes)
-    bossCard({ name, portrait, ms = 2300 }) {
+    bossCard({ name, portrait, ms = 2300, hint }) {
+      // winter bosses ("Frosty …", run.js) throw snowballs
+      hint = hint || (/^Frosty /.test(String(name)) ? "Tap the snowballs!" : "Tap the fireballs!");
       const c = card(`<div class="rui-boss">
           <div class="rui-boss-stamp stamp px">BOSS!</div>
           ${portrait ? `<img class="rui-boss-img" src="${portrait}" alt="">` : ""}
           <div class="rui-boss-name px">${esc(name)}</div>
-          <div class="rui-sub lex">Tap the fireballs!</div>
+          <div class="rui-sub lex">${esc(hint)}</div>
         </div>`, "rui-cardwrap--boss");
       return new Promise((res) => {
         let done = false;

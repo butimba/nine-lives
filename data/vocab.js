@@ -119,6 +119,131 @@ export default {
     ["shell", "muszelka", "🐚"], ["crab", "krab", "🦀"], ["ice cream", "lody", "🍦"], ["swimsuit", "strój kąpielowy", "👙"],
     ["tent", "namiot", "⛺"], ["watermelon", "arbuz", "🍉"], ["holiday", "wakacje", "🧳"],
   ]},
+
+  // ===== ETAP 4: tematy wg podstawy programowej i podręczników kl. 1–6 (docs/curriculum/VOCAB-1-6.md) =====
+  // klasa dla każdego tematu i kolejność nauki: data/curriculum.js
+
+  // --- klasa 2 ---
+  bugs: { name: "Minibeasts", icon: "🐞", words: [
+    ["ant", "mrówka", "🐜"], ["beetle", "chrząszcz / żuk", "🪲"], ["fly", "mucha", "🪰"], ["snail", "ślimak", "🐌"],
+    ["worm", "dżdżownica / robak", "🪱"], ["caterpillar", "gąsienica", "🐛"], ["mosquito", "komar", "🦟"],
+    ["scorpion", "skorpion", "🦂"], ["bee", "pszczoła", "🐝"], ["butterfly", "motyl", "🦋"], ["ladybird", "biedronka", "🐞"],
+    ["spider", "pająk", "🕷️"],
+  ]},
+  fruitveg: { name: "Fruit & veg", icon: "🍐", words: [
+    ["pear", "gruszka", "🍐"], ["cherry", "wiśnia / czereśnia", "🍒"], ["lemon", "cytryna", "🍋"], ["pineapple", "ananas", "🍍"],
+    ["kiwi", "kiwi", "🥝"], ["coconut", "kokos", "🥥"], ["blueberries", "borówki", "🫐"],
+    ["potato", "ziemniak", "🥔"], ["onion", "cebula", "🧅"], ["garlic", "czosnek", "🧄"], ["cucumber", "ogórek", "🥒"],
+    ["corn", "kukurydza", "🌽"], ["broccoli", "brokuł", "🥦"], ["pepper", "papryka", "🫑"],
+  ]},
+  fairytale: { name: "Fairy tales", icon: "🦄", words: [
+    ["prince", "książę", "🤴"], ["princess", "księżniczka", "👸"], ["crown", "korona", "👑"], ["castle", "zamek", "🏰"],
+    ["dragon", "smok", "🐉"], ["unicorn", "jednorożec", "🦄"], ["fairy", "wróżka", "🧚"], ["wizard", "czarodziej", "🧙‍♂️"],
+    ["mermaid", "syrenka", "🧜‍♀️"], ["genie", "dżin", "🧞"], ["magic wand", "czarodziejska różdżka", "🪄"],
+    ["diamond", "diament", "💎"], ["mirror", "lustro", "🪞"],
+  ]},
+
+  // --- klasa 3 (Bugs Team 3: U1 safari, U3 talent show, U4 my busy day, U5 shopping, U6 holiday; liczby 10–100) ---
+  wild: { name: "Wild animals", icon: "🦁", words: [
+    ["rhino", "nosorożec", "🦏"], ["whale", "wieloryb", "🐋"], ["gorilla", "goryl", "🦍"],
+    ["leopard", "lampart", "🐆"], ["lizard", "jaszczurka", "🦎"], ["crocodile", "krokodyl", "🐊"],
+    ["zebra", "zebra", "🦓"], ["camel", "wielbłąd", "🐫"], ["penguin", "pingwin", "🐧"], ["flamingo", "flaming", "🦩"],
+    ["panda", "panda", "🐼"], ["koala", "koala", "🐨"], ["octopus", "ośmiornica", "🐙"], ["dolphin", "delfin", "🐬"],
+    ["polar bear", "niedźwiedź polarny", "🐻‍❄️"], ["parrot", "papuga", "🦜"],
+  ]},
+  bignumbers: { name: "Numbers 13–100", icon: "💯", words: [
+    ["thirteen", "trzynaście", "num:13"], ["fourteen", "czternaście", "num:14"], ["fifteen", "piętnaście", "num:15"], ["sixteen", "szesnaście", "num:16"],
+    ["seventeen", "siedemnaście", "num:17"], ["eighteen", "osiemnaście", "num:18"], ["nineteen", "dziewiętnaście", "num:19"], ["twenty", "dwadzieścia", "num:20"],
+    ["thirty", "trzydzieści", "num:30"], ["forty", "czterdzieści", "num:40"], ["fifty", "pięćdziesiąt", "num:50"], ["sixty", "sześćdziesiąt", "num:60"],
+    ["seventy", "siedemdziesiąt", "num:70"], ["eighty", "osiemdziesiąt", "num:80"], ["ninety", "dziewięćdziesiąt", "num:90"], ["one hundred", "sto", "num:100"],
+  ]},
+  freetime: { name: "Free time", icon: "🎸", words: [
+    ["play the guitar", "grać na gitarze", "🎸"], ["play the piano", "grać na pianinie", "🎹"], ["play the violin", "grać na skrzypcach", "🎻"],
+    ["play the trumpet", "grać na trąbce", "🎺"], ["play the drums", "grać na perkusji", "🥁"], ["skateboard", "jeździć na deskorolce", "🛹"],
+    ["roller-skate", "jeździć na wrotkach", "🛼"], ["play chess", "grać w szachy", "♟️"], ["juggle", "żonglować", "🤹"],
+    ["listen to music", "słuchać muzyki", "🎧"], ["play computer games", "grać w gry komputerowe", "🎮"], ["paint", "malować", "🎨"],
+  ]},
+  myday: { name: "My day", icon: "⏰", words: [
+    ["wake up", "budzić się", "⏰"], ["brush your teeth", "myć zęby", "🪥"],
+    ["have a shower", "brać prysznic", "🚿"], ["have a bath", "brać kąpiel", "🛀"], ["have breakfast", "jeść śniadanie", "🥣"],
+    ["go to school", "iść do szkoły", "🏫"], ["do homework", "odrabiać lekcje", "📝"], ["go to bed", "iść spać", "🛌"], ["have dinner", "jeść obiad / kolację", "🍽️"],
+    ["morning", "rano / poranek", "🌅"], ["evening", "wieczór", "🌆"], ["night", "noc", "🌙"],
+  ]},
+  town: { name: "In town", icon: "🏙️", words: [
+    ["hospital", "szpital", "🏥"], ["hotel", "hotel", "🏨"], ["bank", "bank", "🏦"], ["church", "kościół", "⛪"],
+    ["castle", "zamek", "🏰"], ["stadium", "stadion", "🏟️"], ["factory", "fabryka", "🏭"], ["train station", "dworzec kolejowy", "🚉"],
+    ["supermarket", "supermarket", "🛒"], ["shop", "sklep", "🏪"],
+    ["funfair", "wesołe miasteczko", "🎡"], ["traffic lights", "światła (sygnalizacja)", "🚦"], ["petrol station", "stacja benzynowa", "⛽"], ["museum", "muzeum", "🏛️"],
+  ]},
+  holiday: { name: "Holiday fun", icon: "🏕️", words: [
+    ["take photos", "robić zdjęcia", "📸"], ["fly a kite", "puszczać latawca", "🪁"], ["have a picnic", "urządzać piknik", "🧺"],
+    ["go fishing", "łowić ryby", "🎣"], ["collect shells", "zbierać muszelki", "🐚"], ["go snorkelling", "nurkować z rurką", "🤿"],
+    ["make a fire", "rozpalać ognisko", "🔥"], ["go camping", "jechać pod namiot", "🏕️"], ["go hiking", "wędrować po górach", "🥾"],
+    ["go surfing", "surfować", "🏄"], ["go sailing", "żeglować", "⛵"], ["city", "miasto", "🏙️"],
+  ]},
+
+  // --- klasa 4 (English Class A1 / Brainy 4: my things, house, animals & pets, food products, liczebniki porządkowe) ---
+  things: { name: "My things", icon: "🎧", words: [
+    ["headphones", "słuchawki", "🎧"], ["watch", "zegarek", "⌚"], ["camera", "aparat fotograficzny", "📷"], ["purse", "portmonetka", "👛"],
+    ["torch", "latarka", "🔦"], ["map", "mapa", "🗺️"], ["ticket", "bilet", "🎫"], ["compass", "kompas", "🧭"],
+    ["money", "pieniądze", "💰"], ["coin", "moneta", "🪙"], ["magnifying glass", "lupa", "🔍"], ["crayon", "kredka (świecowa)", "🖍️"],
+    ["paper clip", "spinacz", "📎"], ["umbrella", "parasol", "☂️"], ["key", "klucz", "🔑"],
+  ]},
+  household: { name: "Around the house", icon: "🪴", words: [
+    ["picture", "obraz / obrazek", "🖼️"], ["plant", "roślina (doniczkowa)", "🪴"], ["mirror", "lustro", "🪞"], ["bucket", "wiadro", "🪣"],
+    ["toilet paper", "papier toaletowy", "🧻"], ["box", "pudełko / karton", "📦"],
+    ["bin", "kosz na śmieci", "🗑️"], ["ladder", "drabina", "🪜"], ["hammer", "młotek", "🔨"], ["letter", "list", "✉️"],
+    ["newspaper", "gazeta", "📰"], ["battery", "bateria", "🔋"], ["calendar", "kalendarz", "📅"], ["spoon", "łyżka", "🥄"],
+    ["teapot", "dzbanek do herbaty", "🫖"],
+  ]},
+  forest: { name: "Forest & pets", icon: "🦔", words: [
+    ["hamster", "chomik", "🐹"], ["turtle", "żółw", "🐢"], ["hen", "kura", "🐔"],
+    ["hedgehog", "jeż", "🦔"], ["squirrel", "wiewiórka", "🐿️"], ["fox", "lis", "🦊"], ["wolf", "wilk", "🐺"],
+    ["swan", "łabędź", "🦢"], ["eagle", "orzeł", "🦅"], ["raccoon", "szop pracz", "🦝"],
+    ["turkey", "indyk", "🦃"], ["peacock", "paw", "🦚"],
+  ]},
+  food2: { name: "Food 2", icon: "🍯", words: [
+    ["rice", "ryż", "🍚"], ["honey", "miód", "🍯"], ["salt", "sól", "🧂"],
+    ["pasta", "makaron", "🍝"], ["meat", "mięso", "🥩"], ["peanuts", "orzeszki ziemne", "🥜"], ["chips", "frytki", "🍟"],
+    ["salad", "sałatka", "🥗"], ["burger", "hamburger", "🍔"], ["pancakes", "naleśniki / placki", "🥞"], ["croissant", "rogalik", "🥐"],
+    ["pie", "placek / ciasto z nadzieniem", "🥧"], ["popcorn", "popcorn", "🍿"], ["doughnut", "pączek / donut", "🍩"], ["cupcake", "babeczka", "🧁"],
+    ["hot dog", "hot dog", "🌭"],
+  ]},
+  ordinals: { name: "1st, 2nd, 3rd…", icon: "🥇", words: [
+    ["first", "pierwszy", "num:1st"], ["second", "drugi", "num:2nd"], ["third", "trzeci", "num:3rd"], ["fourth", "czwarty", "num:4th"],
+    ["fifth", "piąty", "num:5th"], ["sixth", "szósty", "num:6th"], ["seventh", "siódmy", "num:7th"], ["eighth", "ósmy", "num:8th"],
+    ["ninth", "dziewiąty", "num:9th"],
+  ]},
+
+  // --- klasa 5 (Brainy 5/6: sport i sprzęt, zdrowie; nauka i technika — kosmos) ---
+  sports2: { name: "Sports 2", icon: "🏆", words: [
+    ["golf", "golf", "⛳"], ["bowling", "kręgle", "🎳"], ["table tennis", "tenis stołowy", "🏓"], ["badminton", "badminton", "🏸"],
+    ["hockey", "hokej", "🏒"], ["rugby", "rugby", "🏉"], ["baseball", "baseball", "⚾"],
+    ["snowboarding", "jazda na snowboardzie", "🏂"], ["weightlifting", "podnoszenie ciężarów", "🏋️"], ["cricket", "krykiet", "🏏"], ["medal", "medal", "🏅"], ["trophy", "puchar", "🏆"],
+  ]},
+  health: { name: "At the doctor's", icon: "🩺", words: [
+    ["headache", "ból głowy", "🤕"], ["plaster", "plaster", "🩹"], ["pill", "tabletka", "💊"],
+    ["thermometer", "termometr", "🌡️"], ["injection", "zastrzyk", "💉"], ["ambulance", "karetka", "🚑"], ["stethoscope", "stetoskop", "🩺"],
+    ["mask", "maseczka", "😷"], ["hospital", "szpital", "🏥"], ["doctor", "lekarz", "🧑‍⚕️"], ["sick", "chory", "🤒"], ["tooth", "ząb", "🦷"],
+  ]},
+  space: { name: "Space", icon: "🪐", words: [
+    ["planet", "planeta", "🪐"], ["Earth", "Ziemia", "🌍"], ["alien", "kosmita", "👽"],
+    ["satellite", "satelita", "🛰️"], ["telescope", "teleskop", "🔭"], ["UFO", "UFO", "🛸"], ["rocket", "rakieta", "🚀"],
+    ["astronaut", "astronauta", "🧑‍🚀"], ["moon", "księżyc", "🌕"], ["star", "gwiazda", "⭐"], ["sun", "słońce", "☀️"], ["shooting star", "spadająca gwiazda", "🌠"],
+  ]},
+
+  // --- klasa 6 (nauka i technika, świat przyrody) ---
+  tech: { name: "Technology", icon: "🖨️", words: [
+    ["keyboard", "klawiatura", "⌨️"], ["printer", "drukarka", "🖨️"], ["computer mouse", "myszka komputerowa", "🖱️"], ["plug", "wtyczka", "🔌"],
+    ["radio", "radio", "📻"], ["video camera", "kamera", "📹"], ["joystick", "dżojstik", "🕹️"],
+    ["satellite dish", "antena satelitarna", "📡"], ["microscope", "mikroskop", "🔬"], ["magnet", "magnes", "🧲"], ["email", "e-mail", "📧"],
+    ["screen", "ekran / monitor", "🖥️"],
+  ]},
+  nature2: { name: "Wild nature", icon: "🌪️", words: [
+    ["autumn", "jesień", "🍂"], ["lightning", "błyskawica", "⚡"], ["tornado", "tornado", "🌪️"], ["ice", "lód", "🧊"],
+    ["desert", "pustynia", "🏜️"], ["sunflower", "słonecznik", "🌻"], ["rose", "róża", "🌹"], ["palm tree", "palma", "🌴"],
+    ["wood", "drewno", "🪵"], ["feather", "pióro", "🪶"], ["chestnut", "kasztan", "🌰"], ["sunset", "zachód słońca", "🌇"],
+  ]},
 };
 
 // MYLĄCE SIĘ SŁOWA — nigdy nie pojawiają się razem jako opcje (ani jako cel + dystraktor).
@@ -138,4 +263,30 @@ export const CONFUSABLE = [
   ["sad", "sick"], ["*family", "mum", "dad", "baby", "sister", "brother", "grandma", "grandpa"], ["mum", "grandma"], ["dad", "grandpa"],
   ["red", "read"], ["sing", "singer"], ["*draw", "artist", "paintbrush"], ["holiday", "beach"], ["star", "Christmas tree"],
   ["monster", "zombie", "ghost"], ["*witch", "hat", "broom"], ["pen", "pencil"], ["computer", "video game"], ["deer", "horse"],
+  // --- etap 4 (nowe tematy) ---
+  // ten sam obrazek co w starym temacie
+  ["school", "go to school"], ["shower", "have a shower"], ["kite", "fly a kite"], ["video game", "play computer games", "joystick"],
+  ["drum", "play the drums"], ["basket", "have a picnic"], ["shell", "collect shells"], ["headphones", "listen to music"],
+  ["draw", "paint"], ["eat", "have dinner"], ["boat", "go sailing"], ["tooth", "brush your teeth"],
+  // bugs, fruitveg, fairytale
+  ["ant", "spider"], ["worm", "caterpillar"], ["fly", "mosquito"], ["beetle", "ladybird"], ["onion", "garlic"],
+  ["prince", "princess", "crown"], ["wizard", "witch"],
+  // wild, forest (ptaki: "bird" z każdym)
+  ["whale", "dolphin"], ["lizard", "crocodile"], ["panda", "polar bear", "bear"], ["gorilla", "monkey"], ["leopard", "tiger"],
+  ["*bird", "penguin", "flamingo", "parrot", "eagle", "swan", "hen", "peacock", "turkey"],
+  ["fox", "wolf"], ["raccoon", "wolf"], ["hen", "turkey", "chicken", "chick"], ["swan", "duck"], ["hamster", "mouse"],
+  // myday, town, holiday
+  ["have a shower", "have a bath", "bath"], ["morning", "evening", "sunset"], ["night", "moon"], ["go to bed", "sleep", "bed"],
+  ["have breakfast", "have dinner"], ["hospital", "hotel"], ["bank", "museum"], ["shop", "supermarket"],
+  ["go camping", "tent"], ["take photos", "camera", "video camera"], ["go fishing", "fish"],
+  // things, household, food2
+  ["money", "coin", "purse"], ["watch", "clock", "compass"], ["bucket", "bin"], ["mirror", "picture"],
+  ["*cake", "cupcake", "pie", "pancakes"], ["chips", "popcorn"], ["meat", "chicken"], ["croissant", "bread"],
+  // sports2, health, space, tech, nature2
+  ["*ball", "rugby", "baseball", "cricket"], ["tennis", "table tennis", "badminton"], ["medal", "trophy"], ["hockey", "cricket"],
+  ["snowboarding", "skiing"], ["sick", "headache", "mask", "thermometer"], ["doctor", "stethoscope"],
+  ["star", "shooting star"], ["planet", "Earth", "moon"], ["UFO", "alien"], ["satellite dish", "satellite"],
+  ["screen", "computer", "TV", "keyboard"], ["computer mouse", "mouse"], ["microscope", "telescope"],
+  ["autumn", "leaf"], ["ice", "cold", "snow"], ["lightning", "storm"], ["tornado", "wind", "storm"], ["wood", "tree"],
+  ["*flower", "rose", "sunflower"], ["palm tree", "tree", "island"], ["desert", "cactus"],
 ];

@@ -10,6 +10,14 @@ import { ECON } from "../../data/progression.js";
 import EVENTS, { activeEvent } from "../../data/events.js";
 
 const SOURCE_HINT = { start: "", shop: "shop", chest: "chest", weekly: "boss prize" };
+const EVENT_WHEN = { halloween: "Halloween", winter: "Christmas (December)", newyear: "New Year", spring: "Spring", summer: "Summer", friendship: "Friendship Week", school: "Back to School" };
+function eventHint(it) {
+  const id = String(it.source).slice(6), when = EVENT_WHEN[id] || "special events";
+  const live = ev && (ev.id === id || (ev.also || []).includes(id));
+  if (live) return !it.price ? "Find it in a chest now!" : "It is in the Shop now!";
+  return `Only at ${when}!`;
+}
+let ev = null;
 const srcHint = (it) => (it.source || "").startsWith("event:") ? "event" : SOURCE_HINT[it.source] || "";
 
 export const wardrobeScreen = {
@@ -17,7 +25,7 @@ export const wardrobeScreen = {
     const save = app.save;
     let tab = params.tab || "skins";
     let tryOn = null; // { kind, id, price, name } — przymierzanie w sklepie
-    const ev = activeEvent(new Date(), EVENTS);
+    ev = activeEvent(new Date(), EVENTS);
     const el = h(`<div class="screen page wardrobe">
       ${pageHead("Wardrobe", save)}
       <div class="preview-box"><i class="spot"></i><div class="preview-cat"></div>
@@ -113,7 +121,7 @@ export const wardrobeScreen = {
       back: () => { sfx.tap(); go("home"); },
       tab: (b) => { tab = b.dataset.tab; tryOn = null; sfx.tap(); render(); },
       equip: (b) => equip(b.dataset.kind, b.dataset.id),
-      locked: (b) => { sfx.tap(); const it = (b.dataset.kind === "skin" ? SKINS : HATS).find((x) => x.id === b.dataset.id); const s = it && srcHint(it); toast(s === "chest" ? "Find it in a chest!" : s === "boss prize" ? "Beat the weekly boss!" : s === "event" ? "Only in special events!" : "Not yet!"); },
+      locked: (b) => { sfx.tap(); const it = (b.dataset.kind === "skin" ? SKINS : HATS).find((x) => x.id === b.dataset.id); const s = it && srcHint(it); toast(s === "chest" ? "Find it in a chest!" : s === "boss prize" ? "Beat the weekly boss!" : s === "event" ? eventHint(it) : s === "shop" ? "Buy it in the Shop!" : "Not yet!"); },
       try: (b) => {
         const kind = b.dataset.kind, it = (kind === "skin" ? SKINS : HATS).find((x) => x.id === b.dataset.id);
         tryOn = { kind, id: it.id, price: it.price, name: it.name };

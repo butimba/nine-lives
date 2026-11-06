@@ -50,7 +50,11 @@ export function pageHead(title, save, { fish = true } = {}) {
 export function refreshFish(root, save) { root.querySelectorAll("[data-fish]").forEach((e) => (e.textContent = save.coins)); }
 
 // ---------- toast ----------
+// (pod HUD-em, żeby nie zasłaniać serc; znikają przy wejściu do biegu, żeby nie zakrywać zadania)
+import { onRoute } from "./router.js";
 let toastBox = null;
+export function clearToasts() { if (toastBox) toastBox.innerHTML = ""; }
+onRoute((name) => { if (name === "run" || name === "login") clearToasts(); });
 export function toast(msg, { icon, ms = 2400 } = {}) {
   if (!toastBox || !toastBox.isConnected) { toastBox = h(`<div class="toasts" aria-live="polite"></div>`); document.body.append(toastBox); }
   const t = h(`<div class="toast">${icon ? ico(icon) : ""}<span>${esc(msg)}</span></div>`);

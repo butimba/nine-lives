@@ -45,6 +45,21 @@ function furSpots(c, n, seed, region) {
   return out;
 }
 
+
+const inHead = (c, x, y) => x >= c.frame.hx && x < c.frame.hx + 13 && y >= c.frame.hy && y < c.frame.hy + 11;
+// Christmas-lights wire: diagonal lines over the body fur (body coords). Shared by the static wire and the animated bulbs.
+function wirePts(chars, frame) {
+  const out = [];
+  const fur = (x, y) => 'FHsSqxXLzZBb'.includes((chars[y] && chars[y][x]) || '.');
+  for (let y = 0; y < chars.length; y++) for (let x = 0; x < chars[y].length; x++) {
+    const head = x >= frame.hx && x < frame.hx + 13 && y >= frame.hy && y < frame.hy + 11;
+    if (!fur(x, y)) continue;
+    // a ring around the neck + two diagonal loops round the body
+    if (head ? y === frame.hy + 10 : ((x + y * 2) % 9 === 0 || (x + y * 2) % 9 === 1)) out.push([x, y]);
+  }
+  return out;
+}
+
 const STATIC = {
   shrimp(c, layer) {
     const st = c.skin.colors.stripe, belly = c.skin.colors.belly;
@@ -155,6 +170,127 @@ const STATIC = {
       set(c, x, y, 'HSXZ'.includes(k) ? shade(base, -0.14) : base);
     }
   },
+
+  // ---------- Stage 4: Shark + Christmas / New Year ----------
+  shark(c, layer) {
+    const dk = c.skin.colors.stripe, lt = mix(c.skin.colors.fur, '#ffffff', 0.25);
+    if (layer === 'under') {
+      // dorsal fin on the back + forked tail fin
+      const fin = { sit: [7, 12], puff: [7, 13], jump: [8, 8], crouch: [9, 12], swipe: [9, 13], loaf: [7, 13], stand: [5, 10], stand2: [5, 11] }[c.body];
+      if (fin) rows(c, fin[0] - 1, fin[1] - 5, ['S....', 'SS...', 'SLS..', 'SLLS.', '.SLLS', '.SSSS'], { S: dk, L: lt });
+      const [tx, ty] = c.tail;
+      if (c.body === 'loaf') rows(c, tx - 3, ty - 2, ['S..', 'SS.', '.S.', 'SS.', 'S..'], { S: dk });
+      else rows(c, tx - 2, ty - 3, ['S...S', '.S.S.', '..S..'], { S: dk });
+    } else {
+      // toothy grin + gills
+      for (let X = 4; X <= 10; X++) hs(c, X, 9, X % 2 ? '#ffffff' : PAL.k);
+      hs(c, 5, 10, '#ffffff'); hs(c, 7, 10, '#ffffff'); hs(c, 9, 10, '#ffffff');
+      for (const X of [1, 3]) { hs(c, X, 6, dk); hs(c, X, 7, dk); }
+    }
+  },
+  santa(c, layer) {
+    if (layer !== 'over') return;
+    const W = '#f4efe2', belt = '#1d1d2b', gold = '#ffd23f';
+    // white cuffs (paws) + fluffy beard under the chin
+    for (let y = 0; y < c.chars.length; y++) for (let x = 0; x < c.chars[y].length; x++) if ('zZ'.includes(ch(c, x, y))) set(c, x, y, W);
+    for (let X = 3; X <= 11; X++) for (let Y = 9; Y <= 12; Y++) {
+      const inBeard = Y === 9 ? X >= 4 && X <= 10 && X !== 6 && X !== 8 && X !== 7 : Y === 10 ? X >= 3 && X <= 11 : Y === 11 ? X >= 4 && X <= 10 : X >= 6 && X <= 8;
+      if (!inBeard) continue;
+      const bx = c.frame.hx + X, by = c.frame.hy + Y;
+      if (Y >= 11 || ch(c, bx, by) !== '.') set(c, bx, by, Y === 12 || (Y === 11 && X % 3 === 0) ? '#d8d2e6' : W);
+    }
+    hs(c, 7, 9, '#ff9aa8');
+    // belt with a golden buckle
+    const by = { sit: 17, puff: 18, jump: 11, crouch: 16, swipe: 17, loaf: 18, stand: 16, stand2: 16 }[c.body];
+    if (by != null) {
+      let bx = [];
+      for (let x = 0; x < (c.chars[by] || []).length; x++) if (ch(c, x, by) !== '.' && !inHead(c, x, by)) { set(c, x, by, belt); bx.push(x); }
+      const bel = bx.filter((x) => 'Bb'.includes(ch(c, x, by)));
+      const mid = bel.length ? bel[Math.floor(bel.length / 2)] : bx[Math.floor(bx.length / 2)];
+      if (mid != null) { set(c, mid - 1, by, gold); set(c, mid + 1, by, gold); set(c, mid, by, gold); }
+    }
+  },
+  lights(c, layer) {
+    if (layer !== 'over') return;
+    // the wire of the Christmas lights wraps diagonally around the body
+    for (const [x, y] of wirePts(c.chars, c.frame)) set(c, x, y, '#1f4a2a');
+  },
+  xmastree(c, layer) {
+    if (layer === 'under') {
+      // a little star on top of the head
+      hs(c, 6, -3, '#ffd23f'); hs(c, 5, -2, '#ffd23f'); hs(c, 6, -2, '#fff1a8'); hs(c, 7, -2, '#ffd23f'); hs(c, 6, -1, '#ffd23f');
+      return;
+    }
+    // golden garland: zigzag across the body, baubles on top
+    for (let y = 0; y < c.chars.length; y++) for (let x = 0; x < c.chars[y].length; x++) {
+      if (inHead(c, x, y) || !isFur(c, x, y)) continue;
+      if ((x + y * 2) % 7 === 0 && (y % 4 === 1 || y % 4 === 2)) set(c, x, y, '#ffd23f');
+    }
+    const cols = ['#e8434f', '#3b9bff', '#ffd23f', '#ff8fd8', '#ffffff'];
+    furSpots(c, 7, 2024 + c.fi, 'body').forEach(([x, y], i) => set(c, x, y, cols[i % cols.length]));
+  },
+  reindeer(c, layer) {
+    if (layer === 'under') {
+      const A = '#e8cfa8';
+      for (const [X, Y] of [[3, -1], [3, -2], [3, -3], [2, -3], [1, -4], [4, -4], [4, -5], [9, -1], [9, -2], [9, -3], [10, -3], [11, -4], [8, -4], [8, -5]]) hs(c, X, Y, A);
+    } else {
+      // bigger shiny red nose + light belly spots
+      hs(c, 7, 8, c.skin.colors.nose); hs(c, 8, 8, c.skin.colors.nose); hs(c, 8, 7, '#ff9aa8');
+      furSpots(c, 4, 88 + c.fi, 'body').forEach(([x, y]) => set(c, x, y, mix(c.skin.colors.belly, '#ffffff', 0.3)));
+    }
+  },
+  snowman(c, layer) {
+    if (layer !== 'over') return;
+    // carrot nose
+    hs(c, 7, 8, '#ff8a1f'); hs(c, 8, 8, '#ff8a1f'); hs(c, 9, 8, '#d9622b');
+    // coal buttons down the belly
+    const B = [];
+    for (let y = 0; y < c.chars.length; y++) for (let x = 0; x < c.chars[y].length; x++) if ('Bb'.includes(ch(c, x, y)) && !inHead(c, x, y)) B.push([x, y]);
+    if (B.length) {
+      const cnt = {}; B.forEach(([x]) => (cnt[x] = (cnt[x] || 0) + 1));
+      const col = +Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+      const ys = B.filter(([x]) => x === col).map(([, y]) => y).sort((a, b) => a - b);
+      [0.25, 0.55, 0.85].forEach((k) => { const y = ys[Math.min(ys.length - 1, Math.floor(ys.length * k))]; if (y != null) set(c, col, y, '#1d1d2b'); });
+    }
+    // red + green striped scarf around the neck, one end hanging
+    const sy = c.frame.hy + 10;
+    for (let X = 1; X <= 11; X++) { const x = c.frame.hx + X; if (ch(c, x, sy) !== '.' || ch(c, x, sy + 1) !== '.') set(c, x, sy, X % 3 === 0 ? '#3aa34f' : '#e8434f'); }
+    for (let k = 1; k <= 3; k++) set(c, c.frame.hx + 2, sy + k, k % 2 ? '#e8434f' : '#3aa34f');
+  },
+  elf(c, layer) {
+    if (layer === 'under') {
+      // green tunic on the body (head keeps its skin colour)
+      const G = '#3aa34f', Gs = '#2a7a3a';
+      for (let y = 0; y < c.chars.length; y++) for (let x = 0; x < c.chars[y].length; x++) {
+        const k = ch(c, x, y);
+        if (inHead(c, x, y) || !'FHsSqLxX'.includes(k)) continue;
+        set(c, x, y, 'HSX'.includes(k) ? Gs : G);
+      }
+      // jingle bell on the tail
+      const [tx, ty] = c.tail;
+      set(c, tx, ty, '#ffd23f'); set(c, tx - 1, ty, '#ffd23f'); set(c, tx, ty + 1, '#d99a00');
+      return;
+    }
+    // zigzag collar under the head
+    const y = c.frame.hy + 11;
+    for (let X = 2; X <= 11; X++) { const x = c.frame.hx + X; if (ch(c, x, y) !== '.') set(c, x, y, X % 2 ? '#e8434f' : '#ffd23f'); }
+  },
+  candycane(c, layer) {
+    if (layer !== 'under') return;
+    // diagonal red stripes over all the fur (not the face)
+    for (let y = 0; y < c.chars.length; y++) for (let x = 0; x < c.chars[y].length; x++) {
+      const k = ch(c, x, y);
+      if (!'FHsSqxXzZL'.includes(k)) continue;
+      if (inHead(c, x, y) && y - c.frame.hy >= 4) continue;
+      if (((x + y) % 4 + 4) % 4 < 2) set(c, x, y, 'HSXZ'.includes(k) ? '#b8323a' : '#e8434f');
+    }
+  },
+  firework(c, layer) {
+    if (layer !== 'over') return;
+    const cols = ['#ff5d8f', '#ffe14d', '#6fe3d3', '#93e04c', '#ffffff', '#ffa04d'];
+    furSpots(c, 10, 2027 + c.fi, 'body').forEach(([x, y], i) => set(c, x, y, cols[i % cols.length]));
+    furSpots(c, 2, 12 + c.fi, 'head').forEach(([x, y], i) => { if (!'kWIp'.includes(ch(c, x, y))) set(c, x, y, cols[(i + 2) % cols.length]); });
+  },
   fire() {}, toxic() {},
 };
 
@@ -179,6 +315,103 @@ function sparkle(o, gx, gy, size, col = '#fff1a8') {
 const hp = (o, X, Y) => { const f = o.rec.frames[o.fi]; return [f.hx + X + o.rec.ox, f.hy + Y + o.rec.oy]; };
 
 const ANIM = {
+  // ---------- Stage 4 ----------
+  shark(o, layer) {
+    if (layer !== 'front') return;
+    // bubbles rising from the mouth
+    for (let i = 0; i < 2; i++) {
+      const ph = (o.t * 0.7 + i * 0.5) % 1;
+      if (ph > 0.75) continue;
+      const [gx, gy] = hp(o, 12 + Math.round(Math.sin(o.t * 4 + i) * 1), 8);
+      const yy = gy - Math.round(ph * 14);
+      P(o, gx + i * 2, yy, '#bfe8ff'); if (ph > 0.3) P(o, gx + i * 2 + 1, yy - 1, '#ffffff');
+    }
+  },
+  lights(o, layer) {
+    if (layer !== 'front') return;
+    const rec = o.rec, fi = o.fi;
+    rec._bulbs = rec._bulbs || [];
+    if (!rec._bulbs[fi]) {
+      const chars = rec.chars && rec.chars[fi];
+      rec._bulbs[fi] = chars ? wirePts(chars, rec.frames[fi]).filter(([x, y], i) => i % 3 === 0).map(([x, y]) => [x + rec.ox, y + rec.oy]) : [];
+    }
+    const cols = ['#ff3b4f', '#ffd23f', '#3ad65a', '#3b9bff', '#ff8fd8'];
+    const step = Math.floor(o.t * 3);
+    const ctx = o.ctx;
+    rec._bulbs[fi].forEach(([gx, gy], i) => {
+      const col = cols[(i + step) % cols.length];
+      const on = (i + step) % 4 !== 0;
+      if (on) { const a = ctx.globalAlpha; ctx.globalAlpha = a * 0.35; P(o, gx - 1, gy - 1, col, 3, 3); ctx.globalAlpha = a; }
+      P(o, gx, gy, on ? col : shade(col, -0.45));
+      if (on && (i + step) % 5 === 1) P(o, gx, gy, '#ffffff');
+    });
+  },
+  xmastree(o, layer) {
+    if (layer !== 'front') return;
+    const [sx, sy] = hp(o, 6, -2);
+    if (Math.floor(o.t * 2.5) % 3 === 0) sparkle(o, sx, sy, 1, '#ffd23f');
+    const pts = o.rec.furMask[o.fi];
+    const r = rng32(Math.floor(o.t * 2) + 7);
+    const p = pts[Math.floor(r() * pts.length)];
+    if (p && Math.floor(o.t * 4) % 2) P(o, p[0], p[1], '#ffffff');
+  },
+  reindeer(o, layer) {
+    if (layer !== 'front') return;
+    const [nx, ny] = hp(o, 8, 8);
+    const k = 0.5 + 0.5 * Math.sin(o.t * 5);
+    const a = o.ctx.globalAlpha;
+    o.ctx.globalAlpha = a * (0.25 + 0.35 * k); P(o, nx - 1, ny - 1, '#ff5d5d', 3, 3);
+    o.ctx.globalAlpha = a * 0.18 * k; P(o, nx - 2, ny - 2, '#ff9a8a', 5, 5);
+    o.ctx.globalAlpha = a;
+    if (k > 0.85) P(o, nx, ny - 1, '#ffffff');
+  },
+  snowman(o, layer) {
+    if (layer !== 'front') return;
+    // a few snowflakes drifting around
+    for (let i = 0; i < 4; i++) {
+      const ph = (o.t * 0.35 + i * 0.25) % 1;
+      const gx = 3 + ((i * 11) % 30) + Math.round(Math.sin(o.t * 2 + i) * 1.5), gy = Math.round(ph * 28);
+      P(o, gx, gy, i % 2 ? '#ffffff' : '#dff6ff');
+    }
+  },
+  elf(o, layer) {
+    if (layer !== 'front') return;
+    const tail = o.rec.tails[o.fi];
+    if (!tail || Math.floor(o.t * 3) % 3) return;
+    sparkle(o, tail[0] + o.rec.ox - 1, tail[1] + o.rec.oy - 2, 0, '#ffd23f');
+  },
+  candycane(o, layer) { if (layer === 'front' && Math.floor(o.t * 1.5) % 4 === 0) { const [gx, gy] = hp(o, 3, 2); sparkle(o, gx, gy, 1, '#ffffff'); } },
+  santa(o, layer) {
+    if (layer !== 'front') return;
+    for (let i = 0; i < 3; i++) {
+      const ph = (o.t * 0.3 + i / 3) % 1;
+      P(o, 2 + ((i * 13) % 32), Math.round(ph * 30) - 2, '#ffffff');
+    }
+  },
+  firework(o, layer) {
+    // rockets shoot up and burst into rings of colour around the cat
+    const bursts = [[4, 3, 0, '#ff5d8f'], [31, 1, 0.33, '#ffe14d'], [32, 17, 0.66, '#6fe3d3']];
+    for (const [bx, by, off, col] of bursts) {
+      const ph = (o.t * 0.55 + off) % 1;
+      if (layer === 'back' && ph < 0.28) {
+        const k = ph / 0.28;
+        P(o, bx, Math.round(by + 12 - k * 12), '#fff1a8');
+        if (k > 0.3) P(o, bx, Math.round(by + 13 - k * 12), '#ffa04d');
+      }
+      if (layer === 'front' && ph >= 0.28 && ph < 0.85) {
+        const k = (ph - 0.28) / 0.57, r = 1 + Math.round(k * 5);
+        const a = o.ctx.globalAlpha; o.ctx.globalAlpha = a * (k > 0.7 ? (1 - k) / 0.3 : 1);
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2;
+          P(o, Math.round(bx + Math.cos(ang) * r), Math.round(by + Math.sin(ang) * r), i % 2 ? col : '#ffffff');
+          if (r > 2) P(o, Math.round(bx + Math.cos(ang) * (r - 2)), Math.round(by + Math.sin(ang) * (r - 2)), shade(col, -0.2));
+        }
+        if (k < 0.2) sparkle(o, bx, by, 1, col);
+        o.ctx.globalAlpha = a;
+      }
+    }
+  },
+
   shrimp(o, layer) {
     if (layer !== 'front') return;
     const st = o.rec.skin.colors.stripe;

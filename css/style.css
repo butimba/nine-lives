@@ -178,7 +178,7 @@ img.px-ico, img.px-cat, .px-img, canvas.px-canvas { image-rendering: pixelated; 
 /* =========================================================
    TOASTS + MODAL
    ========================================================= */
-.toasts { position: fixed; left: 0; right: 0; top: 14px; z-index: 200; display: grid; justify-items: center; gap: 10px; pointer-events: none; padding: 0 16px; }
+.toasts { position: fixed; left: 0; right: 0; top: 124px; z-index: 200; display: grid; justify-items: center; gap: 10px; pointer-events: none; padding: 0 16px; }
 .toast { display: flex; align-items: center; gap: 8px; max-width: 420px; padding: 9px 14px 10px; background: var(--px-paper); color: var(--px-ink);
   font: 700 16px/1.25 var(--f-px); box-shadow: 0 0 0 3px var(--px-ink), 4px 5px 0 3px rgba(8, 5, 18, .5); transform: rotate(-1deg);
   animation: toastIn .22s steps(4) both; }
@@ -776,3 +776,40 @@ canvas.cat-live { display: block; image-rendering: pixelated; }
   .home-dock { min-width: 0; }
   .climb-wrap:has(.pw-pick) .climb { min-width: 220px; padding-left: 20px; padding-right: 20px; }
 }
+
+/* ---------- Stage 4: DUET ---------- */
+.dl-duo:empty { display: none; }
+.dl-duo { display: grid; gap: 10px; margin-bottom: 6px; }
+.tg-card { grid-template-columns: 1fr; gap: 10px; padding: 14px 14px 14px; }
+.duo-cats { display: flex; align-items: flex-end; justify-content: center; gap: 10px; }
+.duo-who { display: grid; justify-items: center; gap: 2px; min-width: 0; }
+.duo-who b { font-size: 13px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.duo-n { min-width: 34px; padding: 3px 6px 2px; background: var(--c); color: var(--px-ink); font: 700 18px/1 var(--f-px); text-align: center; box-shadow: 0 0 0 3px var(--px-ink); }
+.duo-heart { align-self: center; animation: flick .8s steps(2) infinite; }
+.duo-goal { text-align: center; margin: 2px 0 0; }
+.duo-bar i.them { inset: 0 auto 0 auto; background: #ff8fb1; }
+.duo-bar.full i, .duo-bar.full i.them { background: var(--px-ok); }
+.duo-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; }
+.duo-hint { font-size: 14px; color: var(--grey); flex: 1 1 140px; }
+.duo-giftrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 2px dashed rgba(14, 11, 22, .2); padding-top: 10px; }
+.duo-giftrow small { color: var(--grey); font-size: 12px; }
+.duo-sent { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--px-ok); font-weight: 600; }
+.duo-sent img { width: 18px; height: 18px; }
+/* home: send-a-fish sticker above the partner's cat */
+.hot--duo { z-index: 4; }
+.duo-gift { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px 4px 5px; background: var(--px-paper); color: var(--px-ink);
+  box-shadow: 0 0 0 2px var(--px-ink), 3px 3px 0 2px rgba(0, 0, 0, .35); transform: rotate(-4deg); white-space: nowrap; }
+.duo-gift img { width: 18px; height: 18px; }
+.duo-gift b { font: 700 11px/1 var(--f-px); letter-spacing: .03em; }
+.hot--duo.can .duo-gift { --tilt: -4deg; background: var(--px-gold); animation: giftHop2 1.2s steps(2) infinite; }
+.duo-gift--sent { opacity: .85; }
+.duo-gift--sent b { color: var(--px-ok); }
+.hot--flag, .hot--pcat { z-index: 3; }
+.duo-pop { position: fixed; left: 50%; top: 34%; z-index: 30; transform: translate(-50%, -50%); cursor: pointer; animation: popIn .35s steps(4) both; }
+.duo-pop.out { animation: toastOut .3s steps(3) both; }
+.duo-pop .sticker { display: block; }
+.duo-pop-in { display: grid; justify-items: center; gap: 6px; padding: 10px 16px 12px; text-align: center; }
+.duo-pop-in b.px { font-size: 18px; line-height: 1.25; }
+.duo-pop-n { display: inline-flex; align-items: center; gap: 4px; font: 700 22px/1 var(--f-px); color: var(--px-accent, #ff8a1f); }
+.duo-pop-n img { width: 30px; height: 30px; }
+@keyframes popIn { from { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 70% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } to { transform: translate(-50%, -50%) scale(1); } }

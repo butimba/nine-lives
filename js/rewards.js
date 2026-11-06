@@ -2,7 +2,7 @@
 // run.js zwraca RunStats z coins/xp JUŻ pomnożonymi przez lives.rewardMult —
 // tutaj dokładamy tylko talenty/perki, zapisujemy postęp wieży, skrzynie, fabułę, serię dni.
 import { ECON, STORY, POWERS, MAX_EQUIPPED_POWERS, powerById } from "../data/progression.js";
-import { tr, chestForFloor, touchStreak, ensureWeek } from "./meta.js";
+import { tr, chestForFloor, touchStreak, ensureWeek, duoAddCorrect } from "./meta.js";
 import { persist, levelInfo, getSave } from "./state.js";
 import { gainLife, sleepyTier, rewardMult } from "./lives.js";
 import { today } from "./util.js";
@@ -81,6 +81,9 @@ export function applyRunResults(save, stats = {}) {
   const weeklyDmg = Math.max(0, Math.round(num(stats.weeklyDmg)));
   ensureWeek(save);
   save.weekly.dmg += weeklyDmg;
+
+  // --- duet: moje dobre odpowiedzi dziś = wkład do wspólnego wyzwania (publikowany w saves.pub.duo) ---
+  duoAddCorrect(save, num(stats.correct));
 
   // --- statystyki (answers/correct liczy engine.record) ---
   save.stats.runs++;

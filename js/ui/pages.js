@@ -20,15 +20,16 @@ const back = () => { sfx.tap(); go("home"); };
 // =================== SKILLS ===================
 const TREES_EN = { claws: { name: "Claws", color: "var(--px-danger)", icon: "claw" }, fur: { name: "Fur", color: "var(--px-sky)", icon: "shield" }, whiskers: { name: "Whiskers", color: "#d9a22b", icon: "eye" } };
 const TALENT_EN = {
-  sharp_claws: { name: "Sharp Claws", icon: "star", d: (r) => `+${r * 6}% big hits (x2)` },
-  combo: { name: "Combo Master", icon: "flame", d: (r) => `${Math.max(2, 5 - r)} right in a row = +1 damage` },
+  // kid-friendly: no percentages (the rank pips show how strong it is)
+  sharp_claws: { name: "Sharp Claws", icon: "star", d: (r) => `${r >= 2 ? "Even more" : "More"} BIG hits` },
+  combo: { name: "Combo Master", icon: "flame", d: (r) => `${Math.max(2, 5 - r)} right in a row = extra hit` },
   pounce: { name: "Pounce", icon: "catHead", d: (r) => `First hit on a floor: x${r + 1}` },
   nine_lives: { name: "Nine Lives", icon: "shield", d: (r) => `+${r} shield vs boss shots` },
-  thick_fur: { name: "Thick Fur", icon: "heart", d: (r) => `${r * 10}% chance: a mistake costs no life` },
+  thick_fur: { name: "Thick Fur", icon: "heart", d: (r) => `${r >= 2 ? "More mistakes" : "Some mistakes"} cost no life` },
   cat_nap: { name: "Cat Nap", icon: "moon", d: (r) => `Beat a boss: +${r} ${r > 1 ? "lives" : "life"}` },
-  lucky: { name: "Lucky Whiskers", icon: "fish", d: (r) => `+${r * 10}% fish` },
+  lucky: { name: "Lucky Whiskers", icon: "fish", d: (r) => `${r >= 2 ? "Even more" : "More"} fish` },
   sixth_sense: { name: "Sixth Sense", icon: "xp", d: (r) => `${r + 1} hints in every run` },
-  treasure: { name: "Treasure Nose", icon: "cards", d: (r) => `Better chests (+${r * 8}% rare)` },
+  treasure: { name: "Treasure Nose", icon: "cards", d: (r) => `${r >= 2 ? "Even better" : "Better"} things in chests` },
 };
 
 export const skillsScreen = {

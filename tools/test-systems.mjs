@@ -1,6 +1,10 @@
 // Testy systemów (bez przeglądarki): migracja v1→v2, życia, malejące nagrody, nagrody po biegu.
 // Uruchom: node tools/test-systems.mjs
-import { migrate, freshSave, SAVE_VERSION, levelInfo } from "../js/state.js";
+import { migrate, freshSave, SAVE_VERSION, levelInfo, freshDuo } from "../js/state.js";
+import { shopItems, eventChestItems, ensureDuo, sendGift, receiveGifts, duoChallenge, claimDuo, duoAddCorrect, canSendGift, DUO } from "../js/meta.js";
+import { duoPub } from "../js/cloud.js";
+import { SKINS, HATS } from "../data/cosmetics.js";
+import { eventAllows } from "../data/events.js";
 import * as L from "../js/lives.js";
 import { applyRunResults, syncPowers } from "../js/rewards.js";
 import { ensureDaily, progressDaily, claimDaily, makeDaily } from "../js/daily.js";
@@ -42,8 +46,9 @@ const V1 = {
 // ---------- migracja ----------
 {
   const s = migrate(clone(V1), { noReading: false });
-  eq(s.v, SAVE_VERSION, "version bumped to 3");
-  eq(SAVE_VERSION, 3, "SAVE_VERSION is 3");
+  eq(s.v, SAVE_VERSION, "version bumped to 4");
+  eq(SAVE_VERSION, 4, "SAVE_VERSION is 4");
+  eq(s.duo, freshDuo(), "v4: duo added");
   // nic ze starych danych nie zginęło (v1 -> v3)
   for (const k of Object.keys(V1)) if (!["v", "settings", "daily", "stats"].includes(k)) eq(s[k], V1[k], `v1 field preserved: ${k}`);
   for (const k of Object.keys(V1.stats)) eq(s.stats[k], V1.stats[k], `v1 stats preserved: ${k}`);
@@ -70,7 +75,7 @@ const V1 = {
   ok(typeof p2.lives.at === "number" && p2.lives.date, "nested lives defaults filled");
   // fresh save has all new fields
   const f = freshSave("x", { noReading: true });
-  ok(f.v === 3 && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
+  ok(f.v === 4 && f.duo && Array.isArray(f.duo.got) && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
   eq(freshSave("x", { voice: true }).settings.voice, false, "freshSave: voice follows noReading, not profile.voice");
   eq(migrate(null), null, "migrate(null) -> null");
 }
@@ -82,7 +87,7 @@ const V1 = {
   V2.powers = { owned: ["owl_eye"], equipped: ["owl_eye"] }; V2.lives = { n: 4, at: 123, date: "2026-10-27" }; V2.daily.ms = 777;
   const before = clone(V2);
   const s = migrate(clone(V2), {});
-  eq(s.v, 3, "v2 -> v3");
+  eq(s.v, 4, "v2 -> v4");
   for (const k of Object.keys(before)) if (!["v", "stats", "lives"].includes(k)) eq(s[k], before[k], `v2 field preserved: ${k}`);
   for (const k of Object.keys(before.stats)) eq(s.stats[k], before.stats[k], `v2 stats preserved: ${k}`);
   ok(s.lives.n === 4 && s.lives.at === 123 && s.lives.date === "2026-10-27", "v2 lives preserved");
@@ -175,6 +180,81 @@ const V1 = {
   ok(s.chests.includes("wood") && r.eventChests[0] === "wood", "mimic chest goes to save.chests");
   const h = activeEvent(new Date(2026, 9, 31), EVENTS); ok(h && h.id === "halloween" && h.mech === "trickortreat", "halloween on 31.10");
   ok(!activeEvent(new Date(2026, 10, 20), EVENTS), "no event on 20.11");
+  ok(activeEvent(new Date(2026, 10, 7), EVENTS)?.id === "halloween" && !activeEvent(new Date(2026, 10, 8), EVENTS), "halloween ends 7.11");
+  ok(!activeEvent(new Date(2026, 10, 30), EVENTS), "no event on 30.11");
+  const w = activeEvent(new Date(2026, 11, 1), EVENTS); ok(w && w.id === "winter" && w.mech === "presents" && w.vocab === "winter", "winter switches on by itself on 1.12");
+  ok(activeEvent(new Date(2026, 11, 24), EVENTS)?.id === "winter", "winter on 24.12");
+  const ny = activeEvent(new Date(2026, 11, 31), EVENTS); ok(ny && ny.id === "newyear" && ny.sky === "fireworks", "new year on 31.12");
+  ok(activeEvent(new Date(2027, 0, 6), EVENTS)?.id === "newyear" && !activeEvent(new Date(2027, 0, 7), EVENTS), "new year ends 6.01");
+  ok(eventAllows(ny, "event:winter") && eventAllows(w, "event:newyear") && !eventAllows(w, "event:halloween"), "winter <-> newyear share items");
+}
+
+// ---------- kosmetyki: święta, Shark, Toxic ----------
+{
+  const ids = new Set(); for (const L of [SKINS, HATS]) { const one = new Set(); for (const x of L) { ok(!one.has(x.id), "unique cosmetic id " + x.id); one.add(x.id); ids.add(x.id); } }
+  for (const id of ["ginger", "toxic", "shrimp", "gingerbread", "pumpkin", "ghost", "zombie", "santa"]) ok(ids.has(id), "old id kept: " + id);
+  const xmas = ["santacat", "lights", "xmastree", "snowman", "elf", "candycane", "reindeer", "firework"];
+  for (const id of xmas) ok(SKINS.find((k) => k.id === id && /^event:(winter|newyear)$/.test(k.source)), "christmas skin " + id);
+  for (const id of ["elfhat", "earmuffs", "antlers", "star", "nyhat"]) ok(HATS.find((k) => k.id === id), "christmas hat " + id);
+  const s = freshSave("shop", {});
+  const nov = shopItems(s, new Date(2026, 10, 20)), dec = shopItems(s, new Date(2026, 11, 5)), jan = shopItems(s, new Date(2027, 0, 2));
+  ok(nov.skins.some((k) => k.id === "shark") && nov.skins.some((k) => k.id === "toxic" && k.price > 0), "shark + toxic in the shop all year");
+  ok(!nov.skins.some((k) => xmas.includes(k.id)), "no christmas skins in November");
+  ok(dec.skins.filter((k) => xmas.includes(k.id)).length >= 6 && dec.hats.some((k) => k.id === "elfhat"), "christmas skins in the shop in December");
+  ok(jan.skins.some((k) => k.id === "santacat") && jan.skins.some((k) => k.id === "firework") && jan.hats.some((k) => k.id === "nyhat"), "new year shop sells winter + new year items");
+  ok(!dec.skins.some((k) => k.id === "reindeer"), "reindeer is chest-only");
+  const evc = eventChestItems(new Date(2026, 11, 5)).map((x) => x.id);
+  ok(evc.includes("reindeer") && evc.includes("antlers") && evc.includes("lights") && !evc.includes("santacat"), "event chest pool");
+  ok(!eventChestItems(new Date(2026, 10, 20)).length, "no event chest items in November");
+  // skrzynie w grudniu dają świąteczne rzeczy
+  const c = freshSave("chx", {}); let got = 0;
+  for (let i = 0; i < 400; i++) { const r = (0, openChest)(c, "epic", new Date(2026, 11, 5)); if (r.item && xmas.concat(["antlers", "star"]).includes(r.item.id)) got++; }
+  ok(got > 0, "december epic chests can drop christmas items");
+}
+
+// ---------- duet ----------
+{
+  const D1 = "2026-12-03", D2 = "2026-12-04";
+  const lu = freshSave("lu", {}), ma = freshSave("ma", {});
+  const pLu = { duo: "ma" }, pMa = { duo: "lu" };
+  ok(canSendGift(lu, D1) && sendGift(lu, pLu, D1), "send gift");
+  ok(!sendGift(lu, pLu, D1) && !canSendGift(lu, D1), "only once a day");
+  ok(!sendGift(freshSave("solo", {}), {}, D1), "no duo -> no gift");
+  const coins0 = lu.coins; eq(lu.coins, coins0, "sending costs nothing");
+  const pub = { name: "Sir Pickles", duo: duoPub(lu) };
+  eq(pub.duo.giftTo, "ma", "pub.duo.giftTo"); eq(pub.duo.gifts, [D1], "pub.duo.gifts");
+  const m0 = ma.coins;
+  eq(receiveGifts(ma, pub, D1), { n: 1, fish: DUO.gift }, "partner receives 5 fish");
+  eq(ma.coins, m0 + DUO.gift, "fish added once");
+  eq(receiveGifts(ma, pub, D1), { n: 0, fish: 0 }, "never double-counts");
+  eq(receiveGifts(migrate(clone(ma), {}), pub, D1).n, 0, "still no double count after reload/migrate");
+  eq(receiveGifts(lu, pub, D1).n, 0, "a gift is not for the sender");
+  eq(receiveGifts(freshSave("other", {}), pub, D1).n, 0, "a gift is only for the partner");
+  // dwa dni prezentów, odebrane razem
+  sendGift(lu, pLu, D2); const ma2 = freshSave("ma", {});
+  eq(receiveGifts(ma2, { duo: duoPub(lu) }, D2), { n: 2, fish: 2 * DUO.gift }, "missed days arrive later, each once");
+  eq(ma.duo.gotGiftDay, D1, "gotGiftDay");
+  // wspólne wyzwanie
+  duoAddCorrect(lu, 18, D2); 
+  let ch = duoChallenge(lu, pLu, null, {}, D2);
+  ok(ch.goal === 30 && ch.me === 18 && ch.them === 0 && !ch.done && ch.needThem, "challenge: partner must help");
+  ensureDuo(ma, D2); duoAddCorrect(ma, 5, D2);
+  ch = duoChallenge(lu, pLu, { duo: duoPub(ma) }, {}, D2); ok(!ch.done && ch.total === 23, "23/30 not done");
+  duoAddCorrect(ma, 7, D2);
+  ch = duoChallenge(lu, pLu, { duo: duoPub(ma) }, {}, D2); ok(ch.done && ch.them === 12, "30/30 done (both contributed)");
+  const c0 = lu.coins, ch0 = lu.chests.length;
+  eq(claimDuo(lu, pLu, { duo: duoPub(ma) }, {}, D2), { fish: DUO.fish, chest: DUO.chest }, "claim duo reward");
+  ok(lu.coins === c0 + DUO.fish && lu.chests.length === ch0 + 1, "reward added");
+  eq(claimDuo(lu, pLu, { duo: duoPub(ma) }, {}, D2), null, "claim only once");
+  ok(claimDuo(ma, pMa, { duo: duoPub(lu) }, {}, D2), "partner claims too");
+  const solo = freshSave("so", {}); duoAddCorrect(solo, 40, D2);
+  ok(!duoChallenge(solo, { duo: "x" }, { duo: { day: D2, duoN: 0 } }, {}, D2).done, "40 alone is not enough");
+  ok(!duoChallenge(solo, { duo: "x" }, { duo: { day: D1, duoN: 30 } }, {}, D2).done, "partner's old day does not count");
+  eq(duoChallenge(solo, { noReading: true }, null, {}, D2).goal, DUO.goalYoung, "young goal");
+  // nowy dzień zeruje mój wkład
+  eq(ensureDuo(lu, "2026-12-05").n, 0, "new day resets my count");
+  // applyRunResults dolicza dobre odpowiedzi
+  const r = freshSave("rr", {}); applyRunResults(r, { mode: "tower", correct: 7 }); ok(r.duo.n === 7 && r.duo.nDay === today(), "run correct answers count for the duo");
 }
 
 // ---------- wyzwania dnia ----------

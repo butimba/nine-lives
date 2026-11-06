@@ -3,7 +3,8 @@
 import { h, esc, app, ico, iconSrc, chestSrc, pxButton, panel, stamp, sticker, pageHead, refreshFish, toast, onAct, countUp, liveCat, replay, fmtTime, CHEST_EN } from "./components.js";
 import { go } from "./router.js";
 import { persist } from "../state.js";
-import { streakAlive } from "../meta.js";
+import { streakAlive, loadPartner, duoChallenge, claimDuo, sendGift, canSendGift, receiveGifts, DUO } from "../meta.js";
+import ROSTER from "../../data/roster.js";
 import { sfx } from "../audio.js";
 import { ECON } from "../../data/progression.js";
 
@@ -46,6 +47,7 @@ export const dailyScreen = {
     await loadDaily();
     const el = h(`<div class="screen page daily">${pageHead("Daily", save)}
       <div class="dl-streak"></div>
+      <div class="dl-duo"></div>
       <div class="section-title">Today <small class="dl-reset"></small></div>
       <div class="dl-list"></div>
       <div class="dl-bottom"></div>
@@ -71,7 +73,7 @@ export const dailyScreen = {
     };
 
     const renderList = (flashId) => {
-      $(".dl-reset").textContent = `new in ${fmtTime(midnightIn()).replace(/:\d\d$/, "")}`;
+      $(".dl-reset").textContent = "new ones tomorrow";
       const L = dailyList(save, profile);
       const box = $(".dl-list");
       if (!dailyReady() && !L.length) {
@@ -100,6 +102,43 @@ export const dailyScreen = {
       if (all) { const c = liveCat({ skin: save.equipped.skin, hat: save.equipped.hat, anim: "dance", scale: 3 }); $(".dl-cat").append(c.el); }
       if (all && save.chests.length) $(".dl-bottom").insertAdjacentHTML("beforeend", `<div class="res-actions">${pxButton(`Open chest (${save.chests.length})`, { act: "open-chest", variant: "gold" })}</div>`);
     };
+
+    // ---- DUET: wspólne wyzwanie + prezent (tylko online i tylko z partnerem; inaczej nic się nie pokazuje) ----
+    let partner = null;
+    const partnerProfile = () => (profile && profile.duo && ROSTER.players && ROSTER.players[profile.duo]) || {};
+    const duoOpts = () => ({ young: !!(partnerProfile().noReading || (profile && profile.noReading)) });
+    const renderDuo = (flash = false) => {
+      const box = $(".dl-duo");
+      if (!partner) { box.innerHTML = ""; return; }
+      const c = duoChallenge(save, profile, partner, duoOpts());
+      const pm = Math.round((Math.min(c.goal, c.me) / c.goal) * 100), pt = Math.round((Math.min(c.goal - Math.min(c.goal, c.me), c.them) / c.goal) * 100);
+      const hint = c.claimed ? "" : c.done ? "You did it together!" : c.needMe && c.needThem ? "Play and help each other!" : c.needMe ? "Your turn! Play to help." : c.needThem ? `Wait for ${esc(partner.name)} to play!` : `${c.goal - c.me - c.them} more to go!`;
+      box.innerHTML = `<div class="section-title">Together</div>` + panel(`
+        <div class="duo-cats">
+          <div class="duo-who"><div class="duo-cat duo-cat--me"></div><b>${esc(save.catName || "You")}</b><span class="duo-n" style="--c:var(--px-gold)">${c.me}</span></div>
+          <span class="duo-heart">${ico("heart", { scale: 3 })}</span>
+          <div class="duo-who"><div class="duo-cat duo-cat--them"></div><b>${esc(partner.name)}</b><span class="duo-n" style="--c:#ff8fb1">${c.them}</span></div>
+        </div>
+        <p class="dl-text lex duo-goal">${esc(c.text)}</p>
+        <div class="dl-bar duo-bar ${c.done ? "full" : ""}"><i style="width:${pm}%"></i><i class="them" style="left:${pm}%;width:${pt}%"></i><span>${c.total}/${c.goal}</span></div>
+        <div class="duo-foot">
+          <span class="lex duo-hint">${hint}</span>
+          <div class="dl-reward">${ico("fish", { scale: 2 })}<b>${DUO.fish}</b><img class="px-img dl-chest" src="${chestSrc(DUO.chest, 2)}" alt="${esc(CHEST_EN[DUO.chest])}"></div>
+          ${c.claimed ? `<div class="dl-stamp">${stamp("Done", { color: "ok", cls: flash ? "slam" : "" })}</div>` : c.done ? pxButton("Claim!", { act: "duo-claim", variant: "gold", cls: "px-btn--sm dl-claim" }) : ""}
+        </div>
+        <div class="duo-giftrow">${canSendGift(save) ? pxButton(`Send a fish to ${esc(partner.name)}`, { act: "duo-gift", icon: "fish", variant: "ok", cls: "px-btn--sm" }) + `<small class="lex">It is free!</small>` : `<span class="lex duo-sent">${ico("check", { scale: 2 })} Fish sent today</span>`}</div>
+      `, { cls: `dl-card tg-card ${c.done && !c.claimed ? "ready" : ""} ${c.claimed ? "claimed" : ""}`, tilt: 0.6 });
+      const me = liveCat({ skin: save.equipped.skin, hat: save.equipped.hat, anim: c.done ? "dance" : "idle", scale: 2 });
+      const th = liveCat({ skin: partner.skin || "ginger", hat: partner.hat || "none", anim: c.done ? "dance" : "idle", scale: 2 });
+      box.querySelector(".duo-cat--me").append(me.el); box.querySelector(".duo-cat--them").append(th.el);
+    };
+    if (profile && profile.duo) loadPartner(profile).then((p) => {
+      if (!p || !el.isConnected) return;
+      partner = p;
+      const got = receiveGifts(save, p);
+      if (got.fish) { persist(true); refreshFish(el, save); toast(`${p.name} sent you a fish!`, { icon: "fish", ms: 3200 }); sfx.coin(); }
+      renderDuo();
+    }).catch(() => {});
 
     // ---- animacja odbioru ----
     const fly = (fromEl, toEl, src, n, delay = 55) => {
@@ -161,10 +200,29 @@ export const dailyScreen = {
 
     renderStreak();
     renderList();
-    const timer = setInterval(() => { if (el.isConnected) $(".dl-reset").textContent = `new in ${fmtTime(midnightIn()).replace(/:\d\d$/, "")}`; }, 30000);
+    const timer = setInterval(() => { if (el.isConnected) $(".dl-reset").textContent = "new ones tomorrow"; }, 30000);
     const off = onAct(el, {
       back: () => { sfx.tap(); go("home"); },
       claim,
+      "duo-claim": (b) => {
+        if (!partner || b.disabled) return;
+        b.disabled = true;
+        const coins0 = save.coins;
+        const r = claimDuo(save, profile, partner, duoOpts());
+        if (!r) { b.disabled = false; sfx.wrong(); return; }
+        persist(true);
+        confetti(b); sfx.win();
+        const fishEl = el.querySelector(".page-head [data-fish]");
+        if (fishEl) { fly(b, fishEl, iconSrc("fish", 3), 6); fishEl.textContent = coins0; setTimeout(() => countUp(fishEl, coins0, save.coins, 700), 450); }
+        setTimeout(() => { sfx.chest(); toast(`${CHEST_EN[r.chest] || "Chest"}!`, { icon: "star" }); }, 500);
+        setTimeout(() => { if (el.isConnected) { renderDuo(true); renderList(); } }, 380);
+      },
+      "duo-gift": (b) => {
+        if (!partner || !sendGift(save, profile)) return;
+        persist(true); sfx.coin(); confetti(b);
+        toast(`Fish gift for ${partner.name}!`, { icon: "fish" });
+        renderDuo();
+      },
       "open-chest": () => { sfx.tap(); go("chest", { from: "daily" }); },
     });
     return () => { off(); clearInterval(timer); };
