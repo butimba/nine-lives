@@ -250,10 +250,10 @@ const wpick = (cands, rng) => {
 };
 // ze ścieżką: szansa, że przy zaległych powtórkach następne zadanie będzie powtórką (nowe rzeczy mają limity NEW_CAP / DAILY_NEW)
 export const REVIEW_FIRST = 0.8;
-const PS_PACK = new Set(["ps_3s", "ps_neg", "ps_q", "ps3_like", "ps3_routine", "ps3_who", "ps3_wh", "ps3_freq"]);
+const PS_PACK = new Set(["ps_3s", "ps_neg", "ps_q", "ps3_like", "ps3_routine", "ps3_who", "ps3_wh", "ps3_freq", "ps_iyou"]);
 // wabik w układaniu zdań (P1-3): zła forma czasownika jako dodatkowy klocek — build sprawdza też -s / bez -s
-const DECOY_TAGS = new Set(["no_s", "s_after_does", "s_after_modal", "do_agreement", "have_agreement", "like_ing"]);
-const DECOY_SKILLS = /^(ps_3s|ps_neg|ps_q|ps3_|have_got)/;
+const DECOY_TAGS = new Set(["no_s", "s_after_does", "s_after_modal", "do_agreement", "have_agreement", "like_ing", "s_overuse"]);
+const DECOY_SKILLS = /^(ps_3s|ps_neg|ps_q|ps3_|ps_iyou|have_got)/;
 const SPELL_TAGS = new Set(["s_spelling", "ing_spelling"]);
 
 export class Session {

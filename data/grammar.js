@@ -81,6 +81,9 @@ const pcCue = (rng, v, o) => {
 const only3 = (o) => !!(o && o.subjects === "3s");
 const PLURALISH = new Set(["I", "You", "We", "They", "My friends", "Tom and Mia", "The cats", "My parents", "i", "you", "we", "they"]);
 const S3 = (o, pool) => (only3(o) ? pool.filter((x) => !PLURALISH.has(x)) : pool);
+// kontrast I / you ↔ he / she (ps_iyou)
+const IY = ["I", "You"];
+const SUBJ_3S_HUMAN = ["He", "She", "Tom", "Mia", "My mum", "My brother", "Grandma", "Zoe", "Leo", "My teacher", "My dad"];
 
 const beFor = (s) => (s === "I" ? "am" : SUBJ_3S.includes(s) || s === "It" || s === "The cat" ? "is" : "are");
 
@@ -614,6 +617,54 @@ export const SKILLS = {
         const a = `${adv} ${v.s}`, w1 = `${v.s} ${adv}`, w2 = `${adv} ${f.b}`;
         return mk(`${s} ___ ${f.rest(poss)}.`, a, [w1, w2], { [w1]: "freq_order", [w2]: "no_s" }, null,
           "always / usually / often / sometimes / never stoją PRZED czasownikiem", `${adv} + ${v.s} (before the verb)`, { nobuild: true });
+      },
+    },
+  },
+  // ===== KONTRAST I / you ↔ he / she (krok ścieżki Ł/M po 3. osobie). Celowo z I / you także w trybie "3s" (mixed3s);
+  // bez we / they / liczby mnogiej. Sprawdza, czy dziecko WIE, kiedy -s jest, a kiedy go nie ma.
+  ps_iyou: {
+    name: "I play / she plays", level: "A1", prereq: ["ps_3s"], mixed3s: true,
+    patterns: {
+      mix: (rng) => {
+        const iy = rng() < 0.5;
+        const { v, s, os } = sv(rng, iy ? IY : SUBJ_3S_HUMAN, ["play", "like", "eat", "drink", "read", "watch", "ride", "cook", "draw", "go", "swim"]);
+        const t = STATIVE.has(v.b) ? "" : " " + timeFor(rng, os.trim());
+        if (iy) return mk(`${s} ___${os}${t}.`, v.b, [v.s, v.ing].filter(Boolean), { [v.s]: "s_overuse", ...(v.ing ? { [v.ing]: "ing_confusion" } : {}) }, `${s} ${v.b}${os}${t}.`,
+          "I / you → bez -s: I play, you play", `${s} → ${v.b} (no -s)`, { cue: v.b });
+        return mk(`${s} ___${os}${t}.`, v.s, [v.b, v.ing].filter(Boolean), { [v.b]: "no_s", ...(v.ing ? { [v.ing]: "ing_confusion" } : {}) }, `${s} ${v.s}${os}${t}.`,
+          "he / she → z -s: she plays", `${s} → ${v.s} (+s)`, { cue: v.b });
+      },
+      pair: (rng) => {
+        const v = vb(pick(rng, ["play", "like", "eat", "read", "watch", "drink"]));
+        const [o1, o2] = (() => { const a = pick(rng, v.objs); let b = pick(rng, v.objs); while (b === a) b = pick(rng, v.objs); return [a, b]; })();
+        const s1 = pick(rng, IY);
+        const s2 = pick(rng, ["my brother", "my sister", "my mum", "my dad", "Tom", "Mia", "my teacher"]);
+        const blank3 = rng() < 0.5;
+        const c1 = blank3 ? `${s1} ${v.b} ${o1}` : `${s1} ___ ${o1}`;
+        const c2 = blank3 ? `${s2} ___ ${o2}` : `${s2} ${v.s} ${o2}`;
+        const full = `${s1} ${v.b} ${o1}, but ${s2} ${v.s} ${o2}.`;
+        if (blank3) return mk(`${c1}, but ${c2}.`, v.s, [v.b], { [v.b]: "no_s" }, full,
+          `${s1} ${v.b}, ale ${s2} ${v.s}`, `${s2} = he / she → ${v.s}`, { cue: v.b });
+        return mk(`${c1}, but ${c2}.`, v.b, [v.s], { [v.s]: "s_overuse" }, full,
+          `${s1} ${v.b}, ale ${s2} ${v.s}`, `${s1} → ${v.b} (no -s)`, { cue: v.b });
+      },
+      neg: (rng) => {
+        const iy = rng() < 0.5;
+        const { v, s, os } = sv(rng, iy ? IY : SUBJ_3S_HUMAN, ["like", "play", "eat", "watch", "drink", "read"]);
+        const a = iy ? "don't" : "doesn't";
+        const w1 = iy ? "doesn't" : "don't", w2 = s === "I" ? "am not" : iy ? "aren't" : "isn't";
+        return mk(`${s} ___ ${v.b}${os}.`, a, [w1, w2], { [w1]: "do_agreement", [w2]: "be_for_do" }, `${s} ${a} ${v.b}${os}.`,
+          "I / you → don't, he / she → doesn't", `${s} → ${a} + ${v.b}`);
+      },
+      q: (rng) => {
+        const iy = rng() < 0.45;
+        const s = iy ? "you" : pick(rng, ["he", "she", "Tom", "Mia", "your mum", "your teacher", "your brother"]);
+        const r = vb(pick(rng, ["like", "play", "eat", "watch", "read", "drink"]));
+        const o = pick(rng, r.objs);
+        const a = iy ? "Do" : "Does";
+        const w1 = iy ? "Does" : "Do", w2 = iy ? "Are" : "Is";
+        return mk(`___ ${s} ${r.b} ${o}?`, a, [w1, w2], { [w1]: "do_agreement", [w2]: "be_for_do" }, `${a} ${s} ${r.b} ${o}?`,
+          "Do you…? ale Does he / she…?", `${s} → ${a}`);
       },
     },
   },

@@ -112,6 +112,8 @@ for (const [sk, def] of Object.entries(SKILLS)) for (const [p, fn] of Object.ent
 
 // ---------------------------------------------------------------- 1b) tryb "3s": tylko he / she / it
 const NOT3S = /\b(I|[Yy]ou|[Ww]e|[Tt]hey|My friends|my friends|Tom and Mia|The cats|My parents|Birds|Fish|Cats|Dogs)\b/;
+// skille mixed3s (ps_iyou) celowo mają I / you — ale nigdy we / they / liczby mnogiej
+const NOT3S_IY = /\b([Ww]e|[Tt]hey|My friends|my friends|Tom and Mia|The cats|My parents)\b/;
 {
   let n = 0;
   for (const [sk, def] of Object.entries(SKILLS)) for (const [p, fn] of Object.entries(def.patterns)) {
@@ -121,7 +123,7 @@ const NOT3S = /\b(I|[Yy]ou|[Ww]e|[Tt]hey|My friends|my friends|Tom and Mia|The c
       const q = fn(rng, { subjects: "3s" }); n++;
       const subjPart = q.full.replace(/ — .*$/, "");
       // "my friend" jako orzecznik jest OK; sprawdzamy podmioty i zaimki
-      if (NOT3S.test(subjPart.replace(/is my friend/, "")) || NOT3S.test(q.full)) bad("3s", `${sk}:${p} podmiot spoza 3. osoby: "${q.full}"`);
+      if (def.mixed3s ? NOT3S_IY.test(q.full) : (NOT3S.test(subjPart.replace(/is my friend/, "")) || NOT3S.test(q.full))) bad("3s", `${sk}:${p} podmiot spoza 3. osoby: "${q.full}"`);
       for (const w of q.wrong) if (alsoCorrect(q, w)) bad("ambiguous", `${sk}:${p} (3s) zła opcja daje poprawne zdanie: "${q.text.replace("___", w)}"`);
       if (def.only3s && /\b(do|don't|are|aren't|have|haven't)\b/.test(q.full.replace(/ — .*$/, "").replace(/\bhave (breakfast|lunch|dinner)\b/, "").replace(/\bdo (his|her) homework\b/, ""))) bad("3s", `${sk}:${p} forma nie-3s w poprawnym zdaniu: "${q.full}"`);
     }
@@ -251,7 +253,7 @@ function checkGrammarTask(t, where) {
       for (let i = 0; i < 250; i++) {
         const t = s.grammarTask(key, save.srs[key]); n++; t._box = save.srs[key] ? save.srs[key].b : 0;
         checkGrammarTask(t, `${key}@${box}`);
-        if (prof3.subjects && NOT3S.test(t.q.full)) bad("3s", `${key}@${box} zadanie 3s z podmiotem spoza 3. osoby: ${t.q.full}`);
+        if (prof3.subjects && (def.mixed3s ? NOT3S_IY : NOT3S).test(t.q.full)) bad("3s", `${key}@${box} zadanie 3s z podmiotem spoza 3. osoby: ${t.q.full}`);
         checkPlan(t, {}, `${key}@${box}`);
         const fb = feedbackFor(t, false, t.tag || (t.options && t.options.find((o) => !o.ok)?.tag) || null);
         if (!fb || !fb.why) bad("feedback", `${key} brak wyjaśnienia`);
