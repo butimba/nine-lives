@@ -768,6 +768,12 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
   }
 
   async function onRight(task, res) {
+    try {
+      if (!profile.noReading) {
+        if (task.kind === "grammar" && task.q) ui.echo(task.q.full, task.q.answer);
+        else if (task.kind === "vocab" && task.word) ui.echo(task.word.en, task.word.en);
+      }
+    } catch {}
     S.correct++; S.combo++; S.bestCombo = Math.max(S.bestCombo, S.combo);
     const quick = res.ms < 700 && task.type !== "match";
     let dmg = 1, crit = false;

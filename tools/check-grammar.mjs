@@ -155,7 +155,7 @@ const NOT3S = /\b(I|[Yy]ou|[Ww]e|[Tt]hey|My friends|my friends|Tom and Mia|The c
   for (const [th, en, , img] of words) (byImg.get(img) || byImg.set(img, new Set()).get(img)).add(en);
   for (const [img, ens] of byImg) {
     const list = [...ens];
-    for (const a of list) for (const b of list) if (a < b && !vocabConflict([a, "", "x"], [b, "", "y"])) bad("vocab", `emoji ${img} dla "${a}" i "${b}" bez wpisu w CONFUSABLE`);
+    for (const a of list) for (const b of list) if (a < b && !vocabConflict([a, "p1", "x"], [b, "p2", "y"])) bad("vocab", `emoji ${img} dla "${a}" i "${b}" bez wpisu w CONFUSABLE`);
   }
   const allEn = new Set(words.map((w) => w[1]));
   for (const g of CONFUSABLE) for (const x of g) if (!allEn.has(x.replace(/^\*/, ""))) bad("vocab", `CONFUSABLE: nieznane słowo "${x}"`);

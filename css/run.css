@@ -189,3 +189,10 @@ img.rui-pic.xl { width: calc(var(--u) * 54); height: calc(var(--u) * 54); }
 .rui-merch-offer b { font-size: 1em; line-height: 1.05; }
 .rui-merch-offer small { font-size: .8em; opacity: .85; line-height: 1.15; }
 .rui-price { display: flex; align-items: center; gap: .15em; background: var(--ink); color: var(--gold); padding: .1em .35em; font-size: 1.05em; }
+
+/* echo po dobrej odpowiedzi (całe poprawne zdanie) */
+.rui-echo { position: absolute; left: 50%; bottom: 30%; transform: translateX(-50%); z-index: 6; max-width: 92%;
+  background: #eafff1; color: #0e0b16; border: 3px solid #0e0b16; box-shadow: 3px 3px 0 #0e0b16; padding: .35em .7em;
+  font-size: 1.05em; text-align: center; transition: opacity .3s, transform .3s; pointer-events: auto; }
+.rui-echo b { color: #128a4b; }
+.rui-echo.out { opacity: 0; transform: translateX(-50%) translateY(-8px); }

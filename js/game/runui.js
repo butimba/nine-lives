@@ -126,6 +126,18 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
       b.classList.remove(cls); void b.offsetWidth; b.classList.add(cls);
       setTimeout(() => b.classList.remove(cls), 600);
     },
+    // ---- echo after a right answer: the full correct sentence for ~1.3 s (non-blocking, P1-4) ----
+    echo(full, answer = "") {
+      if (!full) return;
+      root.querySelectorAll(".rui-echo").forEach((x) => x.remove());
+      let html = esc(full);
+      if (answer) { const i = full.indexOf(answer); if (i >= 0) html = `${esc(full.slice(0, i))}<b>${esc(answer)}</b>${esc(full.slice(i + answer.length))}`; }
+      const t = el(`<div class="rui-echo lex">${html}</div>`);
+      t.onclick = () => t.remove();
+      root.append(t);
+      setTimeout(() => t.classList.add("out"), 1300);
+      setTimeout(() => t.remove(), 1650);
+    },
     // ---- small sticker toast at the top (daily challenge done, events) ----
     toast(title, sub = "", icon = "") {
       let src = ""; if (icon && iconURL) try { src = iconURL(icon, 3) || ""; } catch {}
