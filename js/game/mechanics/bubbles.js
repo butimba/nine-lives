@@ -42,7 +42,7 @@ export function create(ctx) {
   const r = kind === "judge" ? 30 : n >= 4 ? 24 : 26;
   const colW = A.w / n;
   const span = A.h + r * 2; // wrap distance
-  const speed = kind === "judge" ? 0 : 5 + 13 * d; // px/s upwards
+  const speed = kind === "judge" ? 0 : 7 + 14 * d; // px/s upwards
   const bubbles = opts.map((o, i) => ({
     o, ok: !!o.ok, i, alive: true, state: "idle", sel: false, played: false,
     bx: A.x + colW * (i + 0.5), ph: Math.random() * 6,

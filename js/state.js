@@ -8,7 +8,7 @@
 import { today } from "./util.js";
 import * as cloud from "./cloud.js";
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 const LS_KEY = (id) => `ninelives:save:${id}`;
 const LOG_MAX = 1500;
 
@@ -36,6 +36,7 @@ export function freshSave(id, profile) {
     gifts: { claimed: [] },                // v3: odebrane prezenty od nauczyciela, np. "skin:shrimp"
     mySkin: { pixels: null, status: "none", at: 0 }, // v3: własna skórka 16x16 (none|pending|approved|rejected)
     duo: freshDuo(),                       // v4: duet (prezent rybek dla przyjaciółki, wspólne wyzwanie dnia)
+    tips: {},                              // v5: samouczek — które podpowiedzi „HOW TO PLAY” już widział (klucz -> 1)
     settings: { voice: !!(profile && profile.noReading), sfx: true, music: true, pl: true },
     log: [],          // [t, itemKey, ok(1/0), ms, chosenTag]
     stats: { runs: 0, answers: 0, correct: 0, playMs: 0, shadowRuns: 0, events: {} }, // events: liczniki wydarzeń w biegu
@@ -75,8 +76,13 @@ const MIGRATIONS = {
     s.duo ??= freshDuo();
     return s;
   },
+  // v4 → v5: samouczek przy pierwszym razie. Konta sprzed v5 znają grę → _old = bez podpowiedzi.
+  5: (s) => {
+    s.tips ??= { _old: 1 };
+    return s;
+  },
   // przykład na przyszłość:
-  // 5: (s, profile) => { s.newField ??= defaultValue; return s; },
+  // 6: (s, profile) => { s.newField ??= defaultValue; return s; },
 };
 
 export function migrate(s, profile) {

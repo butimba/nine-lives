@@ -18,6 +18,33 @@ export const PERK_EN = {
   big_heart: { name: "Big Heart", desc: "+1 life and +1 shield" },
 };
 
+// First-time tips (tutorial): one per mechanic, shown once per account (save.tips). demo = small looping CSS animation.
+export const TIPS = {
+  signs: { en: "Tap the right sign!", pl: "Kliknij dobrą tabliczkę. Kot ją rozbije!", demo: "tap" },
+  bubbles: { en: "Pop the right bubble!", pl: "Przebij bańkę z dobrą odpowiedzią.", demo: "bubble" },
+  listen: { en: "Tap a bubble to hear it. Tap again to pick it!", pl: "Kliknij bańkę, żeby posłuchać. Kliknij drugi raz, żeby wybrać.", demo: "bubble" },
+  judge: { en: "Right or wrong? Pop one!", pl: "Zdanie jest dobre czy złe? Przebij jedną bańkę.", demo: "bubble" },
+  type: { en: "Type the word. Then tap Cast!", pl: "Wpisz słowo i kliknij Cast!", demo: "type" },
+  tiles: { en: "Tap the letters in order!", pl: "Klikaj literki po kolei. Zła literka? Spróbuj jeszcze raz. Masz 3 szanse.", demo: "letters" },
+  catch: { en: "Catch the letters in order!", pl: "Przesuwaj kota palcem albo kliknij literkę. Masz 3 szanse na złą literkę.", demo: "catch" },
+  catchWords: { en: "Catch the words in order!", pl: "Łap słowa po kolei i ułóż zdanie.", demo: "catch" },
+  fix: { en: "Smash the wrong word!", pl: "Znajdź błędne słowo w zdaniu i je rozbij.", demo: "tap" },
+  build: { en: "Tap the words in order!", pl: "Ułóż zdanie: klikaj słowa po kolei.", demo: "tap" },
+  boss: { en: "Tap the fireballs!", pl: "Klikaj kule, zanim trafią kota! Gdy boss słabnie, kule lecą szybciej.", demo: "orb" },
+  life: { en: "Oops! -1 life.", pl: "Zła odpowiedź zabiera życie. Masz 9 żyć na dzień. Wracają co 20 minut.", demo: "heart" },
+};
+const HAND_ROWS = ["..##......", "..#W#.....", "..#W#.....", "..#W###...", "..#WW#W##.", "###WWWWW#W#", "#WW#WWWWWW#", ".#WWWWWWWW#", "..#WWWWWW#.", "...#WWWW#..", "...######.."];
+const HAND = `<svg class="tdemo-hand" viewBox="0 0 11 11" shape-rendering="crispEdges" aria-hidden="true">${HAND_ROWS.map((r, y) => [...r].map((c, x) => (c === "." ? "" : `<rect x="${x}" y="${y}" width="1" height="1" fill="${c === "W" ? "#fff" : "#0e0b16"}"/>`)).join("")).join("")}</svg>`;
+const DEMOS = {
+  tap: `<div class="tdemo tdemo--tap"><i></i><i class="ok"></i><i></i>${HAND}</div>`,
+  bubble: `<div class="tdemo tdemo--tap tdemo--round"><i></i><i class="ok"></i><i></i>${HAND}</div>`,
+  letters: `<div class="tdemo tdemo--tap tdemo--letters"><i>t</i><i class="ok">c</i><i>a</i>${HAND}</div>`,
+  type: `<div class="tdemo tdemo--type"><span class="tdemo-in">cat</span><b>Cast!</b>${HAND}</div>`,
+  catch: `<div class="tdemo tdemo--catch"><span class="tdemo-let">a</span><span class="tdemo-bask"></span></div>`,
+  orb: `<div class="tdemo tdemo--orb"><span class="tdemo-orb"></span>${HAND}</div>`,
+  heart: `<div class="tdemo tdemo--heart"><span class="tdemo-heart"></span></div>`,
+};
+
 const SPEAKER = `<svg viewBox="0 0 9 8" width="100%" height="100%" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 3h2v2H0zM2 2h1v4H2zM3 1h1v6H3zM4 0h1v8H4zM6 2h1v1H6zM6 5h1v1H6zM7 3h1v2H7zM8 1h1v1H8zM8 6h1v1H8z"/></svg>`;
 const BULB = `<svg viewBox="0 0 7 9" width="100%" height="100%" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M2 0h3v1H2zM1 1h1v1H1zM5 1h1v1H5zM0 2h1v3H0zM6 2h1v3H6zM1 5h1v1H1zM5 5h1v1H5zM2 6h3v1H2zM2 8h3v1H2z"/><path fill="#ffd23f" d="M2 1h3v1H2zM1 2h5v3H1zM2 5h3v1H2z"/></svg>`;
 
@@ -243,6 +270,15 @@ export function createRunUI(overlay, { showPl = true, speak = () => {}, sfx = {}
         <div class="rui-intro">${pic(w.img, "xl")}<div class="rui-word rui-word--big lex">${esc(w.en)} ${spk(w.en)}</div>${showPl ? `<div class="rui-pl lex">${esc(w.pl)}</div>` : ""}</div>
         <div class="rui-row"><button class="rui-btn rui-btn--big px-btn px-btn--big" data-act="next">Got it!</button></div>`, "rui-cardwrap--intro");
       if (autoSay) say(w.en);
+      return waitAct(c, "[data-act=next]").then(clearLayer);
+    },
+    // first-time tip: HOW TO PLAY + tiny looping demo + PL hint ([data-act=next])
+    tipCard(key, en = null) {
+      const tp = TIPS[key]; if (!tp) return Promise.resolve();
+      const c = card(`<div class="rui-sticker sticker px">HOW TO PLAY</div>
+        ${DEMOS[tp.demo] || ""}
+        <div class="rui-sent lex">${esc(en || tp.en)} ${spk(en || tp.en)}</div>${showPl ? `<div class="rui-pl lex">${esc(tp.pl)}</div>` : ""}
+        <div class="rui-row"><button class="rui-btn rui-btn--big px-btn px-btn--big" data-act="next">OK!</button></div>`, "rui-cardwrap--intro rui-cardwrap--tip");
       return waitAct(c, "[data-act=next]").then(clearLayer);
     },
     // choose 1 of 3 perks -> resolves with the perk object

@@ -2,12 +2,14 @@
 // (drag the pointer / arrow keys) and catches them in its basket — or TAP a falling item and the cat leaps
 // up and grabs it. Caught items fill the slots in order.
 // Grading = v1 rules, exactly like spell tiles / build blocks:
-//   spell: when every letter slot is filled -> ok = letters (case-insensitive) === target letters; wrong tag 'spelling'.
+//   spell: a wrong letter is rejected at once ("Try again!") and counted; the 3rd wrong letter = wrong, tag 'spelling'.
+//          Basket or tap, both count. Fairness: a wrong letter never spawns over the cat's lane (if another lane is free),
+//          so a cat standing still does not catch mistakes by accident.
 //   build: when every word is placed        -> ok = words joined === task.words joined;          wrong tag 'word_order'.
 // Taking items back (undo block / tap a slot / Backspace) is free, like v1 backspace / tap-to-return.
 // Dexterity never decides the answer: items fall slowly, lanes are wide, one item per lane, arrivals are spaced,
 // and a missed item just comes back later.
-import { base, word, textW, ease, clamp01, wait, COL, fxSafe, glowRect, arrowDown } from "./common.js";
+import { base, word, textW, ease, clamp01, wait, COL, fxSafe, glowRect, arrowDown, triesPips, SPELL_TRIES } from "./common.js";
 
 const CHUTE = ["#e8434f", "#ffd23f", "#7ec4ff", "#93e04c", "#d867d0", "#ff9a3d"];
 
@@ -62,9 +64,9 @@ export function create(ctx) {
 
   // ---------------- items ----------------
   const items = [];
-  let spawnIn = 0.25, tt = 0, introK = 0, frozen = false, checkState = null, shakeK = 0, hintGlow = false;
-  // slow but never boring: an item needs ~6 s (5 s at high floors) from the top to the basket, whatever the screen height
-  const speed = () => Math.max(16, (catchY() - spawnY()) / (6 - 1 * d));
+  let spawnIn = 0.25, tt = 0, introK = 0, frozen = false, checkState = null, shakeK = 0, hintGlow = false, wrongTries = 0;
+  // slow but never boring: an item needs ~5 s (4 s at high floors) from the top to the basket, whatever the screen height
+  const speed = () => Math.max(18, (catchY() - spawnY()) / (5.2 - 1.2 * d));
   const laneBusy = (li) => items.some((it) => it.lane === li && (it.state === "fall" || it.state === "grab"));
   function pickToken() {
     const falling = new Set(items.filter((it) => it.state === "fall").map((it) => it.tok));
@@ -86,8 +88,10 @@ export function create(ctx) {
     if (items.some((it) => it.state === "fall" && Math.abs(it.y - y0) < 26)) return false;
     const tok = pickToken();
     if (!tok) return false;
-    // keep the needed item away from the lane the cat stands in when possible (no accidental auto-catch of wrong ones next to it)
-    const lane = free[Math.floor(Math.random() * free.length)];
+    // a wrong letter never drops straight over the cat (no accidental catches)
+    const safe = !isBuild && tok !== nextNeed() ? free.filter((i) => i !== catLane) : free;
+    const lanes = safe.length ? safe : free;
+    const lane = lanes[Math.floor(Math.random() * lanes.length)];
     items.push({ tok, lane, x: LANES[lane], y: yAt ?? y0 - 30, state: "fall", k: 0, sway: Math.random() * 6, col: CHUTE[(Math.random() * CHUTE.length) | 0], w: itemW(tok), born: 0 });
     return true;
   }
@@ -102,6 +106,7 @@ export function create(ctx) {
 
   // ---------------- placing / undo / check ----------------
   function place(it, how) {
+    if (!isBuild && it.tok !== goalTokens[placed.length]) return miss(it);
     it.state = "fly"; it.k = 0;
     const s = targetOf(placed.length);
     it.fx0 = it.x; it.fy0 = it.y; it.tx = s.x; it.ty = s.y;
@@ -112,6 +117,23 @@ export function create(ctx) {
     chutes.push({ x: it.x, y: it.y - ITEM_H / 2 - 6, col: it.col, t: 0 });
   }
   const chutes = [];
+  function miss(it) {
+    it.state = "poof"; it.k = 0;
+    fx.burst(it.x, it.y, { n: 8, colors: [COL.bad, "#ffffff"], speed: 40, gravity: 60, size: 1 });
+    wrongTries++; B.hinted = true; shakeK = 1;
+    B.S("wrong");
+    if (wrongTries >= SPELL_TRIES) return fail(placed.join("") + it.tok);
+    fx.float(it.x, it.y - 12, "Try again!", { color: COL.bad });
+  }
+  async function fail(choice) {
+    const res = B.finish(false, "spelling", choice);
+    if (!res) return;
+    checkState = "bad";
+    for (const x of items) if (x.state === "fall") { x.state = "poof"; x.k = 0; }
+    B.S("deflect"); shakeK = 1; stage.shake && stage.shake(1, 100);
+    await wait(450);
+    B.settle();
+  }
   function targetOf(i) {
     if (isBuild) {
       const L = lineLayout(); // after push the new one is last
@@ -302,6 +324,7 @@ export function create(ctx) {
           for (let i = 0; i < left; i++) { g.fillStyle = COL.stone; g.fillRect(Math.round(x + 2 + i * 6), y + 12, 3, 3); }
         }
       }
+      if (!isBuild && !inst._reveal) triesPips(g, undoBtn.x + undoBtn.w - 20, slotTop + 26, wrongTries);
       // undo block
       const ub = undoBtn, uy = Math.round(ub.y + (ub.press ? 2 : 0));
       g.globalAlpha = placed.length && !checkState ? 1 : 0.4;

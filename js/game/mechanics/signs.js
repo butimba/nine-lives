@@ -47,7 +47,7 @@ export function create(ctx) {
   });
 
   // motion: horizontal sway (no rotation, stays pixel crisp) + slow drift with difficulty
-  const swayA = 1.5 + 5 * d, swayW = 1.3 + 1.2 * d, driftA = 18 * d * d, driftW = 0.35 + 0.25 * d;
+  const swayA = 2.5 + 5.5 * d, swayW = 1.4 + 1.3 * d, driftA = 18 * d * d, driftW = 0.35 + 0.25 * d;
   let tt = 0, introK = 0, frozen = false;
   const pos = (s) => {
     const drift = Math.sin(tt * driftW) * driftA;

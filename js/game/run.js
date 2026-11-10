@@ -76,6 +76,15 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     stageEvent: null, events: [], eventChests: [],
   };
   const has = (id) => S.perks.includes(id);
+  // first-time tips (tutorial): each mechanic once per account; accounts from before v5 skip them (migration)
+  save.tips = save.tips || {};
+  async function tip(key, en) {
+    if (save.tips._old || save.tips[key]) return;
+    save.tips[key] = 1; persist();
+    const was = runState; setState("intro"); runState = "intro";
+    await untilQuit(ui.tipCard(key, en));
+    runState = was;
+  }
   let floor = isShadow ? 0 : S.startFloor - 1; // the cat starts on the ledge below and climbs in
   const floorFrom = isShadow ? -8 : 0;
   const nFloors = isShadow ? Math.min(6, Math.max(3, session.pool.length)) : ECON.floorsPerStage;
@@ -205,6 +214,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       to: () => ({ x: cat.wx, y: toScreenY(cat.wy) - 14 }),
       colors: mon.colors,
       onDeflect: () => { S.coins += 1; },
+      progress: () => 1 - mon.hp / Math.max(1, mon.max), // more damage dealt = faster shots (up to 2x)
+      guide: !save.tips.bossGuide && !save.tips._old && (save.tips.bossGuide = 1),
       onMiss: () => {
         const c = { x: cat.wx, y: toScreenY(cat.wy) - 24 };
         if (S.shields > 0) {
@@ -719,13 +730,19 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const plan = planTask(task, profile, save.settings);
     const prompt = plan.prompt || {};
     const pb = ui.prompt(prompt, { onSay: () => say(prompt.say) });
+    const ty = (plan.task || task).type;
+    await tip(plan.mech === "spell" ? (ty === "spell" ? "tiles" : "type")
+      : plan.mech === "catch" ? (ty === "build" ? "catchWords" : "catch")
+      : plan.mech === "fixline" ? (ty === "build" ? "build" : "fix")
+      : plan.mech === "bubbles" ? (ty === "judge" ? "judge" : ty === "pic2listen" ? "listen" : "bubbles") : "signs");
+    if (S.quit) { ui.clearPrompt(); return null; }
     if (prompt.autoSay && prompt.say) say(prompt.say);
     const cs = stage.cssScale || 1;
     const top = Math.max(34, Math.round(pb / cs) + 6), bot = footY() - 64;
     const ay = Math.max(top, bot - 250);
     const arena = { x: 6, y: ay, w: 228, h: Math.max(80, bot - ay) };
     const Mech = MECHANICS[plan.mech] || MECHANICS.signs;
-    const difficulty = isShadow ? 0.15 : Math.min(1, (Math.max(1, floor) - 1) / 60 + (mon && mon.phase === 2 ? 0.15 : 0));
+    const difficulty = isShadow ? 0.15 : Math.min(1, 0.12 + (Math.max(1, floor) - 1) / 50 + (mon && mon.phase === 2 ? 0.15 : 0));
     const m = Mech.create({
       stage, fx, arena, task: plan.task || task, prompt, rng: Math.random, difficulty, sfx, speak: say,
       sprites: { getCat, ICONS, iconURL, drawSprite, pixelURL }, cat: catApi, hints: S.hints, revealCard: false, ground: footY(),
@@ -883,6 +900,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       }
     }
     if (msg) fx.float(c.x, c.y - 8, msg[0], { color: msg[1] });
+    if (lost) await tip("life");
     await tween(0.22, (k) => { mon.lx = -reach * (1 - ease.out(k)); }, () => { mon.anim = "idle"; mon.lx = 0; });
     if (halloween && !mon.mimic) {
       // trick! the monster turns into something silly for a moment (no extra penalty)
@@ -1061,6 +1079,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       setState("bossIntro"); runState = "bossIntro";
       try { startMusic("boss"); } catch {}
       await untilQuit(bossIntro({ ui, stage, fx, monster: mon.m, sfx }));
+      if (S.quit) break;
+      await tip("boss", /^Frosty /.test(String(mon.m && mon.m.name)) ? "Tap the snowballs!" : null);
       if (S.quit) break;
       startFight();
     } else await ms2(250);

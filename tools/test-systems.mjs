@@ -46,9 +46,10 @@ const V1 = {
 // ---------- migracja ----------
 {
   const s = migrate(clone(V1), { noReading: false });
-  eq(s.v, SAVE_VERSION, "version bumped to 4");
-  eq(SAVE_VERSION, 4, "SAVE_VERSION is 4");
+  eq(s.v, SAVE_VERSION, "version bumped to 5");
+  eq(SAVE_VERSION, 5, "SAVE_VERSION is 5");
   eq(s.duo, freshDuo(), "v4: duo added");
+  eq(s.tips, { _old: 1 }, "v5: old accounts skip the tutorial");
   // nic ze starych danych nie zginęło (v1 -> v3)
   for (const k of Object.keys(V1)) if (!["v", "settings", "daily", "stats"].includes(k)) eq(s[k], V1[k], `v1 field preserved: ${k}`);
   for (const k of Object.keys(V1.stats)) eq(s.stats[k], V1.stats[k], `v1 stats preserved: ${k}`);
@@ -75,7 +76,8 @@ const V1 = {
   ok(typeof p2.lives.at === "number" && p2.lives.date, "nested lives defaults filled");
   // fresh save has all new fields
   const f = freshSave("x", { noReading: true });
-  ok(f.v === 4 && f.duo && Array.isArray(f.duo.got) && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
+  eq(f.tips, {}, "v5: fresh account gets the tutorial");
+  ok(f.v === 5 && f.duo && Array.isArray(f.duo.got) && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
   eq(freshSave("x", { voice: true }).settings.voice, false, "freshSave: voice follows noReading, not profile.voice");
   eq(migrate(null), null, "migrate(null) -> null");
 }
@@ -87,7 +89,7 @@ const V1 = {
   V2.powers = { owned: ["owl_eye"], equipped: ["owl_eye"] }; V2.lives = { n: 4, at: 123, date: "2026-10-27" }; V2.daily.ms = 777;
   const before = clone(V2);
   const s = migrate(clone(V2), {});
-  eq(s.v, 4, "v2 -> v4");
+  eq(s.v, 5, "v2 -> v5");
   for (const k of Object.keys(before)) if (!["v", "stats", "lives"].includes(k)) eq(s[k], before[k], `v2 field preserved: ${k}`);
   for (const k of Object.keys(before.stats)) eq(s.stats[k], before.stats[k], `v2 stats preserved: ${k}`);
   ok(s.lives.n === 4 && s.lives.at === 123 && s.lives.date === "2026-10-27", "v2 lives preserved");
