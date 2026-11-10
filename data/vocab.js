@@ -4,7 +4,9 @@
 // ("v:animals:dog"). Nie zmieniaj istniejących słów angielskich — dodawaj nowe.
 // Literówkę w polskim tłumaczeniu albo emoji możesz poprawiać bez obaw.
 
-export default {
+import LESSONS from "./lessons.js";
+
+const BASE = {
   halloween: { name: "Halloween", icon: "🎃", words: [
     ["pumpkin", "dynia", "🎃"], ["ghost", "duch", "👻"], ["bat", "nietoperz", "🦇"],
     ["witch", "czarownica", "🧙‍♀️"], ["spider", "pająk", "🕷️"], ["spider web", "pajęczyna", "🕸️"],
@@ -245,6 +247,9 @@ export default {
     ["wood", "drewno", "🪵"], ["feather", "pióro", "🪶"], ["chestnut", "kasztan", "🌰"], ["sunset", "zachód słońca", "🌇"],
   ]},
 };
+
+// Słówka z lekcji każdego ucznia (generuje asystent lekcji; tematy l_<hash>).
+export default { ...BASE, ...LESSONS };
 
 // MYLĄCE SIĘ SŁOWA — nigdy nie pojawiają się razem jako opcje (ani jako cel + dystraktor).
 // Grupa = słowa, z których przy danym obrazku / dźwięku więcej niż jedno mogłoby być "dobre"
