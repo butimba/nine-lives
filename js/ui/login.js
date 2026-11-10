@@ -15,7 +15,9 @@ const LAST = "ninelives:last";
 export async function login(name) {
   app.loginName = name;
   const id = loginHash(name);
-  app.profile = ROSTER.players[id] || { ...(ROSTER.default || {}), guest: true };
+  // tylko loginy z rostera (Max dodaje uczniów w tools/roster-src.json) — obcy login = brak wejścia
+  if (!ROSTER.players[id]) { try { localStorage.removeItem(LAST); } catch {} throw Object.assign(new Error("unknown login"), { unknown: true }); }
+  app.profile = ROSTER.players[id];
   app.save = await loadSave(id, app.profile);
   try { localStorage.setItem(LAST, name); } catch {}
   setAudio(app.save.settings);
@@ -58,6 +60,7 @@ export const loginScreen = {
           <label for="login-name">Your name</label>
           <input id="login-name" class="px-input" name="n" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="24" placeholder="name">
           ${pxButton("Play", { act: "login", big: true, variant: "ok", cls: "px-btn--block", attrs: 'type="submit"' })}
+          <p class="login-err hand" hidden>Hmm… I don't know this name. Ask your teacher!</p>
         `, { cls: "login-card", tilt: -1.5 })}
       </form>
       <p class="login-foot">v2 · made with kids</p>
@@ -73,7 +76,11 @@ export const loginScreen = {
       if (normLogin(inp.value).length < 2) { replay(inp, "shake"); sfx.wrong(); inp.focus(); return; }
       busy = true; sfx.tap(); cat.play("dance", 2000);
       const b = el.querySelector("[data-act=login]"); b.disabled = true; b.querySelector("span").textContent = "…";
-      try { await login(inp.value.trim()); } catch (err) { console.error(err); busy = false; b.disabled = false; b.querySelector("span").textContent = "Play"; }
+      try { await login(inp.value.trim()); } catch (err) {
+        if (!err.unknown) console.error(err);
+        busy = false; b.disabled = false; b.querySelector("span").textContent = "Play";
+        if (err.unknown) { replay(inp, "shake"); sfx.wrong(); el.querySelector(".login-err").hidden = false; inp.select(); }
+      }
     };
     el.querySelector("form").addEventListener("submit", submit);
     const off = onAct(el, { login: () => submit() });

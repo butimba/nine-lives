@@ -227,6 +227,7 @@ img.px-ico, img.px-cat, .px-img, canvas.px-canvas { image-rendering: pixelated; 
 @keyframes shake { 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
 .login-foot { color: var(--mid); font-size: 13px; letter-spacing: .1em; }
 .login-card .px-btn--big { margin-top: 6px; }
+.login-err { margin: 0; color: var(--px-danger); font-size: 18px; line-height: 1.2; text-align: center; }
 
 .namecat { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 30px 16px 40px; max-width: var(--col); margin: 0 auto; }
 .namecat h1 { margin: 0; font-size: 34px; letter-spacing: .05em; text-align: center; text-shadow: 3px 3px 0 var(--px-ink); }
