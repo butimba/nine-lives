@@ -480,6 +480,13 @@ const ANIM = {
     });
   },
   rainbow(o, layer) { ANIM.golden(o, layer); },
+  moon(o, layer) {
+    if (layer !== 'front') return;
+    // small crescent moon floating above the head
+    const [gx, gy] = hp(o, 14, -4 + Math.round(Math.sin(o.t * 2) * 1.5));
+    for (const [x, y] of [[1, 0], [2, 0], [0, 1], [0, 2], [0, 3], [1, 4], [2, 4]]) P(o, gx + x, gy + y, '#ffe68a');
+    P(o, gx + 1, gy + 1, '#fff6c8'); P(o, gx + 1, gy + 3, '#d9b84a');
+  },
   ice(o, layer) {
     if (layer !== 'front') return;
     const spots = [[4, 10], [27, 14], [8, 26], [25, 4]];

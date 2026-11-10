@@ -4,7 +4,7 @@ import { go } from "./router.js";
 import { logout } from "./login.js";
 import { persist, levelInfo, talentPoints, exportCode, freshSave } from "../state.js";
 import { canRaise, tr, weeklyStatus, weeklyReward, weeklyBossInfo } from "../meta.js";
-import { activeSkills, itemsForSkill, wordOf, cardTier, reportText } from "../engine.js";
+import { activeSkills, itemsForSkill, wordOf, cardTier, reportText, isCardWord, badgeTier, genOpts } from "../engine.js";
 import { sfx, setAudio, speak, canSpeak } from "../audio.js";
 import { TALENTS, ECON, STORY } from "../../data/progression.js";
 import { SKINS } from "../../data/cosmetics.js";
@@ -20,16 +20,16 @@ const back = () => { sfx.tap(); go("home"); };
 // =================== SKILLS ===================
 const TREES_EN = { claws: { name: "Claws", color: "var(--px-danger)", icon: "claw" }, fur: { name: "Fur", color: "var(--px-sky)", icon: "shield" }, whiskers: { name: "Whiskers", color: "#d9a22b", icon: "eye" } };
 const TALENT_EN = {
-  // kid-friendly: no percentages (the rank pips show how strong it is)
-  sharp_claws: { name: "Sharp Claws", icon: "star", d: (r) => `${r >= 2 ? "Even more" : "More"} BIG hits` },
+  // kid-friendly: no percentages, "1 in N" numbers a 7-year-old gets (must match run.js / rewards.js / meta.js)
+  sharp_claws: { name: "Sharp Claws", icon: "star", d: (r) => `BIG hit: 1 in ${[20, 9, 6, 4][Math.min(r, 3)]} answers` },
   combo: { name: "Combo Master", icon: "flame", d: (r) => `${Math.max(2, 5 - r)} right in a row = extra hit` },
   pounce: { name: "Pounce", icon: "catHead", d: (r) => `First hit on a floor: x${r + 1}` },
   nine_lives: { name: "Nine Lives", icon: "shield", d: (r) => `+${r} shield vs boss shots` },
-  thick_fur: { name: "Thick Fur", icon: "heart", d: (r) => `${r >= 2 ? "More mistakes" : "Some mistakes"} cost no life` },
+  thick_fur: { name: "Thick Fur", icon: "heart", d: (r) => `${r} in 10 mistakes cost no life` },
   cat_nap: { name: "Cat Nap", icon: "moon", d: (r) => `Beat a boss: +${r} ${r > 1 ? "lives" : "life"}` },
-  lucky: { name: "Lucky Whiskers", icon: "fish", d: (r) => `${r >= 2 ? "Even more" : "More"} fish` },
+  lucky: { name: "Lucky Whiskers", icon: "fish", d: (r) => `+${r} fish for every 10 fish` },
   sixth_sense: { name: "Sixth Sense", icon: "xp", d: (r) => `${r + 1} hints in every run` },
-  treasure: { name: "Treasure Nose", icon: "cards", d: (r) => `${r >= 2 ? "Even better" : "Better"} things in chests` },
+  treasure: { name: "Treasure Nose", icon: "cards", d: (r) => `Chests: ${r >= 2 ? "many more" : "more"} skins and hats, less fish` },
 };
 
 export const skillsScreen = {
@@ -72,24 +72,24 @@ export const skillsScreen = {
 // =================== CARDS ===================
 const SKILL_EN = { plural: "plurals", pc_vs_ps: "simple or continuous?" };
 const skillLabel = (sk) => sk.startsWith("v:") ? (VOCAB[sk.slice(2)] ? VOCAB[sk.slice(2)].name : sk) : SKILL_EN[sk] || (SKILLS[sk] ? SKILLS[sk].name : sk);
-function exampleFor(key) {
-  const [, sk, p] = key.split(":");
-  try { let s = 0; for (const c of key) s = (s * 31 + c.charCodeAt(0)) >>> 0; const rng = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); return SKILLS[sk].patterns[p](rng).full; } catch { return p; }
-}
-const TIER_EN = ["", "seen", "bronze", "silver", "gold"];
+const TIER_EN = ["", "seen", "bronze", "silver", "gold", "diamond"];
+const BADGE_EN = ["", "bronze", "silver", "gold", "diamond"];
 // JEDNO źródło liczb albumu (zakładki, nagłówek, podsumowanie liczą tak samo): found = karta odkryta (tier > 0)
 function setStats(save, sk) {
-  const items = itemsForSkill(sk);
+  const items = itemsForSkill(sk).filter(isCardWord);
   const tiers = items.map((k) => cardTier(save.srs[k]));
-  const by = [0, 0, 0, 0, 0]; tiers.forEach((t) => by[t]++);
-  const found = items.length - by[0];
-  return { items, tiers, n: items.length, found, gold: by[4], by, complete: found === items.length && items.length > 0, allGold: by[4] === items.length && items.length > 0 };
+  const by = [0, 0, 0, 0, 0, 0]; tiers.forEach((t) => by[t]++);
+  const found = items.length - by[0], gold = by[4] + by[5];
+  return { items, tiers, n: items.length, found, gold, dia: by[5], by, complete: found === items.length && items.length > 0, allGold: gold === items.length && items.length > 0 };
 }
 
 export const cardsScreen = {
   mount(root, params = {}) {
     const save = app.save, profile = app.profile;
-    const skills = [...activeSkills(save, profile).keys(), ...Object.keys(save.skills)].filter((v, i, a) => a.indexOf(v) === i && itemsForSkill(v).length);
+    const allSk = [...activeSkills(save, profile).keys(), ...Object.keys(save.skills)].filter((v, i, a) => a.indexOf(v) === i);
+    // karty = tylko słówka; gramatyka = odznaki (engine.badgeTier)
+    const skills = allSk.filter((v) => v.startsWith("v:") && itemsForSkill(v).some(isCardWord));
+    const badges = allSk.filter((v) => !v.startsWith("v:") && SKILLS[v]).map((sk) => ({ sk, t: badgeTier(save, sk, genOpts(profile)) }));
     const stats = Object.fromEntries(skills.map((sk) => [sk, setStats(save, sk)]));
     skills.sort((a, b) => stats[b].found - stats[a].found);
     let cur = params.skill && skills.includes(params.skill) ? params.skill : skills[0];
@@ -98,18 +98,21 @@ export const cardsScreen = {
     const gold = skills.reduce((a, s) => a + stats[s].gold, 0);
     const sets = skills.filter((s) => stats[s].complete).length;
     const goldCard = `<span class="mini-card t4"><i></i></span>`;
+    const dia = skills.reduce((a, s) => a + stats[s].dia, 0);
     const el = h(`<div class="screen page cards">${pageHead("Cards", save, { fish: false })}
       ${panel(`<div class="al-sum">
           <div class="al-stat"><span class="mini-card t2"><i></i></span><b>${got}<small>/${total}</small></b><em>cards</em></div>
           <div class="al-stat">${goldCard}<b>${gold}</b><em>gold</em></div>
+          ${dia ? `<div class="al-stat"><span class="mini-card t5"><i></i></span><b>${dia}</b><em>diamond</em></div>` : ""}
           <div class="al-stat"><img class="px-ico" src="${iconSrc("trophy", 3)}" alt=""><b>${sets}<small>/${skills.length}</small></b><em>sets done</em></div>
         </div>
         <div class="al-bar"><i style="width:${total ? (got / total) * 100 : 0}%"></i><i class="g" style="width:${total ? (gold / total) * 100 : 0}%"></i></div>
         <span class="hand al-doodle">${got ? "collect them all!" : "play to find cards!"}</span>`, { cls: "al-head", tilt: -0.8 })}
+      ${badges.length ? panel(`<div class="bd-title px">Grammar badges</div><div class="bd-row">${badges.map(({ sk, t }) => `<div class="badge b${t}" title="${esc(BADGE_EN[t] || "not yet")}"><span class="medal"><i></i></span><b class="lex">${esc(skillLabel(sk))}</b><small class="px">${t ? BADGE_EN[t] : "play more!"}</small></div>`).join("")}</div>`, { cls: "bd-card", tilt: 0.5 }) : ""}
       <div class="album-tabs"></div>
       <div class="al-set"></div>
       <div class="album-grid"></div>
-      <div class="tier-key"><span><i style="background:#8a8299"></i>seen</span><span><i style="background:#c98a52"></i>bronze</span><span><i style="background:#a9b6cb"></i>silver</span><span><i style="background:#ffd23f"></i>gold</span><span class="lex">right answers = better cards</span></div>
+      <div class="tier-key"><span><i style="background:#8a8299"></i>seen</span><span><i style="background:#c98a52"></i>bronze</span><span><i style="background:#a9b6cb"></i>silver</span><span><i style="background:#ffd23f"></i>gold</span>${dia ? `<span><i style="background:#9df2ff"></i>diamond</span>` : ""}<span class="lex">right answers = better cards</span></div>
     </div>`);
     root.append(el);
     const render = () => {
@@ -122,15 +125,13 @@ export const cardsScreen = {
       if (!cur) { head.innerHTML = ""; g.innerHTML = `<p class="muted">Play to find cards!</p>`; return; }
       const st = stats[cur];
       head.innerHTML = `<div class="al-set-name px">${esc(skillLabel(cur))}</div>
-        <div class="al-seg">${[4, 3, 2, 1].map((t) => st.by[t] ? `<i class="t${t}" style="flex:${st.by[t]}"></i>` : "").join("")}${st.by[0] ? `<i class="t0" style="flex:${st.by[0]}"></i>` : ""}</div>
+        <div class="al-seg">${[5, 4, 3, 2, 1].map((t) => st.by[t] ? `<i class="t${t}" style="flex:${st.by[t]}"></i>` : "").join("")}${st.by[0] ? `<i class="t0" style="flex:${st.by[0]}"></i>` : ""}</div>
         <div class="al-set-n">${st.found}/${st.n} found · ${st.gold} gold ${st.allGold ? sticker(`<span class="sticker-label">GOLD SET!</span>`, { tilt: -6 }) : st.complete ? sticker(`<span class="sticker-label sticker-label--green">set done!</span>`, { tilt: -6 }) : ""}</div>`;
-      const gram = !cur.startsWith("v:");
-      g.className = `album-grid card-grid ${gram ? "gram" : ""}`;
+      g.className = "album-grid card-grid";
       g.innerHTML = st.items.map((key, i) => {
         const tier = st.tiers[i], no = `<span class="no">#${i + 1}</span>`;
         if (!tier) return `<div class="wcard t0">${no}<div class="art">?</div><span class="w">???</span></div>`;
         const rib = `<span class="rib">${TIER_EN[tier]}</span>`;
-        if (gram) return `<div class="wcard t${tier} gram">${no}<div class="art">${esc(exampleFor(key))}</div>${rib}</div>`;
         const w = wordOf(key);
         return `<button class="wcard t${tier}" data-act="card" data-k="${esc(key)}">${no}<div class="art"><img class="px-img" src="${picSrc(w.img, 3)}" alt=""></div><span class="w">${esc(w.en)}</span>${rib}</button>`;
       }).join("");
@@ -146,7 +147,7 @@ export const cardsScreen = {
           <span class="w">${esc(w.en)}</span>${showPl ? `<span class="pl lex">${esc(w.pl || "")}</span>` : ""}
           <div class="stars">${[1, 2, 3, 4].map((t) => `<img class="px-ico ${t <= tier ? "" : "off"}" src="${iconSrc("star", 3)}" alt="">`).join("")}</div>
           <span class="rib">${TIER_EN[tier]}</span>
-          <p class="lex next">${tier >= 4 ? "Gold! You know this word." : "Get it right again to make it " + TIER_EN[tier + 1] + "!"}</p>
+          <p class="lex next">${tier >= 5 ? "Diamond! You will never forget it." : tier >= 4 ? "Gold! Keep it gold for a few weeks..." : "Get it right again to make it " + TIER_EN[tier + 1] + "!"}</p>
           <div class="row">${canSpeak() ? pxButton("Listen", { icon: "speaker", act: "say", variant: "paper", cls: "px-btn--sm" }) : ""}${pxButton("OK", { act: "close", variant: "ok", cls: "px-btn--sm" })}</div>
         </div></div>`);
       const close = () => { m.classList.add("out"); setTimeout(() => m.remove(), 180); };
@@ -277,8 +278,8 @@ export const settingsScreen = {
         <div class="report-slot"></div>`, { cls: "set-card", tape: false, tilt: 0.4 })}
       ${profile.tester ? panel(`<h3>Test account</h3><div class="set-row">
         ${pxButton("+1000 fish", { act: "t-coins", variant: "paper", cls: "px-btn--sm" })}${pxButton("+5 levels", { act: "t-xp", variant: "paper", cls: "px-btn--sm" })}
-        ${pxButton("+4 chests", { act: "t-chest", variant: "paper", cls: "px-btn--sm" })}${pxButton("+9 lives", { act: "t-lives", variant: "paper", cls: "px-btn--sm" })}
-        ${pxButton("0 lives", { act: "t-sleep", variant: "paper", cls: "px-btn--sm" })}${pxButton("Reset all", { act: "t-reset", variant: "danger", cls: "px-btn--sm" })}</div>`, { cls: "set-card tester", tape: false }) : ""}
+        ${pxButton("+5 chests", { act: "t-chest", variant: "paper", cls: "px-btn--sm" })}${pxButton("+9 lives", { act: "t-lives", variant: "paper", cls: "px-btn--sm" })}
+        ${pxButton("0 lives", { act: "t-sleep", variant: "paper", cls: "px-btn--sm" })}${pxButton("Tutorial again", { act: "t-tips", variant: "paper", cls: "px-btn--sm" })}${pxButton("Reset all", { act: "t-reset", variant: "danger", cls: "px-btn--sm" })}</div>`, { cls: "set-card tester", tape: false }) : ""}
     </div>`);
     root.append(el);
     el.querySelectorAll("input[data-k]").forEach((i) => i.addEventListener("change", () => { s[i.dataset.k] = i.checked; setAudio(s); persist(); sfx.tap(); }));
@@ -296,7 +297,8 @@ export const settingsScreen = {
       export: () => copy(exportCode(), "Save code copied"),
       "t-coins": () => { save.coins += 1000; persist(); toast("+1000 fish"); },
       "t-xp": () => { const l = levelInfo(save.xp).lvl; for (let i = 0; i < 5; i++) save.xp += ECON.levelXp(l + i); persist(); toast("+5 levels"); },
-      "t-chest": () => { save.chests.push("wood", "silver", "gold", "epic"); persist(); toast("+4 chests"); },
+      "t-chest": () => { save.chests.push("wood", "silver", "gold", "epic", "mythic"); persist(); toast("+5 chests"); },
+      "t-tips": () => { save.tips = {}; persist(); toast("Tutorial: ON"); },
       "t-lives": () => { for (let i = 0; i < 9; i++) gainLife(save, "tester"); persist(); toast("Lives: 9"); },
       "t-sleep": () => { save.lives.n = 0; save.lives.at = Date.now(); persist(); toast("Lives: 0"); },
       "t-reset": async () => {

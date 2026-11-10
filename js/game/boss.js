@@ -1,5 +1,7 @@
 // BOSS — intro card + slow projectiles the player taps to deflect.
 // A missed projectile costs a shield (talent nine_lives) or breaks the combo. NEVER a life.
+// Paths are curved (random bend per shot); speed grows with damage dealt: progress()=0 -> 1x, progress()=1 -> 2x.
+// guide: the very first shot of the player's first boss is slow and has a tapping hand on it (tutorial).
 // Projectiles freeze while `paused` (intro / reveal / typing / cards).
 
 export async function bossIntro({ ui, stage, fx, monster, sfx = {} }) {
@@ -15,11 +17,13 @@ export async function bossIntro({ ui, stage, fx, monster, sfx = {} }) {
  * createBossFight({ stage, fx, rng, sfx, from:()=>{x,y}, to:()=>{x,y}, colors, onMiss(proj), onDeflect(proj) })
  * -> { update(dt,t), draw(ctx,t), paused, phase, setPhase(n), clear(), destroy(), projectiles }
  */
-export function createBossFight({ stage, fx, rng = Math.random, sfx = {}, from, to, colors = ["#ff6b2c", "#ffcf3f"], onMiss, onDeflect }) {
+export function createBossFight({ stage, fx, rng = Math.random, sfx = {}, from, to, colors = ["#ff6b2c", "#ffcf3f"], onMiss, onDeflect, progress = () => 0, guide = false }) {
   const P = [];
-  let spawnIn = 2.6, phase = 1, alive = true;
-  const cfg = () => (phase === 1 ? { speed: 20, every: 5.2, max: 1 } : { speed: 28, every: 3.4, max: 2 });
-  const R = 14; // generous tap radius (logical px) — kids' fingers
+  let spawnIn = guide ? 0.8 : 2.6, phase = 1, alive = true;
+  const prog = () => { try { return Math.max(0, Math.min(1, progress() || 0)); } catch { return 0; } };
+  // 2nd shot in the air once the boss is half down; phase 2 throws more often
+  const cfg = () => ({ speed: 36, every: phase === 1 ? 4.2 : 2.9, max: phase === 1 && prog() < 0.5 ? 1 : 2 });
+  const R = 12; // tap radius (logical px): still kid-sized, but you have to aim
 
   const off = stage.input.on("down", (e) => {
     if (!alive || fight.paused) return false;
@@ -27,7 +31,7 @@ export function createBossFight({ stage, fx, rng = Math.random, sfx = {}, from, 
     for (const p of P) {
       if (p.state !== "fly") continue;
       const d = Math.hypot(e.x - p.x, e.y - p.y);
-      if (d < R + 4 && d < bd) { bd = d; best = p; }
+      if (d < R + 3 && d < bd) { bd = d; best = p; }
     }
     if (!best) return false;
     best.state = "back"; best.t = 0;
@@ -44,8 +48,22 @@ export function createBossFight({ stage, fx, rng = Math.random, sfx = {}, from, 
 
   function spawn() {
     const s = from(), d = to();
-    P.push({ x: s.x - 8, y: s.y - 14, sx: s.x - 8, sy: s.y - 14, tx: d.x, ty: d.y - 8, t: 0, state: "fly",
-      dur: Math.hypot(d.x - s.x, d.y - s.y) / cfg().speed, wob: rng() * 6.28, trail: 0 });
+    const sx = s.x - 8, sy = s.y - 14, tx = d.x, ty = d.y - 8;
+    const len = Math.hypot(tx - sx, ty - sy) || 1;
+    // cubic bezier: two control points pushed sideways by random amounts -> big arcs, dips and S-curves, never the same
+    const nx = -(ty - sy) / len, ny = (tx - sx) / len;
+    // (+ = away from the floor) mostly high arcs, sometimes a low skim, 40% a hump that dives at the end (S-curve)
+    const amp = 70 + prog() * 50;
+    const b1 = amp * (0.25 + 0.75 * rng()) * (rng() < 0.85 ? 1 : -0.3);
+    const b2 = rng() < 0.4 ? -amp * (0.2 + 0.4 * rng()) : amp * rng();
+    const c1x = sx + (tx - sx) * 0.3 + nx * b1, c1y = sy + (ty - sy) * 0.3 + ny * b1 - 20 * rng();
+    const c2x = sx + (tx - sx) * 0.7 + nx * b2, c2y = sy + (ty - sy) * 0.7 + ny * b2 - 20 * rng();
+    const floorY = Math.max(sy, ty) + 25; // dips may go low, but never through the floor (the curve stays inside its control points)
+    const g = guide; guide = false;
+    const speed = cfg().speed * (1 + prog()) * (g ? 0.5 : 1);
+    P.push({ x: sx, y: sy, sx, sy, c1x, c1y: Math.min(c1y, floorY), c2x, c2y: Math.min(c2y, floorY), tx, ty, t: 0, state: "fly", guide: g,
+      dur: (len * 1.5) / speed, wob: rng() * 6.28, wa: 1 + rng() * 3 + prog() * 2, wf: 3 + rng() * 4,
+      sneak: rng() < 0.35 + prog() * 0.3, trail: 0 }); // sneak: starts slow, speeds up
     try { sfx.pop && sfx.pop(); } catch {}
   }
 
@@ -65,10 +83,11 @@ export function createBossFight({ stage, fx, rng = Math.random, sfx = {}, from, 
         const p = P[i];
         p.t += dt;
         if (p.state === "fly") {
-          const k = Math.min(1, p.t / p.dur);
-          const arc = Math.sin(k * Math.PI) * -22; // gentle lob
-          p.x = p.sx + (p.tx - p.sx) * k + Math.sin(p.t * 5 + p.wob) * 2;
-          p.y = p.sy + (p.ty - p.sy) * k + arc;
+          const k0 = Math.min(1, p.t / p.dur);
+          const k = p.sneak ? k0 * (0.55 + 0.45 * k0) : k0; // ends at k=1 either way
+          const u = 1 - k; // cubic bezier + a little wobble across the path
+          p.x = u * u * u * p.sx + 3 * u * u * k * p.c1x + 3 * u * k * k * p.c2x + k * k * k * p.tx + Math.sin(p.t * p.wf + p.wob) * p.wa;
+          p.y = u * u * u * p.sy + 3 * u * u * k * p.c1y + 3 * u * k * k * p.c2y + k * k * k * p.ty + Math.cos(p.t * p.wf * 0.8 + p.wob) * p.wa * 0.6;
           p.trail += dt;
           if (p.trail > 0.06) { p.trail = 0; fx.burst(p.x, p.y, { n: 1, colors, speed: 6, gravity: -10, life: 0.35 }); }
           if (k >= 1) {
@@ -96,6 +115,7 @@ export function createBossFight({ stage, fx, rng = Math.random, sfx = {}, from, 
         ctx.fillStyle = back ? "#ffffff" : colors[0]; ctx.fillRect(x - 5, y - 3, 11, 7); ctx.fillRect(x - 3, y - 5, 7, 11); ctx.fillRect(x - 4, y - 4, 9, 9);
         ctx.fillStyle = back ? "#bfe8ff" : colors[1]; ctx.fillRect(x - 3, y - 3, 6, 6);
         ctx.fillStyle = "#ffffff"; ctx.fillRect(x - 2, y - 3, 2, 2);
+        if (p.guide && !back) drawHand(ctx, x + 6, y + 6, t);
         // angry eyes
         if (!back) { ctx.fillStyle = "#0e0b16"; ctx.fillRect(x - 2, y, 1, 2); ctx.fillRect(x + 2, y, 1, 2); }
         // spikes
@@ -106,4 +126,16 @@ export function createBossFight({ stage, fx, rng = Math.random, sfx = {}, from, 
     destroy() { alive = false; off(); P.length = 0; },
   };
   return fight;
+}
+
+// pixel pointing hand (tutorial), fingertip at (x, y), taps up and down
+const HAND = ["..##......", "..#W#.....", "..#W#.....", "..#W###...", "..#WW#W##.", "###WWWWW#W#", "#WW#WWWWWW#", ".#WWWWWWWW#", "..#WWWWWW#.", "...#WWWW#..", "...######.."];
+export function drawHand(ctx, x, y, t) {
+  const b = Math.round(Math.abs(Math.sin(t * 5)) * 4);
+  const ox = Math.round(x - 3), oy = Math.round(y + b);
+  HAND.forEach((r, j) => [...r].forEach((c, i) => {
+    if (c === ".") return;
+    ctx.fillStyle = c === "W" ? "#ffffff" : "#0e0b16";
+    ctx.fillRect(ox + i, oy + j, 1, 1);
+  }));
 }

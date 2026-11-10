@@ -2,9 +2,10 @@
 //  'type'  -> real <input> in stage.overlay (.spell-input input + [data-act=cast]); every key lights a rune
 //             over a magic circle. v1 rules: norm() compare; one retry if lev <= max(1, floor(len/6)) (marks hinted);
 //             otherwise wrong with tag 'spelling'. "First letter" button = hinted (as v1). No timer.
-//  'spell' -> letter blocks: tap in order to fill the slots (+ backspace block). v1 rules: check when all
-//             letter slots are filled, case-insensitive vs target letters; wrong tag 'spelling'.
-import { base, word, textW, ease, clamp01, race, wait, COL, fxSafe, norm, lev, esc } from "./common.js";
+//  'spell' -> letter blocks: tap in order to fill the slots (+ backspace block). A wrong letter (case-insensitive vs
+//             the target) is rejected at once ("Try again!") and counted; the 3rd wrong letter = wrong answer, tag
+//             'spelling'. A word finished after wrong letters counts as hinted.
+import { base, word, textW, ease, clamp01, race, wait, COL, fxSafe, norm, lev, esc, triesPips, SPELL_TRIES } from "./common.js";
 
 const RUNE_COLS = [COL.magic, "#9df2ff", COL.goldL, COL.magic2];
 
@@ -251,7 +252,7 @@ function tiles(ctx) {
   const need = [...goal];
   for (const t of tilesArr) if (!t.back) { const j = need.indexOf(t.ch.toLowerCase()); if (j >= 0) { need.splice(j, 1); t.real = true; } }
   const placed = [];
-  let tt = 0, introK = 0, frozen = false, checkState = null, shakeK = 0;
+  let tt = 0, introK = 0, frozen = false, checkState = null, shakeK = 0, wrongTries = 0;
 
   const tpos = (t) => {
     if (t.state === "fly") { const k = ease.out(t.k); return { x: t.fx + (t.tx - t.fx) * k, y: t.fy + (t.ty - t.fy) * k - Math.sin(k * Math.PI) * 14 }; }
@@ -263,6 +264,7 @@ function tiles(ctx) {
   const hitAt = (x, y) => tilesArr.find((t) => t.state === "idle" && (() => { const p = tpos(t); return x >= p.x - 3 && x <= p.x + T + 3 && y >= p.y - 3 && y <= p.y + T + 3; })());
 
   const place = (t) => {
+    if (t.ch.toLowerCase() !== goal[placed.length]) return miss(t);
     const si = letterIdx[placed.length];
     const s = slots[si];
     const p = tpos(t);
@@ -270,6 +272,23 @@ function tiles(ctx) {
     placed.push(t);
     B.S("type");
   };
+  function miss(t) {
+    wrongTries++; B.hinted = true;
+    t.bad = 1; shakeK = 1;
+    const p = tpos(t);
+    B.S("wrong");
+    if (wrongTries >= SPELL_TRIES) return fail(t.ch);
+    fx.float(p.x + T / 2, p.y - 4, "Try again!", { color: COL.bad });
+  }
+  async function fail(ch = "") {
+    const res = B.finish(false, "spelling", placed.map((x) => x.ch).join("") + ch);
+    if (!res) return;
+    checkState = "bad";
+    B.S("deflect"); shakeK = 1;
+    stage.shake && stage.shake(1, 100);
+    await wait(450);
+    B.settle();
+  }
   const back = () => {
     const t = placed.pop(); if (!t) return;
     t.slot.ch = ""; t.slot.tile = null; t.state = "idle"; t.slot = null;
@@ -315,6 +334,7 @@ function tiles(ctx) {
       if (shakeK > 0) shakeK = Math.max(0, shakeK - dt * 2);
       for (const t of tilesArr) {
         if (t.press) t.press = Math.max(0, t.press - dt * 6);
+        if (t.bad) t.bad = Math.max(0, t.bad - dt * 2);
         if (t.state === "fly") { t.k = Math.min(1, t.k + dt * 5.5); if (t.k >= 1) { t.state = "placed"; t.slot.ch = t.ch; t.slot.tile = t; t.slot.pop = 1; fx.burst(t.slot.x + t.slot.w / 2, t.slot.y + t.slot.h, { n: 4, colors: [COL.stoneL, COL.magic], speed: 30, gravity: 60, size: 1 }); } }
         if (t.state === "fade") t.k = Math.min(1, (t.k || 0) + dt * 3);
       }
@@ -333,6 +353,7 @@ function tiles(ctx) {
         const ch = inst._reveal ? s._rev : s.ch;
         if (ch) word(g, ch, x + s.w / 2, y + 9 - (s.pop || 0) * 3, { size: sw < 13 ? 12 : 15, color: checkState === "bad" && !inst._reveal ? COL.bad : COL.paper, weight: 700, font: "Nine Pixel" });
       }
+      if (!inst._reveal) triesPips(g, A.x + A.w - 3 * 7 - 2, slotY - 8, wrongTries);
       // tiles
       for (const tl of tilesArr) {
         if (tl.state === "placed" || tl.state === "gone") continue;
@@ -341,7 +362,9 @@ function tiles(ctx) {
         g.globalAlpha = tl.state === "fade" ? 1 - tl.k : 1;
         const sc = tl.state === "fly" ? 1 - 0.45 * ease.out(tl.k) : 1;
         const S = Math.round(T * sc), x = Math.round(p.x + (T - S) / 2), y = Math.round(p.y + (T - S) / 2 + (tl.press ? 2 : 0));
-        stoneBlock(g, x, y, S, tl.back);
+        const bx = tl.bad ? Math.round(Math.sin(t * 60) * 2 * tl.bad) : 0;
+        stoneBlock(g, x + bx, y, S, tl.back);
+        if (tl.bad) { g.globalAlpha *= 0.6 * tl.bad; g.fillStyle = COL.bad; g.fillRect(x + bx + 1, y + 1, S - 2, S - 2); g.globalAlpha = tl.state === "fade" ? 1 - tl.k : 1; }
         if (tl.back) backIcon(g, x + S / 2, y + S / 2 - 1);
         else word(g, tl.ch, x + S / 2, y + S / 2 - 1, { size: 17 * sc, color: COL.paper, weight: 700, font: "Nine Pixel" });
         g.globalAlpha = 1;
@@ -381,10 +404,10 @@ function tiles(ctx) {
         if (B.done) return;
         if (!B.live) B.start();
         while (placed.length) back();
+        if (!good) return fail();
         const seq = [];
         const pool = tilesArr.filter((x) => !x.back && x.state === "idle");
-        if (good) for (const c of goal) { const j = pool.findIndex((x) => x.ch.toLowerCase() === c); seq.push(pool.splice(j, 1)[0]); }
-        else { const rev = [...goal].reverse().join("") === goal ? pool : [...pool].reverse(); for (let i = 0; i < goal.length; i++) seq.push(rev[i]); }
+        for (const c of goal) { const j = pool.findIndex((x) => x.ch.toLowerCase() === c); seq.push(pool.splice(j, 1)[0]); }
         seq.forEach((x) => x && place(x));
       },
     },

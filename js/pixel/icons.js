@@ -565,7 +565,7 @@ for (const [name, d] of Object.entries(D)) {
 for (const p of PERKS) if (!ICONS['perk_' + p.id]) ICONS['perk_' + p.id] = ICONS.star;
 for (const t of TALENTS) ICONS['talent_' + t.id] = ICONS[TALENT_ICON[t.id]] || ICONS.star;
 // power ids (stage 2) — mapped to readable icons
-Object.assign(ICONS, { power_freeze: ICONS.snow, power_claw_storm: ICONS.claw, power_fish_magnet: ICONS.perk_magnet, power_owl_eye: ICONS.eye, power_catnip: ICONS.perk_catnip });
+Object.assign(ICONS, { power_freeze: ICONS.snow, power_claw_storm: ICONS.claw, power_fish_magnet: ICONS.perk_magnet, power_owl_eye: ICONS.eye, power_catnip: ICONS.perk_catnip, power_ball_buster: ICONS.shield });
 
 export function iconURL(name, scale = 3) {
   return spriteURL(ICONS[name] || ICONS.star, 0, scale);

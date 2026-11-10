@@ -8,7 +8,7 @@
 import { today } from "./util.js";
 import * as cloud from "./cloud.js";
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 const LS_KEY = (id) => `ninelives:save:${id}`;
 const LOG_MAX = 1500;
 
@@ -36,6 +36,8 @@ export function freshSave(id, profile) {
     gifts: { claimed: [] },                // v3: odebrane prezenty od nauczyciela, np. "skin:shrimp"
     mySkin: { pixels: null, status: "none", at: 0 }, // v3: własna skórka 16x16 (none|pending|approved|rejected)
     duo: freshDuo(),                       // v4: duet (prezent rybek dla przyjaciółki, wspólne wyzwanie dnia)
+    pace: { catch: 1 },                    // v5: tempo spadających liter/słów dopasowane do dziecka (0.55–1.3, run.js)
+    tips: {},                              // v5: samouczek — które podpowiedzi „HOW TO PLAY” już widział (klucz -> 1)
     settings: { voice: !!(profile && profile.noReading), sfx: true, music: true, pl: true },
     log: [],          // [t, itemKey, ok(1/0), ms, chosenTag]
     stats: { runs: 0, answers: 0, correct: 0, playMs: 0, shadowRuns: 0, events: {} }, // events: liczniki wydarzeń w biegu
@@ -75,8 +77,14 @@ const MIGRATIONS = {
     s.duo ??= freshDuo();
     return s;
   },
+  // v4 → v5: samouczek przy pierwszym razie. Konta sprzed v5 znają grę → _old = bez podpowiedzi.
+  5: (s) => {
+    s.tips ??= { _old: 1 };
+    s.pace ??= { catch: 1 };
+    return s;
+  },
   // przykład na przyszłość:
-  // 5: (s, profile) => { s.newField ??= defaultValue; return s; },
+  // 6: (s, profile) => { s.newField ??= defaultValue; return s; },
 };
 
 export function migrate(s, profile) {
@@ -87,7 +95,7 @@ export function migrate(s, profile) {
   const base = freshSave(s.id, profile);
   // uzupełnij brakujące pola (bez nadpisywania istniejących)
   for (const k of Object.keys(base)) if (s[k] === undefined || s[k] === null) s[k] = base[k];
-  for (const k of ["owned", "equipped", "tower", "daily", "lives", "streak", "weekly", "settings", "stats", "challenges", "powers", "gifts", "mySkin", "duo"])
+  for (const k of ["owned", "equipped", "tower", "daily", "lives", "streak", "weekly", "settings", "stats", "challenges", "powers", "gifts", "mySkin", "duo", "pace"])
     for (const kk of Object.keys(base[k])) if (s[k][kk] === undefined) s[k][kk] = base[k][kk];
   if (!Array.isArray(s.duo.got)) s.duo.got = [];
   if (!Array.isArray(s.duo.sent)) s.duo.sent = [];
@@ -135,4 +143,5 @@ export function levelInfo(xp) {
   while (rest >= ECON.levelXp(lvl)) { rest -= ECON.levelXp(lvl); lvl++; }
   return { lvl, into: rest, need: ECON.levelXp(lvl) };
 }
-export const talentPoints = (s) => levelInfo(s.xp).lvl - 1 - Object.values(s.talents).reduce((a, b) => a + b, 0);
+// max(0): gdyby zmiana krzywej leveli obniżyła komuś level, nic nie zabieramy i nie pokazujemy ujemnych punktów
+export const talentPoints = (s) => Math.max(0, levelInfo(s.xp).lvl - 1 - Object.values(s.talents).reduce((a, b) => a + b, 0));

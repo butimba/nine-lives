@@ -26,10 +26,8 @@ export const TREES = {
 // --- perki na jeden bieg (wybór 1 z 3) ---
 export const PERKS = [
   { id: "fishbone", name: "Fishbone Sword", icon: "🐟", desc: "Big hits: +1 hit", w: 3 },
-  { id: "catnip", name: "Catnip", icon: "🌿", desc: "+1 life now", w: 3, instant: true },
   { id: "bell", name: "Golden Bell", icon: "🔔", desc: "+50% fish in this run", w: 3 },
   { id: "lightning", name: "Lightning Paws", icon: "⚡", desc: "Fast answer (5 s): +1 hit", w: 3 },
-  { id: "bubble", name: "Bubble Shield", icon: "🫧", desc: "Blocks the next boss shot", w: 3, instant: true },
   { id: "fire_combo", name: "Fire Combo", icon: "🔥", desc: "3 good in a row: x2 hits", w: 2 },
   { id: "clover", name: "Lucky Clover", icon: "🍀", desc: "Big hit chance +15%", w: 3 },
   { id: "magnet", name: "Star Magnet", icon: "🧲", desc: "+30% XP in this run", w: 3 },
@@ -40,11 +38,13 @@ export const PERKS = [
 // Odblokowanie: level >= unlockLevel (rewards.js) albo nagroda ze skrzyni. Założone: max 2 (save.powers.equipped).
 // icon = klucz ICONS (js/pixel/icons.js). Teksty EN, A1.
 export const POWERS = [
+  // perki biegu nie dublują mocy (catnip, bubble usunięte); moce odblokowują się wolniej (już odblokowane zostają)
   { id: "owl_eye", name: "Owl Eye", desc: "Takes away a wrong answer", icon: "power_owl_eye", charge: 3, unlockLevel: 2, color: "#ffd23f" },
-  { id: "freeze", name: "Freeze", desc: "Stops everything for 3 questions", icon: "power_freeze", charge: 4, unlockLevel: 3, color: "#7ec4ff" },
-  { id: "claw_storm", name: "Claw Storm", desc: "Double hits for 3 answers", icon: "power_claw_storm", charge: 5, unlockLevel: 4, color: "#ff5d5d" },
-  { id: "fish_magnet", name: "Fish Magnet", desc: "Double fish on this floor", icon: "power_fish_magnet", charge: 4, unlockLevel: 6, color: "#6fe3d3" },
-  { id: "catnip", name: "Catnip", desc: "+1 life", icon: "power_catnip", charge: 6, unlockLevel: 8, color: "#93e04c" },
+  { id: "freeze", name: "Freeze", desc: "Stops everything for 3 questions", icon: "power_freeze", charge: 4, unlockLevel: 4, color: "#7ec4ff" },
+  { id: "claw_storm", name: "Claw Storm", desc: "Double hits for 3 answers", icon: "power_claw_storm", charge: 5, unlockLevel: 7, color: "#ff5d5d" },
+  { id: "ball_buster", name: "Ball Buster", desc: "No boss shots for 3 answers", icon: "power_ball_buster", charge: 4, unlockLevel: 10, color: "#ff9a3d" },
+  { id: "fish_magnet", name: "Fish Magnet", desc: "Double fish on this floor", icon: "power_fish_magnet", charge: 4, unlockLevel: 13, color: "#6fe3d3" },
+  { id: "catnip", name: "Catnip", desc: "+1 life", icon: "power_catnip", charge: 6, unlockLevel: 16, color: "#93e04c" },
 ];
 export const MAX_EQUIPPED_POWERS = 2;
 export const powerById = (id) => POWERS.find((p) => p.id === id) || null;
@@ -70,6 +70,8 @@ export const CHESTS = {
   wood: { name: "Wooden Chest", icon: "🧰", rolls: { coins: 70, common: 20, rare: 9, epic: 1, legendary: 0 }, coins: [40, 90] },
   silver: { name: "Silver Chest", icon: "🎁", rolls: { coins: 45, common: 25, rare: 22, epic: 7, legendary: 1 }, coins: [90, 180] },
   gold: { name: "Golden Chest", icon: "👑", rolls: { coins: 20, common: 15, rare: 35, epic: 22, legendary: 8 }, coins: [180, 350] },
+  // mythic: always a legendary item you don't have yet (else epic, else lots of fish) — meta.openChest
+  mythic: { name: "Mythic Chest", icon: "🌌", rolls: { coins: 0, common: 0, rare: 0, epic: 0, legendary: 100 }, coins: [800, 1200] },
   epic: { name: "Epic Chest", icon: "💎", rolls: { coins: 5, common: 0, rare: 30, epic: 45, legendary: 20 }, coins: [350, 600] },
 };
 export const CHEST_ORDER = ["wood", "silver", "gold", "epic"];
@@ -85,7 +87,9 @@ export const ECON = {
   dailyFullRuns: 3, dailyMult: [1, 1, 1, 0.5, 0.5, 0.25],
   freezePrice: 120, freezeMax: 2,
   chestPrice: 220,
-  levelXp: (lvl) => 100 + (lvl - 1) * 40, // XP potrzebne na przejście z lvl do lvl+1
+  // XP potrzebne na przejście z lvl do lvl+1. Do lvl 15 jak dawniej (nikomu nie spada level), od 16 coraz wolniej:
+  // wszystkie talenty (lvl 25) po ok. 2 miesiącach codziennej gry zamiast ~2,5 tygodnia.
+  levelXp: (lvl) => 100 + (lvl - 1) * 40 + (lvl >= 16 ? 100 * (lvl - 15) ** 2 : 0),
   monsterHp: (floor) => (floor < 20 ? 2 : floor < 60 ? 3 : 4),
   bossHp: (floor) => (floor < 20 ? 5 : floor < 60 ? 6 : 7),
   floorsPerStage: 5,

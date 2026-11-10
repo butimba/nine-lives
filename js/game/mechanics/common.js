@@ -189,3 +189,13 @@ export function fxSafe(fx) {
   const n = () => {};
   return fx ? { burst: (...a) => fx.burst && fx.burst(...a), float: (...a) => fx.float && fx.float(...a), ring: (...a) => fx.ring && fx.ring(...a) } : { burst: n, float: n, ring: n };
 }
+
+// spelling: 3 tries per word — pips show the tries left (used = wrong letters so far)
+export const SPELL_TRIES = 3;
+export function triesPips(ctx, x, y, used) {
+  for (let i = 0; i < SPELL_TRIES; i++) {
+    const on = i >= used;
+    ctx.fillStyle = COL.ink; ctx.fillRect(x + i * 7 - 1, y - 1, 6, 6);
+    ctx.fillStyle = on ? COL.ok : COL.badD; ctx.fillRect(x + i * 7, y, 4, 4);
+  }
+}

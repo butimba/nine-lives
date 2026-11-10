@@ -1,6 +1,7 @@
 // Testy systemów (bez przeglądarki): migracja v1→v2, życia, malejące nagrody, nagrody po biegu.
 // Uruchom: node tools/test-systems.mjs
 import { migrate, freshSave, SAVE_VERSION, levelInfo, freshDuo } from "../js/state.js";
+import { record, cardTier, DIAMOND, isDiamondCheck } from "../js/engine.js";
 import { shopItems, eventChestItems, ensureDuo, sendGift, receiveGifts, duoChallenge, claimDuo, duoAddCorrect, canSendGift, DUO } from "../js/meta.js";
 import { duoPub } from "../js/cloud.js";
 import { SKINS, HATS } from "../data/cosmetics.js";
@@ -46,9 +47,11 @@ const V1 = {
 // ---------- migracja ----------
 {
   const s = migrate(clone(V1), { noReading: false });
-  eq(s.v, SAVE_VERSION, "version bumped to 4");
-  eq(SAVE_VERSION, 4, "SAVE_VERSION is 4");
+  eq(s.v, SAVE_VERSION, "version bumped to 5");
+  eq(SAVE_VERSION, 5, "SAVE_VERSION is 5");
   eq(s.duo, freshDuo(), "v4: duo added");
+  eq(s.tips, { _old: 1 }, "v5: old accounts skip the tutorial");
+  eq(s.pace, { catch: 1 }, "v5: catch pace added");
   // nic ze starych danych nie zginęło (v1 -> v3)
   for (const k of Object.keys(V1)) if (!["v", "settings", "daily", "stats"].includes(k)) eq(s[k], V1[k], `v1 field preserved: ${k}`);
   for (const k of Object.keys(V1.stats)) eq(s.stats[k], V1.stats[k], `v1 stats preserved: ${k}`);
@@ -75,7 +78,8 @@ const V1 = {
   ok(typeof p2.lives.at === "number" && p2.lives.date, "nested lives defaults filled");
   // fresh save has all new fields
   const f = freshSave("x", { noReading: true });
-  ok(f.v === 4 && f.duo && Array.isArray(f.duo.got) && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
+  eq(f.tips, {}, "v5: fresh account gets the tutorial");
+  ok(f.v === 5 && f.duo && Array.isArray(f.duo.got) && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
   eq(freshSave("x", { voice: true }).settings.voice, false, "freshSave: voice follows noReading, not profile.voice");
   eq(migrate(null), null, "migrate(null) -> null");
 }
@@ -87,7 +91,7 @@ const V1 = {
   V2.powers = { owned: ["owl_eye"], equipped: ["owl_eye"] }; V2.lives = { n: 4, at: 123, date: "2026-10-27" }; V2.daily.ms = 777;
   const before = clone(V2);
   const s = migrate(clone(V2), {});
-  eq(s.v, 4, "v2 -> v4");
+  eq(s.v, 5, "v2 -> v5");
   for (const k of Object.keys(before)) if (!["v", "stats", "lives"].includes(k)) eq(s[k], before[k], `v2 field preserved: ${k}`);
   for (const k of Object.keys(before.stats)) eq(s.stats[k], before.stats[k], `v2 stats preserved: ${k}`);
   ok(s.lives.n === 4 && s.lives.at === 123 && s.lives.date === "2026-10-27", "v2 lives preserved");
@@ -155,15 +159,17 @@ const V1 = {
 
 // ---------- moce ----------
 {
-  ok(POWERS.length === 5 && POWERS.every((p) => p.id && p.name && /^[\x20-\x7e]+$/.test(p.desc) && p.icon.startsWith("power_") && p.charge > 0 && p.unlockLevel >= 1), "POWERS shape");
+  ok(POWERS.length === 6 && POWERS.every((p) => p.id && p.name && /^[\x20-\x7e]+$/.test(p.desc) && p.icon.startsWith("power_") && p.charge > 0 && p.unlockLevel >= 1), "POWERS shape");
   const s = freshSave("pw", {});
   eq(syncPowers(s), [], "level 1: no powers");
-  let need = 0; for (let l = 1; l < 6; l++) need += ECON.levelXp(l); s.xp = need; // level 6
+  let need = 0; for (let l = 1; l < 7; l++) need += ECON.levelXp(l); s.xp = need; // level 7
   const fresh = syncPowers(s).map((p) => p.id);
-  eq(fresh, ["owl_eye", "freeze", "claw_storm", "fish_magnet"], "level 6 unlocks 4");
+  eq(fresh, ["owl_eye", "freeze", "claw_storm"], "level 7 unlocks 3 (slower unlocks)");
+  ok(POWERS.find((p) => p.id === "catnip").unlockLevel === 16 && POWERS.some((p) => p.id === "ball_buster"), "catnip late, ball buster exists");
+  ok(!PERKS.some((p) => p.id === "catnip" || p.id === "bubble"), "no perks duplicating powers");
   eq(s.powers.equipped, ["owl_eye", "freeze"], "auto-equip first 2");
   eq(syncPowers(s), [], "idempotent");
-  s.powers.equipped = ["fish_magnet", "nope", "fish_magnet"]; syncPowers(s); eq(s.powers.equipped, ["fish_magnet"], "equipped cleaned");
+  s.powers.equipped = ["claw_storm", "nope", "claw_storm"]; syncPowers(s); eq(s.powers.equipped, ["claw_storm"], "equipped cleaned");
   // level-up w biegu -> results.extras
   const s2 = freshSave("pw2", {}); s2.xp = ECON.levelXp(1) - 5;
   const r = applyRunResults(s2, { ...clone({ mode: "tower", answers: 3, xp: 10, coins: 0 }), unlockedPowers: [] });
@@ -385,7 +391,16 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   ok(kinds.skin || kinds.hat, "epic chest gives items");
   ok(new Set(s.owned.skins).size === s.owned.skins.length, "no duplicate skins");
   const s2 = freshSave("ch2", {}); const c = openChest(s2, "nope"); ok(c && c.kind, "unknown chest type falls back");
-  eq(chestForFloor(50), "epic", "floor 50 -> epic"); eq(chestForFloor(25), "gold", "floor 25 -> gold");
+  const hi = () => 0.99, lo = () => 0.01;
+  eq(chestForFloor(50, null, hi), "epic", "floor 50 -> epic"); eq(chestForFloor(25, null, hi), "gold", "floor 25 -> gold");
+  // mythic: never below floor 50, rare above
+  ok(chestForFloor(45, null, lo) !== "mythic", "floor 45: no mythic even on a lucky roll");
+  eq(chestForFloor(75, null, lo), "mythic", "floor 75 gold + lucky roll -> mythic");
+  { let m = 0; for (let i = 0; i < 4000; i++) if (chestForFloor(55 + 5 * (i % 20)) === "mythic") m++; ok(m > 80 && m < 400, `mythic rate ~2-10% from floor 50 (${m}/4000)`); }
+  { const sm = freshSave("myth", {}); const r1 = openChest(sm, "mythic"); ok((r1.kind === "skin" || r1.kind === "hat") && r1.item.rarity === "legendary", "mythic -> legendary item");
+    for (let i = 0; i < 30; i++) openChest(sm, "mythic"); const r2 = openChest(sm, "mythic"); ok(r2.kind === "coins" && r2.amount >= 800, "mythic with everything owned -> big fish, no duplicate");
+    ok(["mooncat", "phoenix", "crystal", "aurora"].every((id) => sm.owned.skins.includes(id)), "mythic gives the 4 mythic-only skins"); }
+  { const sg = freshSave("gold", {}); for (let i = 0; i < 60; i++) openChest(sg, "gold"); ok(!sg.owned.skins.some((id) => SKINS.find((k) => k.id === id).source === "mythic"), "mythic-only skins never in normal chests"); }
   ok(TALENTS.length === 9 && TALENTS.every((t) => /^[\x20-\x7e]+$/.test(t.desc(1)) && t.desc(1).length < 40), "talent descs short English");
   ok(PERKS.every((p) => /^[\x20-\x7e]+$/.test(p.desc)), "perk descs English");
   const names = new Set(); for (let i = 0; i < 400; i++) names.add(randomCatName());

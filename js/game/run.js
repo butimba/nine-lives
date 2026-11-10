@@ -7,7 +7,7 @@ import { biomeForFloor, SHADOW_BIOME } from "./biomes.js";
 import { bossIntro, createBossFight } from "./boss.js";
 import { createRunUI } from "./runui.js";
 import { planTask, MECHANICS } from "./mechanics/index.js";
-import { Session, record } from "../engine.js";
+import { Session, record, isDiamondCheck } from "../engine.js";
 import { SKILLS } from "../../data/grammar.js";
 import { PERKS, ECON, powerById, RUN_EVENTS, MERCHANT_OFFERS } from "../../data/progression.js";
 import { ensureDaily, progressDaily } from "../daily.js";
@@ -72,10 +72,19 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     shields: tr(save, "nine_lives"), hints: { left: tr(save, "sixth_sense") > 0 ? tr(save, "sixth_sense") + 1 : 1 },
     startFloor: isShadow ? -1 : save.tower.checkpoint + 1, bossBeaten: false, quit: false, asleep: false,
     livesN: startLives, dream: isShadow && startLives <= 0, cellarErrors: 0, dreamErrors: 0,
-    livesLost: 0, failedKeys: new Set(), freezeTasks: 0, clawHits: 0, magnetFloor: null, powersUsed: 0,
+    livesLost: 0, failedKeys: new Set(), freezeTasks: 0, noShots: 0, clawHits: 0, magnetFloor: null, powersUsed: 0,
     stageEvent: null, events: [], eventChests: [],
   };
   const has = (id) => S.perks.includes(id);
+  // first-time tips (tutorial): each mechanic once per account; accounts from before v5 skip them (migration)
+  save.tips = save.tips || {};
+  async function tip(key, en) {
+    if (save.tips._old || save.tips[key]) return;
+    save.tips[key] = 1; persist();
+    const was = runState; setState("intro"); runState = "intro";
+    await untilQuit(ui.tipCard(key, en));
+    runState = was;
+  }
   let floor = isShadow ? 0 : S.startFloor - 1; // the cat starts on the ledge below and climbs in
   const floorFrom = isShadow ? -8 : 0;
   const nFloors = isShadow ? Math.min(6, Math.max(3, session.pool.length)) : ECON.floorsPerStage;
@@ -205,6 +214,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       to: () => ({ x: cat.wx, y: toScreenY(cat.wy) - 14 }),
       colors: mon.colors,
       onDeflect: () => { S.coins += 1; },
+      progress: () => 1 - mon.hp / Math.max(1, mon.max), // more damage dealt = faster shots (up to 2x)
+      guide: !save.tips.bossGuide && !save.tips._old && (save.tips.bossGuide = 1),
       onMiss: () => {
         const c = { x: cat.wx, y: toScreenY(cat.wy) - 24 };
         if (S.shields > 0) {
@@ -252,7 +263,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
         mon.sx += (1 - mon.sx) * Math.min(1, dt * 12); mon.sy += (1 - mon.sy) * Math.min(1, dt * 12);
         mon.hpShow += (mon.hp - mon.hpShow) * Math.min(1, dt * 5);
       }
-      if (fight) { fight.paused = runState !== "task" || typing() || !!(mech && mech.typing) || ui.modalOpen || S.freezeTasks > 0; fight.update(dt, t); }
+      if (fight) { fight.paused = runState !== "task" || typing() || !!(mech && mech.typing) || ui.modalOpen || S.freezeTasks > 0 || S.noShots > 0; fight.update(dt, t); }
       if (mech && mech.update) mech.update(dt, t);
       updateExtras(dt, t);
       fx.update(dt);
@@ -618,6 +629,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     else if (id === "freeze") { S.freezeTasks = 3; try { mech.freeze && mech.freeze(true); } catch {} }
     else if (id === "claw_storm") S.clawHits = 3;
     else if (id === "fish_magnet") S.magnetFloor = floor;
+    else if (id === "ball_buster") { if (!fight) { ok = false; why = "NO BOSS"; } else { fight.clear(); S.noShots = 3; } }
     else if (id === "catnip") { if (S.livesN >= lives.MAX_LIVES) { ok = false; why = "FULL!"; } else { lives.gainLife(save, "catnip"); refreshLives(); heartFly(c); } }
     if (!ok) { ui.powerFeedback(id, "no"); fx.float(c.x, c.y - 10, why, { color: "#ff9a8a" }); S_("tap"); return; }
     p.n = 0; p.ready = false; pwSync(); ui.powerFeedback(id, "fire");
@@ -719,17 +731,24 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const plan = planTask(task, profile, save.settings);
     const prompt = plan.prompt || {};
     const pb = ui.prompt(prompt, { onSay: () => say(prompt.say) });
+    const ty = (plan.task || task).type;
+    await tip(plan.mech === "spell" ? (ty === "spell" ? "tiles" : "type")
+      : plan.mech === "catch" ? (ty === "build" ? "catchWords" : "catch")
+      : plan.mech === "fixline" ? (ty === "build" ? "build" : "fix")
+      : plan.mech === "bubbles" ? (ty === "judge" ? "judge" : ty === "pic2listen" ? "listen" : "bubbles") : "signs");
+    if (S.quit) { ui.clearPrompt(); return null; }
     if (prompt.autoSay && prompt.say) say(prompt.say);
     const cs = stage.cssScale || 1;
     const top = Math.max(34, Math.round(pb / cs) + 6), bot = footY() - 64;
     const ay = Math.max(top, bot - 250);
     const arena = { x: 6, y: ay, w: 228, h: Math.max(80, bot - ay) };
     const Mech = MECHANICS[plan.mech] || MECHANICS.signs;
-    const difficulty = isShadow ? 0.15 : Math.min(1, (Math.max(1, floor) - 1) / 60 + (mon && mon.phase === 2 ? 0.15 : 0));
+    const difficulty = isShadow ? 0.15 : Math.min(1, 0.12 + (Math.max(1, floor) - 1) / 50 + (mon && mon.phase === 2 ? 0.15 : 0));
     const m = Mech.create({
       stage, fx, arena, task: plan.task || task, prompt, rng: Math.random, difficulty, sfx, speak: say,
       sprites: { getCat, ICONS, iconURL, drawSprite, pixelURL }, cat: catApi, hints: S.hints, revealCard: false, ground: footY(),
       target: mon ? { x: mon.wx, y: toScreenY(mon.wy) - monH() / 2 } : { x: 190, y: footY() - 20 },
+      pace: save.pace && save.pace.catch,
     });
     mech = m;
     if (S.freezeTasks > 0) { try { m.freeze && m.freeze(true); } catch {} }
@@ -749,11 +768,16 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const tt = plan.task || task;
     S.answers++;
     const prev = save.srs[tt.key];
-    const info = { wasNew: !prev || !prev.n, repeat: S.failedKeys.has(tt.key) };
+    const info = { wasNew: !prev || !prev.n, repeat: S.failedKeys.has(tt.key), diamond: isDiamondCheck(prev) };
+    const wasDia = !!(prev && prev.dia); // prev to ten sam obiekt, który record() zmienia
     record(save, tt, res.ok, res.ms, res.tag, { hinted: res.hinted, shadowMode: isShadow });
+    if (plan.mech === "catch" && m.stats) adaptCatchPace(m.stats(), res.ok, prev);
+    const nowR = save.srs[tt.key];
+    if (nowR && nowR.dia && !wasDia && tt.word) { ui.toast("DIAMOND CARD!", tt.word.en, "gem"); S_("perk"); }
     tickPlay();
     if (mon && mon.off) mon.off = 0;
     if (S.freezeTasks > 0) S.freezeTasks--;
+    if (S.noShots > 0) S.noShots--;
     if (res.ok) {
       dailyEv("correct"); if (tt.skill) dailyEv("skill:" + tt.skill);
       if (["spell", "type"].includes(tt.type)) dailyEv("typed");
@@ -765,6 +789,17 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     ui.clearPrompt();
     persist();
     return res;
+  }
+
+  // spadające litery/słowa: tempo na następny raz. Zna słowo (pudełko 3+), a i tak przegrał albo zgubił 2+ potrzebne
+  // klocki = nie nadąża zręcznościowo → wyraźnie wolniej; zwykła pomyłka → trochę wolniej; czysto = trochę szybciej.
+  function adaptCatchPace(st, ok, prev) {
+    save.pace = save.pace || { catch: 1 };
+    const knows = !!(prev && prev.b >= 3);
+    let f = 1;
+    if (!ok || st.drops >= 2) f = knows || st.drops >= 2 ? 0.82 : 0.92;
+    else if (!st.wrong && !st.drops) f = 1.06;
+    save.pace.catch = Math.round(Math.max(0.55, Math.min(1.3, (save.pace.catch || 1) * f)) * 100) / 100;
   }
 
   async function onRight(task, res) {
@@ -860,7 +895,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     fx.burst(c.x, c.y, { n: 12, colors: ["#e8434f", "#ffffff"], speed: 70 });
     // life rules
     let msg = null, lost = false;
-    if (isShadow && S.dream) { S.dreamErrors++; msg = ["DREAM", "#bfb4ff"]; }
+    if (info.diamond) msg = ["BACK TO GOLD", "#ffd23f"]; // sprawdzian diamentu: bez kary (engine.DIAMOND)
+    else if (isShadow && S.dream) { S.dreamErrors++; msg = ["DREAM", "#bfb4ff"]; }
     else if (isShadow && S.cellarErrors < 2) { S.cellarErrors++; msg = ["FREE TRY", "#9ae86a"]; }
     else {
       if (isShadow) S.cellarErrors++;
@@ -883,6 +919,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       }
     }
     if (msg) fx.float(c.x, c.y - 8, msg[0], { color: msg[1] });
+    if (lost) await tip("life");
     await tween(0.22, (k) => { mon.lx = -reach * (1 - ease.out(k)); }, () => { mon.anim = "idle"; mon.lx = 0; });
     if (halloween && !mon.mimic) {
       // trick! the monster turns into something silly for a moment (no extra penalty)
@@ -948,9 +985,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (S.quit || !p || p === "quit") return;
     S_("perk");
     const c = { x: cat.wx, y: toScreenY(cat.wy) - 40 };
-    if (p.id === "catnip") { lives.gainLife(save, "catnip"); refreshLives(); heartFly(c); fx.float(c.x, c.y, "+1 LIFE", { color: "#ff8a9a" }); }
-    else if (p.id === "bubble") { S.shields++; fx.float(c.x, c.y, "+1 SHIELD", { color: "#7ec4ff" }); }
-    else if (p.id === "big_heart") { lives.gainLife(save, "perk"); refreshLives(); S.shields++; heartFly(c); fx.float(c.x, c.y, "+1 LIFE", { color: "#ff8a9a" }); }
+    if (p.id === "big_heart") { lives.gainLife(save, "perk"); refreshLives(); S.shields++; heartFly(c); fx.float(c.x, c.y, "+1 LIFE", { color: "#ff8a9a" }); }
     else S.perks.push(p.id);
     fx.burst(c.x, c.y, { n: 16, colors: ["#ffcf3f", "#ffffff"], speed: 60, gravity: 40 });
     cat.anim = "dance"; cat.animT = 0;
@@ -1061,6 +1096,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       setState("bossIntro"); runState = "bossIntro";
       try { startMusic("boss"); } catch {}
       await untilQuit(bossIntro({ ui, stage, fx, monster: mon.m, sfx }));
+      if (S.quit) break;
+      await tip("boss", /^Frosty /.test(String(mon.m && mon.m.name)) ? "Tap the snowballs!" : null);
       if (S.quit) break;
       startFight();
     } else await ms2(250);

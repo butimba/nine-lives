@@ -1,10 +1,11 @@
 // SKÓRKI I CZAPKI. id są stałe na zawsze (zapisane w postępach dzieci).
 // Nowa skórka = nowy wpis. Nie usuwaj starych — ustaw "retired: true", żeby zniknęła ze sklepu.
 // source: "shop" (za monety), "chest" (tylko ze skrzynek), "weekly" (nagroda za bossa tygodnia, po kolei wg "order"),
+//         "mythic" (TYLKO z mitycznej skrzyni, rarity legendary),
 //         "event:<id>" (do kupienia tylko w czasie wydarzenia), "start" (każdy ma od początku)
 // colors: fur, belly, stripe, ear, eye, nose. pattern: none | stripes | spots | tux | socks
 // fx: dodatkowe efekty rysowane przez grę (shrimp, fire, toxic, candy, ghost, galaxy, robot, ice, zombie, golden, pumpkin, rainbow,
-//     shark, santa, lights, xmastree, reindeer, snowman, elf, candycane, firework)
+//     shark, santa, lights, xmastree, reindeer, snowman, elf, candycane, firework, moon)
 // chest: true = przedmiot wydarzenia może też wypaść ze skrzyni w czasie wydarzenia (bez ceny = TYLKO ze skrzyni w czasie wydarzenia)
 
 export const SKINS = [
@@ -64,6 +65,15 @@ export const SKINS = [
     colors: { fur: "#9a6a42", belly: "#e8cfa8", stripe: "#6e4a2c", ear: "#c98a5a", eye: "#1d1d2b", nose: "#ff2b2b" } },
   { id: "firework", name: "Firework Cat", rarity: "legendary", source: "event:newyear", price: 1500, chest: true, pattern: "none", fx: ["firework"],
     colors: { fur: "#1d1b3a", belly: "#3a3570", stripe: "#14122a", ear: "#ff5d8f", eye: "#ffe14d", nose: "#ff5d8f" } },
+  // --- tylko z mitycznej skrzyni ---
+  { id: "mooncat", name: "Moon Cat", rarity: "legendary", source: "mythic", pattern: "none", fx: ["galaxy", "moon"],
+    colors: { fur: "#cfd8f0", belly: "#f4f6ff", stripe: "#9aa6c8", ear: "#ffe68a", eye: "#3b4ea8", nose: "#ffcf3f" } },
+  { id: "phoenix", name: "Phoenix Cat", rarity: "legendary", source: "mythic", pattern: "stripes", fx: ["fire", "golden"],
+    colors: { fur: "#d92b3a", belly: "#ffb347", stripe: "#ffd23f", ear: "#ffd23f", eye: "#fff35c", nose: "#7a1505" } },
+  { id: "crystal", name: "Crystal Cat", rarity: "legendary", source: "mythic", pattern: "spots", fx: ["ice", "galaxy"],
+    colors: { fur: "#a8f0ff", belly: "#eafcff", stripe: "#5fd0f0", ear: "#d8b8ff", eye: "#7a3cff", nose: "#d8b8ff" } },
+  { id: "aurora", name: "Aurora Cat", rarity: "legendary", source: "mythic", pattern: "stripes", fx: ["galaxy", "golden"],
+    colors: { fur: "#16264a", belly: "#2a4a6a", stripe: "#4dffb0", ear: "#ff7ae0", eye: "#4dffb0", nose: "#ff7ae0" } },
   // --- nagrody za bossa tygodnia (kolejka) ---
   { id: "shrimp", name: "Shrimp Cat", rarity: "epic", source: "weekly", order: 1, pattern: "stripes", fx: ["shrimp"],
     colors: { fur: "#ff8f7a", belly: "#ffd0c2", stripe: "#e8573f", ear: "#ffb3a3", eye: "#1d1d2b", nose: "#c73b28" } },
