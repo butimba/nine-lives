@@ -9,7 +9,7 @@ import * as cloud from "../cloud.js";
 import { PAL } from "../pixel/palette.js";
 import { TEMPLATE, EDIT_PALETTE, blankPixels, isValidPixels, cellColor, registerSkin } from "../pixel/custom.js";
 import { CAT_TEMPLATE } from "../pixel/cat.js";
-import { ensureMySkin, MY_SKIN } from "../meta.js";
+import { ensureMySkin, MY_SKIN, SKIN_SENDING } from "../meta.js";
 
 const DRAFT = "custom:draft";
 const K = "#0e0b16";
@@ -51,8 +51,8 @@ export const editorScreen = {
               ${pxButton("Wear it", { act: "skin-wear", variant: "paper", cls: "px-btn--sm" })}
               ${pxButton("New", { act: "skin-new", variant: "paper", cls: "px-btn--sm" })}
             </div>
-            ${pxButton("Send to teacher", { act: "skin-send", big: true, variant: "ok", cls: "px-btn--block ed-send" })}
-            <p class="ed-note lex">Your teacher looks at it. Then everyone can win it!</p>`, { cls: "ed-card", tilt: -0.6 })}
+            ${SKIN_SENDING ? `${pxButton("Send to teacher", { act: "skin-send", big: true, variant: "ok", cls: "px-btn--block ed-send" })}
+            <p class="ed-note lex">Your teacher looks at it. Then everyone can win it!</p>` : `<p class="ed-note lex">Paint your cat and wear it!</p>`}`, { cls: "ed-card", tilt: -0.6 })}
         </div>
       </div>
     </div>`);
@@ -72,6 +72,7 @@ export const editorScreen = {
       prevT = setTimeout(() => { registerSkin(DRAFT, pixels, { name: m.name }); cat.refresh(); }, 90);
     };
     const renderStatus = () => {
+      if (!SKIN_SENDING) return;
       const changed = m.sent && m.sent !== pixels;
       const st = changed ? "changed" : m.status;
       const label = { pending: "waiting for teacher", approved: "in the game!", rejected: "try again", changed: "not sent yet" }[st];
@@ -238,7 +239,7 @@ export const editorScreen = {
         sfx.perk ? sfx.perk() : sfx.tap(); cat.play("dance", 1600); toast("You look great!", { icon: "star" });
       },
       "skin-send": async (b) => {
-        if (busy) return;
+        if (busy || !SKIN_SENDING) return;
         const name = nameVal();
         if (!name) { const i = $("#ed-name"); replay(i, "shake"); sfx.wrong(); i.focus(); toast("Give it a name!"); return; }
         if (pixels === blankPixels()) { replay(cv, "nope"); sfx.wrong(); toast("Paint your cat first!"); return; }

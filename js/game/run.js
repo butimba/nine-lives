@@ -158,15 +158,18 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     let pal = ev && ev.monTint && !isShadow && Math.random() < 0.4 ? ev.monTint : b.mon;
     if (kind === "golden") pal = GOLD_PAL;
     const m = kind === "mimic" ? makeMimic() : makeMonster(`${save.id}-${f}-${startedAt}`, pal, { boss, shadow: isShadow });
-    const hp = isShadow ? 1 : boss ? ECON.bossHp(f) : ECON.monsterHp(f);
+    // KING: the boss of every 25th floor wears a crown, has +2 HP and throws a 3rd shot when angry (boss.js)
+    const king = boss && kind !== "mimic" && f % ECON.kingEvery === 0;
+    const hp = isShadow ? 1 : boss ? ECON.bossHp(f) + (king ? ECON.kingHp : 0) : ECON.monsterHp(f);
+    if (king) m.name = "King " + String(m.name || "Boss").split(" ").pop();
     if (winter && boss && kind !== "mimic") {
       // winter boss: a frosty name, snowball shots, a Santa hat (drawn in drawMonster)
-      m.name = "Frosty " + String(m.name || "Boss").split(" ").pop();
+      m.name = "Frosty " + (king ? "King " : "") + String(m.name || "Boss").split(" ").pop();
     }
     mon = { m, boss, hp, max: hp, hpShow: hp, wx: 240 - (boss ? 58 : 50), wy: floorY(f), anim: "idle", animT: 0, flash: 0,
       drop: 1, lx: 0, off: 0, sx: 1, sy: 1, dead: false, alpha: 1, phase: 1, colors: kind === "mimic" ? ["#b0703e", "#ffd23f"] : [pal[0] || "#ff6b2c", pal[1] || "#ffcf3f"],
       golden: kind === "golden" ? { turns: RUN_EVENTS.golden.turns } : null, mimic: kind === "mimic" ? { revealed: false } : null, trick: null, fled: false,
-      jumper: null, xmasHat: winter && boss && kind !== "mimic" };
+      jumper: null, xmasHat: winter && boss && kind !== "mimic", king };
     if (mon.xmasHat) mon.colors = ["#ffffff", "#bfe8ff"]; // snowballs
     return tween(0.45, (k) => { mon.drop = 1 - ease.out(k); }, () => {
       mon.sx = 1.3; mon.sy = 0.7; stage.shake(boss ? 3 : 1, 150);
@@ -207,14 +210,19 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
 
   // ---------- boss fight ----------
   let fight = null;
+  // ?debug: live boss shots in client px (bot / tests tap them)
+  if (DBG) DBG.shots = () => (fight ? fight.projectiles.filter((p) => p.state === "fly").map((p) => ({ ...stage.toClient(p.x, p.y), gold: !!p.gold })) : []);
   function startFight() {
     fight = createBossFight({
       stage, fx, sfx,
       from: () => { const p = monScreen(); return { x: p.x, y: p.y - monH() * 0.6 }; },
       to: () => ({ x: cat.wx, y: toScreenY(cat.wy) - 14 }),
       colors: mon.colors,
-      onDeflect: () => { S.coins += 1; },
-      progress: () => 1 - mon.hp / Math.max(1, mon.max), // more damage dealt = faster shots (up to 2x)
+      onDeflect: (p, streak = 1) => { S.coins += Math.min(2, streak); }, // 1 fish, 2 for every deflect in a row after the first
+      // golden shot: fish + one charge on every power
+      onBonus: (p) => { S.coins += 5; fishPulse = 0.3; fx.float(p.x, p.y - 8, "+5", { color: "#ffd23f", big: true }); const h = HUD.fish(); fx.collect(p.x, p.y, h.x, h.y, { n: 5, color: "#ffd23f" }); chargePowers(); },
+      king: !!mon.king,
+      progress: () => 1 - mon.hp / Math.max(1, mon.max), // more damage dealt = faster shots (up to 1.5x)
       guide: !save.tips.bossGuide && !save.tips._old && (save.tips.bossGuide = 1),
       onMiss: () => {
         const c = { x: cat.wx, y: toScreenY(cat.wy) - 24 };
@@ -330,6 +338,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     else if (mon.jumper) drawJumper(ctx, o, t);
     else mon.m.draw(ctx, 0, 0, o);
     if (!mon.trick && (mon.xmasHat || mon.jumper) && !mon.dead) drawXmasHat(ctx, t);
+    else if (mon.king && !mon.trick && !mon.dead) drawHat(ctx, t, CROWN, { G: "#ffd23f", g: "#c98a1c", R: "#e8434f" });
     ctx.restore();
     if (mon.golden && !mon.dead && Math.floor(t * 7) % 3 === 0) {
       // twinkles on the golden monster
@@ -546,10 +555,12 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const hop = Math.round(Math.abs(Math.sin(t * 7)) * 2);
     ctx.drawImage(jumperCv, -Math.round(w / 2), -(hh - 4) - hop);
   }
+  const CROWN = ["G..G..G", "G.GGG.G", "GGGRGGG", "GGGGGGG", "ggggggg"];
   function drawXmasHat(ctx, t) {
+    drawHat(ctx, t, ["......WW", ".....RRW", "...RRRR.", "..RRRrRR", ".RRRRRRR", "WWWWWWWWW", "WWWWWWWWW"], { R: "#e8434f", r: "#a82848", W: "#f4efe2" });
+  }
+  function drawHat(ctx, t, rows, map) {
     const s = 2, hy = -Math.round((mon.m.h || 22) * AS) + 3, sway = Math.round(Math.sin(t * 3) * 1);
-    const rows = ["......WW", ".....RRW", "...RRRR.", "..RRRrRR", ".RRRRRRR", "WWWWWWWWW", "WWWWWWWWW"];
-    const map = { R: "#e8434f", r: "#a82848", W: "#f4efe2" };
     const w = rows[0].length * s + 2;
     ctx.fillStyle = "#0e0b16";
     rows.forEach((r, j) => [...r].forEach((c, i) => { if (c !== ".") ctx.fillRect(i * s - w / 2 - 1 + sway, hy + j * s - rows.length * s - 1, s + 2, s + 2); }));
@@ -954,6 +965,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const boss = mon.boss;
     let gain = (boss ? ECON.coinPerBoss : isShadow ? ECON.coinShadowClear : ECON.coinPerKill) * magnet();
     if (mon.golden) { gain += RUN_EVENTS.golden.fish * magnet(); S.events.push("golden"); bumpEvent("goldenCaught"); }
+    if (mon.king) gain += ECON.kingFish;
     S.coins += gain; if (boss) S.xp += ECON.xpPerBoss;
     mon.dead = true; mon.anim = "die"; mon.animT = 0;
     if (fight) { fight.clear(); fight.destroy(); fight = null; }
@@ -1095,7 +1107,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (isBossFloor) {
       setState("bossIntro"); runState = "bossIntro";
       try { startMusic("boss"); } catch {}
-      await untilQuit(bossIntro({ ui, stage, fx, monster: mon.m, sfx }));
+      await untilQuit(bossIntro({ ui, stage, fx, monster: mon.m, sfx, king: mon.king }));
       if (S.quit) break;
       await tip("boss", /^Frosty /.test(String(mon.m && mon.m.name)) ? "Tap the snowballs!" : null);
       if (S.quit) break;

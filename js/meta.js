@@ -217,6 +217,9 @@ export function weeklyReward(save, w) {
 import { registerSkin, addCommunitySkins } from "./pixel/custom.js";
 const SKIN_CACHE = "ninelives:skins";
 export const MY_SKIN = "custom:mine";
+// Wysyłanie rysunku do nauczyciela: na razie WYŁĄCZONE (decyzja Maxa). Dziecko dalej maluje i nosi swojego kota.
+// true = wraca przycisk „Send to teacher” w edytorze i naklejki statusu; reszta kodu (chmura, panel) jest nietknięta.
+export const SKIN_SENDING = false;
 export function ensureMySkin(save) {
   save.mySkin ??= { pixels: null, status: "none", at: 0 };
   const m = save.mySkin;

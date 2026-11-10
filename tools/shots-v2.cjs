@@ -93,7 +93,7 @@ const [port = "8765", loginName = "lucja", vps = "mobile,desktop"] = process.arg
           await p.mouse.move(box.x + box.w * 0.3, box.y + box.h * 0.6); await p.mouse.down();
           await p.mouse.move(box.x + box.w * 0.6, box.y + box.h * 0.62, { steps: 8 }); await p.mouse.up();
           await B.sleep(900); await S("editor");
-          await B.tap(p, "[data-act=skin-send]"); await B.sleep(600); await S("editor-send");
+          if (await p.$("[data-act=skin-send]")) { await B.tap(p, "[data-act=skin-send]"); await B.sleep(600); await S("editor-send"); } // sending is off (meta.SKIN_SENDING)
           await B.tap(p, "[data-act=back]"); await B.sleep(600); await S("wardrobe-diy");
         }
         await B.tap(p, "[data-act=back]");

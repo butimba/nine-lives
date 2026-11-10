@@ -436,5 +436,47 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   eq(randomCatName(rng), (seed = 1, randomCatName(rng)), "cat names deterministic with rng");
 }
 
+// ---------- boss: wolniejsze pociski, złoty pocisk, seria odbić (js/game/boss.js) ----------
+{
+  const { createBossFight } = await import("../js/game/boss.js");
+  const noop = () => {};
+  const fx = { burst: noop, ring: noop, float: noop, flash: noop };
+  const mk = (rngVal, extra = {}) => {
+    let down = null; const log = { miss: 0, defl: [], bonus: 0 };
+    const stage = { input: { on: (ev, fn) => { down = fn; return noop; } }, hitstop: noop, shake: noop };
+    const f = createBossFight({ stage, fx, rng: () => rngVal, from: () => ({ x: 190, y: 300 }), to: () => ({ x: 60, y: 300 }),
+      onMiss: () => log.miss++, onDeflect: (p, s) => log.defl.push(s), onBonus: () => log.bonus++, ...extra });
+    f.paused = false;
+    const run = (sec) => { for (let k = 0; k < sec * 20; k++) f.update(0.05, 0); };
+    const fly = () => f.projectiles.find((x) => x.state === "fly");
+    const tap = () => { const p = fly(); return p ? down({ x: p.x, y: p.y }) : false; };
+    const tapNext = () => { for (let k = 0; k < 200 && !tap(); k++) run(0.25); };
+    return { f, log, run, tap, tapNext, fly };
+  };
+  // rng 0.5 everywhere: no golden shots (0.5 > 0.16), no "sneak" at the start
+  const a = mk(0.5);
+  a.run(3.5); ok(!!a.fly(), "boss: first shot is in the air after ~3 s");
+  ok(!a.fly().gold, "boss: first shot is never golden");
+  ok(a.fly().dur > 5.5, "boss: a shot takes over 5.5 s at the start of a fight");
+  a.run(9); ok(a.log.miss >= 1, "boss: an untapped shot hits the cat");
+  const fast = mk(0.5, { progress: () => 1 }); fast.run(3.5);
+  ok(fast.fly().dur > 3.8, "boss: a shot takes over 3.8 s even at the end of a fight");
+  // deflects in a row: 1, 2, 3; a miss resets the streak
+  const s = mk(0.5);
+  s.tapNext(); s.tapNext(); s.tapNext();
+  eq(s.log.defl, [1, 2, 3], "boss: deflect streak grows");
+  s.run(16); ok(s.log.miss >= 1, "boss: a miss after the streak");
+  s.tapNext(); eq(s.log.defl[3], 1, "boss: a miss resets the streak");
+  // rng 0.1 everywhere: every shot after the first one is golden
+  const g = mk(0.1);
+  g.tapNext(); eq(g.log.defl.length, 1, "boss: first shot deflected");
+  g.run(1); g.tapNext();
+  eq(g.log.bonus, 1, "boss: tapping a golden shot gives the bonus");
+  eq(g.log.defl.length, 1, "boss: a golden tap is not a deflect");
+  const g2 = mk(0.1); g2.tapNext(); g2.run(60);
+  eq(g2.log.miss, 0, "boss: missed golden shots never hurt");
+  ok(ECON.kingEvery === 25 && ECON.kingHp > 0 && ECON.kingFish > 0, "king boss config");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

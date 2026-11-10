@@ -2,7 +2,7 @@
 import { h, esc, app, ico, catImg, pxButton, panel, pageHead, refreshFish, toast, modal, onAct, liveCat, sticker, RARITY_EN } from "./components.js";
 import { go } from "./router.js";
 import { persist } from "../state.js";
-import { shopItems, buy, ensureMySkin, MY_SKIN } from "../meta.js";
+import { shopItems, buy, ensureMySkin, MY_SKIN, SKIN_SENDING } from "../meta.js";
 import { registerSkin } from "../pixel/custom.js";
 import { sfx } from "../audio.js";
 import { SKINS, HATS } from "../../data/cosmetics.js";
@@ -83,10 +83,10 @@ export const wardrobeScreen = {
         const own = tab === "skins" ? save.owned.skins : save.owned.hats;
         const sorted = [...list].sort((a, b) => (own.includes(b.id) - own.includes(a.id)));
         const st = mine.sent && mine.sent !== mine.pixels ? "changed" : mine.status;
-        const stLabel = { pending: "waiting for teacher", approved: "in the game!", rejected: "try again", changed: "not sent yet" }[st];
+        const stLabel = SKIN_SENDING && { pending: "waiting for teacher", approved: "in the game!", rejected: "try again", changed: "not sent yet" }[st];
         const diy = tab === "skins" ? `<div class="diy-row">${panel(`
             <div class="diy-art">${mine.pixels ? catImg(MY_SKIN, "none", { scale: 2 }) : `<span class="diy-blank">${catImg("snowball", "none", { scale: 2, silhouette: true })}</span>`}</div>
-            <div class="diy-txt"><b class="px">Make your own cat!</b><span class="lex">Paint it. Send it. Kids can win it!</span>
+            <div class="diy-txt"><b class="px">Make your own cat!</b><span class="lex">${SKIN_SENDING ? "Paint it. Send it. Kids can win it!" : "Paint it. Wear it. It is only yours!"}</span>
               ${stLabel ? sticker(`<span class="sticker-label ${st === "approved" ? "sticker-label--green" : st === "rejected" ? "sticker-label--red" : ""}">${stLabel}</span>`, { tilt: -3 }) : ""}</div>
             ${pxButton(mine.pixels ? "Paint" : "Start", { act: "skin-editor", variant: "gold", cls: "px-btn--sm diy-go" })}`, { cls: "diy-card", tilt: -1, tape: true })}<span class="hand diy-doodle">DIY!</span></div>` : "";
         const myTile = tab === "skins" && mine.pixels ? `<button class="item item--mine ${save.equipped.skin === MY_SKIN ? "on" : ""}" style="--r:var(--px-ok)" data-act="equip" data-kind="skin" data-id="${MY_SKIN}">
