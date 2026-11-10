@@ -132,7 +132,10 @@ Polski jest neutralny płciowo tam, gdzie mówi się do dziecka (bez „zapomnia
 
 ## Zgodność i wdrożenie (po akceptacji)
 - **Zapis bez zmian.** `save.story` liczy dalej do 100, a `js/rewards.js` już używa `STORY.length`, więc wystarczy dopisać strony. Niebo jest wyliczane z `save.story` (zasada 4 z CLAUDE.md), czyli bez nowego pola, bez migracji i bez zmiany `SAVE_VERSION`.
-- Strony 1–20: bez zmian treści. Dzieci, które już mają 20 stron i więcej bossów, dostaną stronę 21 przy najbliższym nowym bossie (1 strona na bossa, bez nadrabiania hurtem).
+- **Tempo (decyzja Maxa): 1 nowa strona dziennie**, za pierwszego bossa danego dnia. Liczą się dni gry, nie kalendarz i nie seria: kto opuści dzień, nic nie traci, tylko czyta wolniej. 100 stron to ~100 dni gry, czyli przy 4–5 dniach w tygodniu **~5 miesięcy**. Pozostali bossowie tego dnia dają skrzynie jak dotąd, a w Diary pojawia się napis „Next page tomorrow!”.
+- Kod: w `js/rewards.js` warunek `save.story++` dostaje dodatkowo `save.daily.pageDay !== today()` i ustawia `save.daily.pageDay = today()`. To jedno opcjonalne pole, a brak pola (`undefined`) działa poprawnie, więc migracja nie jest potrzebna. `SAVE_VERSION` zostaje bez zmian (w razie wątpliwości dopiszemy pole do migracji v5 z gałęzi rodzica).
+- **Dzieci, które mają już więcej stron:** nic nie zabieramy. Strony były nagrodą, a ich liczba jest widoczna (kawałki Księżyca, licznik), więc dziecko by to zauważyło. Od dnia wdrożenia każde dostaje po prostu 1 stronę dziennie dalej. W chmurze: najwięcej ma testowy zapis Maxa (15), dzieci 6 lub mniej, więc różnice to kilka stron.
+- **Nadrabianie:** nie robimy. Fabuła nie ma terminu, a każde dziecko czyta swoją. Jedyne miejsce, gdzie dzieci się porównują, to duet; różnica kilku stron nie przeszkadza.
 - Kod (szacunek: ~1 dzień):
   - `data/progression.js`: +80 stron w `STORY` i nowa tablica `SKY` (14 gwiazdozbiorów: nazwa i 5 punktów w układzie nieba ekranu głównego, 240 px szerokości; wieża zajmuje środek, więc gwiazdozbiory idą po bokach i nad wieżą, a Gwiazda Północna na środku u góry).
   - `js/ui/pages.js`: `PAGE_ART` +80 obrazków; nagłówek zależny od rozdziału („13/20 Moon pieces” → „7/70 stars”); opcjonalnie „Sky map” (duży podgląd nieba z podpisami).
@@ -141,7 +144,7 @@ Polski jest neutralny płciowo tam, gdzie mówi się do dziecka (bez „zapomnia
 - Nie ruszam plików z gałęzi `boss-samouczek-literowanie` poza `pages.js`/`home.js`/`world.js` (do sprawdzenia przy scalaniu).
 
 ## Pytania do Maxa
-1. **Tempo.** Przy 4–5 bossach dziennie 80 nowych stron wystarczy na ~3–4 tygodnie (wyżej bossowie są trudniejsi, więc pewnie trochę dłużej). Może tak zostać, czy wolisz limit, np. max 3 strony dziennie?
+1. ~~Tempo~~: ustalone, 1 strona dziennie (patrz wyżej).
 2. **Nagroda za stronę 100?** Np. czapka „Star Crown” albo skórka „Star Cat” (nowe id, bez migracji). Tak/nie?
 3. **Po stronie 100:** niebo zostaje pełne, Diary pokazuje „The End”, a wieża dalej działa. Ewentualny sezon 2 (np. planety) zostawiamy na później?
 4. Czy jakąś stronę lub gwiazdozbiór zmienić? Każdą linijkę można poprawić przed wdrożeniem.
