@@ -7,12 +7,12 @@ import { duoPub } from "../js/cloud.js";
 import { SKINS, HATS } from "../data/cosmetics.js";
 import { eventAllows } from "../data/events.js";
 import * as L from "../js/lives.js";
-import { applyRunResults, syncPowers } from "../js/rewards.js";
+import { applyRunResults, syncPowers, syncStory } from "../js/rewards.js";
 import { ensureDaily, progressDaily, claimDaily, makeDaily } from "../js/daily.js";
 import { POWERS, RUN_EVENTS, MERCHANT_OFFERS } from "../data/progression.js";
 import EVENTS, { activeEvent } from "../data/events.js";
-import { openChest, chestForFloor } from "../js/meta.js";
-import { CHESTS, TALENTS, PERKS, ECON } from "../data/progression.js";
+import { openChest, chestForFloor, weeklyNumbers, weeklyReward } from "../js/meta.js";
+import { CHESTS, TALENTS, PERKS, ECON, STORY, SKY, skyStars, STORY_REWARDS } from "../data/progression.js";
 import { randomCatName } from "../data/catnames.js";
 import { today } from "../js/util.js";
 
@@ -155,6 +155,31 @@ const V1 = {
   const hard = sim(false), soft = sim(true);
   console.log(`  lives sim (60% acc): old rule ${hard.toFixed(1)} min, gentle ${soft.toFixed(1)} min`);
   ok(hard < 4 && soft >= 4.5 && soft > 2 * hard, "gentle lives: struggling kid plays clearly longer than the old rule");
+}
+
+// ---------- fabuła 100 stron, 1 strona dziennie, nagrody, niebo ----------
+{
+  ok(STORY.length === 100 && STORY.every((p) => p.en && p.pl), "STORY has 100 pages");
+  ok(SKY.length === 14 && SKY.every((c) => c.pts.length === 5 && c.lines.every(([a, b]) => a < 5 && b < 5)), "14 constellations x 5 stars");
+  eq([skyStars(25), skyStars(26), skyStars(30), skyStars(95), skyStars(100)], [0, 1, 5, 70, 70], "sky stars from story pages");
+  for (const [pg, r] of Object.entries(STORY_REWARDS)) { const id = r.skin || r.hat; const it = (r.skin ? SKINS : HATS).find((x) => x.id === id); ok(it && it.source === "story" && +pg <= 100, `story prize ${id} exists`); }
+  ok(Object.keys(STORY_REWARDS).length === 16, "16 story prizes");
+  const s = freshSave("st", {}); s.tower.bossesBeaten = 40; s.story = 24;
+  const r1 = applyRunResults(s, { mode: "tower", bossBeaten: true, startFloor: 1 });
+  eq(s.story, 25, "first boss today -> page"); ok(s.owned.hats.includes("moonclip") && r1.extras.some((e) => /Moon clip/.test(e.text)), "page 25 -> Moon clip prize");
+  applyRunResults(s, { mode: "tower", bossBeaten: true, startFloor: 6 }); eq(s.story, 25, "second boss same day -> no new page");
+  s.daily.pageDay = "2000-01-01"; applyRunResults(s, { mode: "tower", bossBeaten: true, startFloor: 11 }); eq(s.story, 26, "next day -> page");
+  const s2 = freshSave("st2", {}); s2.story = 100; eq(syncStory(s2).length, 16, "syncStory grants all 16 at page 100"); eq(syncStory(s2).length, 0, "syncStory idempotent");
+}
+// ---------- boss tygodnia: wspólna pula ----------
+{
+  const a = weeklyNumbers({ total: 300, players: 2, mine: 100 });
+  eq(a.hp, 500, "weekly hp = 250/player"); eq(a.pool, 1500, "pool = hp x 3"); eq(a.share, 300, "share by damage (100/500 of 1500)");
+  const b = weeklyNumbers({ total: 2000, players: 2, lastTotal: 2000, lastPlayers: 3, mine: 1000 });
+  eq(b.hp, 1800, "hp grows with last week's effort (90%)"); eq(b.share, Math.round(5400 * 1000 / 2000), "big helper gets big share");
+  eq(weeklyNumbers({ total: 500, players: 2, mine: 0 }).share, 0, "no hits -> no share");
+  eq(weeklyNumbers({ total: 5000, players: 2, mine: 1 }).share, 50, "tiny helper gets min 50");
+  const s = freshSave("wk", {}); const r = weeklyReward(s, { share: 420 }); ok(r.coins === 420 && s.coins === 50 + 420 && r.skin, "weekly reward = skin + my share");
 }
 
 // ---------- moce ----------
@@ -396,9 +421,11 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   // mythic: never below floor 50, rare above
   ok(chestForFloor(45, null, lo) !== "mythic", "floor 45: no mythic even on a lucky roll");
   eq(chestForFloor(75, null, lo), "mythic", "floor 75 gold + lucky roll -> mythic");
-  { let m = 0; for (let i = 0; i < 4000; i++) if (chestForFloor(55 + 5 * (i % 20)) === "mythic") m++; ok(m > 80 && m < 400, `mythic rate ~2-10% from floor 50 (${m}/4000)`); }
-  { const sm = freshSave("myth", {}); const r1 = openChest(sm, "mythic"); ok((r1.kind === "skin" || r1.kind === "hat") && r1.item.rarity === "legendary", "mythic -> legendary item");
-    for (let i = 0; i < 30; i++) openChest(sm, "mythic"); const r2 = openChest(sm, "mythic"); ok(r2.kind === "coins" && r2.amount >= 800, "mythic with everything owned -> big fish, no duplicate");
+  { let m = 0; for (let i = 0; i < 4000; i++) if (chestForFloor(55 + 5 * (i % 20)) === "mythic") m++; ok(m > 60 && m < 300, `mythic rate ~1.5-7% from floor 50 (${m}/4000)`); }
+  { const sm = freshSave("myth", {}); const res = Array.from({ length: 12 }, () => openChest(sm, "mythic"));
+    ok(res.every((r) => (r.kind === "coins" && r.amount >= 1000 && r.amount <= 1500) || ((r.kind === "skin" || r.kind === "hat") && ["legendary", "epic"].includes(r.item.rarity))), "mythic -> legendary item or 1000-1500 fish");
+    { const sx = freshSave("myth2", {}); let it = 0; for (let i = 0; i < 400; i++) if (openChest(sx, "mythic").kind !== "coins") it++; ok(it > 10, `mythic gives items (${it})`); }
+    for (let i = 0; i < 150; i++) openChest(sm, "mythic"); const r2 = Array.from({ length: 6 }, () => openChest(sm, "mythic")); ok(r2.every((r) => r.kind === "coins" && r.amount >= 1000), "mythic with everything owned -> big fish, no duplicate");
     ok(["mooncat", "phoenix", "crystal", "aurora"].every((id) => sm.owned.skins.includes(id)), "mythic gives the 4 mythic-only skins"); }
   { const sg = freshSave("gold", {}); for (let i = 0; i < 60; i++) openChest(sg, "gold"); ok(!sg.owned.skins.some((id) => SKINS.find((k) => k.id === id).source === "mythic"), "mythic-only skins never in normal chests"); }
   ok(TALENTS.length === 9 && TALENTS.every((t) => /^[\x20-\x7e]+$/.test(t.desc(1)) && t.desc(1).length < 40), "talent descs short English");

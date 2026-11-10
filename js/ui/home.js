@@ -316,7 +316,7 @@ export const homeScreen = {
       const nC = save.chests.length;
       hot.innerHTML = `
         <button class="hot hot--moon" data-act="moon" aria-label="Moon Diary" style="${pos(MOON.x, MOON.y)};${size(34, 34)}">
-          ${story > seen ? `<span class="hot-label" style="top:118%;left:10%;--tilt:6deg">${sticker(`<span class="sticker-label">new page</span>`, { tilt: 0 })}</span>` : `<span class="hot-label hand" style="top:92%;font-size:calc(var(--u) * 10);color:#dfe6ff;--tilt:-6deg">where is<br>the Moon?</span>`}
+          ${story > seen ? `<span class="hot-label" style="top:118%;left:10%;--tilt:6deg">${sticker(`<span class="sticker-label">new page</span>`, { tilt: 0 })}</span>` : `<span class="hot-label hand" style="top:92%;font-size:calc(var(--u) * 10);color:#dfe6ff;--tilt:-6deg">${story >= 100 ? "the sky<br>is full!" : story >= 25 ? "find the<br>stars!" : "where is<br>the Moon?"}</span>`}
         </button>
         <button class="hot hot-wanted" data-act="weekly" aria-label="Weekly boss" style="${pos(L.poster.x, L.poster.y + 31)};width:calc(var(--u) * 58)">
           <span class="wanted-mini"><i class="tape tape--c" style="top:calc(var(--u) * -5);width:calc(var(--u) * 26);height:calc(var(--u) * 8);margin-left:calc(var(--u) * -13)"></i>
@@ -376,7 +376,7 @@ export const homeScreen = {
       draw(ctx, t) {
         bake();
         const night = phase.phase === "night";
-        drawSky(ctx, W, L.H, phase, t, { moon: true, moonX: MOON.x, moonY: MOON.y, birds: !winter, fireflies: false });
+        drawSky(ctx, W, L.H, phase, t, { moon: true, moonX: MOON.x, moonY: MOON.y, birds: !winter, fireflies: false, story: save.story || 0 });
         if (ev && ev.sky === "fireworks") drawFireworks(ctx, W, L.H * 0.45, t);
         ctx.drawImage(hillsC, 0, 0);
         ctx.drawImage(towerC, 0, 0);

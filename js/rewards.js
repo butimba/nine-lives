@@ -1,7 +1,8 @@
 // NAGRODY PO BIEGU (przeniesione z v1 battle.js).
 // run.js zwraca RunStats z coins/xp JUŻ pomnożonymi przez lives.rewardMult —
 // tutaj dokładamy tylko talenty/perki, zapisujemy postęp wieży, skrzynie, fabułę, serię dni.
-import { ECON, STORY, POWERS, MAX_EQUIPPED_POWERS, powerById } from "../data/progression.js";
+import { ECON, STORY, POWERS, MAX_EQUIPPED_POWERS, powerById, STORY_REWARDS } from "../data/progression.js";
+import { SKINS, HATS } from "../data/cosmetics.js";
 import { tr, chestForFloor, touchStreak, ensureWeek, duoAddCorrect } from "./meta.js";
 import { persist, levelInfo, getSave } from "./state.js";
 import { gainLife, sleepyTier, rewardMult } from "./lives.js";
@@ -24,6 +25,18 @@ export function syncPowers(save) {
   pw.equipped = pw.equipped.filter((id, i, a) => pw.owned.includes(id) && a.indexOf(id) === i).slice(0, MAX_EQUIPPED_POWERS);
   for (const p of fresh) if (pw.equipped.length < MAX_EQUIPPED_POWERS) pw.equipped.push(p.id);
   return fresh;
+}
+
+// Nagrody z fabuły: każdy przedmiot ze STORY_REWARDS ze stroną <= save.story trafia do szafy (idempotentne).
+export function syncStory(save) {
+  const out = [];
+  for (const [page, r] of Object.entries(STORY_REWARDS)) {
+    if ((save.story || 0) < +page) continue;
+    const kind = r.skin ? "skin" : "hat", id = r.skin || r.hat, list = kind === "skin" ? save.owned.skins : save.owned.hats;
+    const it = (kind === "skin" ? SKINS : HATS).find((x) => x.id === id);
+    if (it && !list.includes(id)) { list.push(id); out.push({ kind, item: it }); }
+  }
+  return out;
 }
 
 export function applyRunResults(save, stats = {}) {
@@ -66,7 +79,9 @@ export function applyRunResults(save, stats = {}) {
       save.tower.bossesBeaten++;
       chest = chestForFloor(save.tower.checkpoint, save);
       save.chests.push(chest);
-      if (save.story < STORY.length && save.tower.bossesBeaten > save.story) { save.story++; story = save.story; }
+      // fabuła: 1 nowa strona dziennie (za pierwszego bossa dnia); kto ma przerwę, nic nie traci
+      if (save.story < STORY.length && save.tower.bossesBeaten > save.story && save.daily.pageDay !== today()) { save.story++; story = save.story; save.daily.pageDay = today(); }
+      for (const g of syncStory(save)) extras.push({ cls: "violet", icon: "moon", text: `Story prize: ${g.item.name}!`, story: g.item.id });
       // talent Cat Nap: +1 / +2 życia po bossie (decyzja leada #3)
       const n = ECON.catNapLives(tr(save, "cat_nap"));
       for (let i = 0; i < n; i++) gainLife(save, "catnap");

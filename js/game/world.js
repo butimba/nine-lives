@@ -6,6 +6,7 @@
 // Screen y = worldY - camY.  Floors < 0 are the Shadow Cellar.
 import { biomeForFloor, SHADOW_BIOME, mix, shade } from "./biomes.js";
 import { pxText } from "./juice.js";
+import { SKY as CONSTELLATIONS, skyStars, MOON_PAGES } from "../../data/progression.js";
 
 export { BIOMES, biomeForFloor } from "./biomes.js";
 
@@ -109,7 +110,8 @@ function drawCloud(ctx, x, y, w, col, hi) {
   ctx.fillRect(x + 3, y + 2, 4, 1);
 }
 
-export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, birds = true, fireflies = false } = {}) {
+// story = save.story (tylko ekran główny): Księżyc wypełnia się kawałkami (strony 1–25), potem gwiazdozbiory (26–95), 100 = Gwiazda Północna
+export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, birds = true, fireflies = false, story = null } = {}) {
   const p = asPhase(phase);
   ctx.drawImage(skyCanvas(w, h, p), 0, 0);
   const night = p.phase === "night", day = p.phase === "day";
@@ -146,7 +148,12 @@ export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, bi
   }
   ctx.globalAlpha = 1;
   // the stolen moon: dashed outline (story!)
-  if (moon) drawMoonOutline(ctx, moonX ?? Math.round(w * 0.76), moonY ?? Math.round(h * 0.13), t, night ? 1 : 0.55);
+  if (story != null) drawStorySky(ctx, story, t, night ? 1 : p.phase === "day" ? 0.55 : 0.8);
+  if (moon) {
+    const mx = moonX ?? Math.round(w * 0.76), my = moonY ?? Math.round(h * 0.13);
+    if (story != null && story > 0) drawMoonPieces(ctx, mx, my, t, night ? 1 : 0.75, Math.min(1, story / MOON_PAGES));
+    else drawMoonOutline(ctx, mx, my, t, night ? 1 : 0.55);
+  }
   // birds by day
   if (birds && (day || (p.phase === "dawn" && p.k > 0.4))) {
     ctx.fillStyle = "#1e2440";
@@ -163,7 +170,63 @@ export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, bi
   if (fireflies && night) drawFireflies(ctx, 0, h * 0.55, w, h * 0.45, t, 9);
 }
 
-export function drawMoonOutline(ctx, x, y, t = 0, alpha = 1) {
+// Księżyc z kawałków: k = 0..1 (zgodnie z ruchem wskazówek zegara), k = 1 = pełny, świecący
+export function drawMoonPieces(ctx, x, y, t = 0, alpha = 1, k = 0) {
+  const r = 11;
+  if (k < 1) drawMoonOutline(ctx, x, y, t, alpha * 0.8, false);
+  else { ctx.globalAlpha = 0.12 * alpha * (0.8 + 0.2 * Math.sin(t * 1.4)); disc(ctx, x, y, r + 6, "#fff6c8"); ctx.globalAlpha = 0.2 * alpha; disc(ctx, x, y, r + 3, "#fff6c8"); }
+  ctx.globalAlpha = alpha;
+  for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) {
+    const d = Math.sqrt(xx * xx + yy * yy);
+    if (d > r + 0.4) continue;
+    const ang = (Math.atan2(xx, -yy) / (Math.PI * 2) + 1) % 1;
+    if (ang >= k && k < 1) continue;
+    let col = yy > 5 ? "#e7dfc8" : "#fff8e0";
+    if ((xx + 4) * (xx + 4) + (yy + 3) * (yy + 3) < 6 || (xx - 4) * (xx - 4) + (yy - 2) * (yy - 2) < 4) col = "#d9ceb4";
+    if (d > r - 1) col = "#cfc4a8";
+    ctx.fillStyle = col; ctx.fillRect(Math.round(x + xx), Math.round(y + yy), 1, 1);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// miejsca gwiazdozbiorów na ekranie głównym (240 px; wieża zajmuje środek 62–178), na zmianę lewo/prawo
+export const SKY_SLOTS = [[4, 24], [186, 78], [34, 42], [214, 96], [4, 60], [186, 114], [34, 78], [214, 132], [4, 96], [186, 150], [34, 114], [214, 168], [4, 132], [186, 186]];
+const line = (ctx, a, b) => { const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])); for (let i = 1; i < n; i++) ctx.fillRect(Math.round(a[0] + (b[0] - a[0]) * i / n), Math.round(a[1] + (b[1] - a[1]) * i / n), 1, 1); };
+// jeden gwiazdozbiór: lit = ile gwiazd zapalonych (0–5); current = następny do ułożenia (blade kropki)
+export function drawConstellation(ctx, c, x, y, lit, t = 0, alpha = 1, current = false) {
+  const P = c.pts.map(([px, py]) => [x + px, y + py]);
+  if (lit >= 5) { ctx.globalAlpha = 0.4 * alpha; ctx.fillStyle = "#9fb4ff"; for (const [a, b] of c.lines) line(ctx, P[a], P[b]); }
+  P.forEach(([px, py], i) => {
+    if (i < lit) {
+      const tw = 0.7 + 0.3 * Math.sin(t * 2.2 + i * 1.7 + x);
+      ctx.globalAlpha = alpha * tw; ctx.fillStyle = "#fff6c8"; ctx.fillRect(px, py, 1, 1);
+      if (tw > 0.85) { ctx.globalAlpha = alpha * 0.6; ctx.fillRect(px - 1, py, 3, 1); ctx.fillRect(px, py - 1, 1, 3); }
+    } else if (current) {
+      ctx.globalAlpha = alpha * (0.3 + 0.15 * Math.sin(t * 2 + i)); ctx.fillStyle = "#c9d4ff"; ctx.fillRect(px, py, 1, 1);
+    }
+  });
+  ctx.globalAlpha = 1;
+}
+export function drawNorthStar(ctx, x, y, t = 0, alpha = 1) {
+  const p = 0.75 + 0.25 * Math.sin(t * 2);
+  ctx.globalAlpha = 0.2 * alpha * p; disc(ctx, x, y, 6, "#fff6c8"); ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#fff6c8"; ctx.fillRect(x - 3, y, 7, 1); ctx.fillRect(x, y - 3, 1, 7); ctx.fillRect(x - 1, y - 1, 3, 3);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(x, y, 1, 1);
+  ctx.globalAlpha = 1;
+}
+function drawStorySky(ctx, story, t, alpha) {
+  const lit = skyStars(story);
+  CONSTELLATIONS.forEach((c, i) => {
+    const n = Math.max(0, Math.min(5, lit - i * 5));
+    const cur = i === Math.floor(lit / 5) && story >= MOON_PAGES;
+    if (!n && !cur) return;
+    const [sx, sy] = SKY_SLOTS[i];
+    drawConstellation(ctx, c, sx, sy, n, t, alpha, cur);
+  });
+  if (story >= 100) drawNorthStar(ctx, 31, 9, t, alpha);
+}
+
+export function drawMoonOutline(ctx, x, y, t = 0, alpha = 1, mark = true) {
   const r = 11;
   const pulse = 0.65 + 0.35 * Math.sin(t * 1.6);
   // faint halo where the moon should be
@@ -178,7 +241,7 @@ export function drawMoonOutline(ctx, x, y, t = 0, alpha = 1) {
   }
   // "?" in the middle, very soft
   ctx.globalAlpha = 0.35 * alpha * pulse;
-  pxText(ctx, "?", x + 1, y - 2, { color: "#dfe6ff", align: "center", outline: null });
+  if (mark) pxText(ctx, "?", x + 1, y - 2, { color: "#dfe6ff", align: "center", outline: null });
   ctx.globalAlpha = 1;
 }
 

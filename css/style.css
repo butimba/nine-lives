@@ -833,3 +833,14 @@ canvas.cat-live { display: block; image-rendering: pixelated; }
 .badge.b1 .medal { background: #c98a52; opacity: 1; } .badge.b2 .medal { background: #a9b6cb; opacity: 1; }
 .badge.b3 .medal { background: #ffd23f; opacity: 1; } .badge.b4 .medal { background: #9df2ff; opacity: 1; }
 .badge.b3 .medal i, .badge.b4 .medal i { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .95) 50%, transparent 65%); background-size: 260% 100%; animation: shine 2.4s steps(10) infinite; }
+
+/* Moon Diary: mapa nieba (rozdziały 3+) i zakładki rozdziałów */
+.sky-map { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; width: 100%; max-width: 420px; padding: 8px; background: #14123a; box-shadow: 0 0 0 3px var(--px-ink); }
+.sky-cell { display: grid; justify-items: center; gap: 2px; opacity: .45; }
+.sky-cell.done, .sky-cell.now { opacity: 1; }
+.sky-cell canvas { width: 100%; max-width: 52px; image-rendering: pixelated; }
+.sky-cell small { font: 700 9px/1 var(--f-px); color: #dfe6ff; letter-spacing: .04em; min-height: 9px; }
+.dp-tabs { margin: 0 0 12px; }
+.dp-tabs .tab { padding: 8px 4px 7px; font-size: 15px; }
+.dp-tabs .tab:disabled { opacity: .35; cursor: default; }
+.dp-chap { margin: 4px 0 12px; font: 700 18px/1.1 var(--f-px); color: var(--px-paper); letter-spacing: .04em; }

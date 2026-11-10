@@ -24,6 +24,7 @@ export const resultsScreen = {
     if (r.chest) msgs.push({ cls: "ok", img: chestSrc(r.chest, 2), text: `${CHEST_EN[r.chest] || "Chest"}!` });
     for (const c of r.levelChests || []) msgs.push({ cls: "ok", img: chestSrc(c, 2), text: `Level prize: ${CHEST_EN[c] || "chest"}!` });
     if (r.story) msgs.push({ cls: "violet", icon: "moon", text: `New Moon Diary page!` });
+    else if (r.chest && (app.save.story || 0) < 100) msgs.push({ cls: "", icon: "moon", text: "Next Moon Diary page tomorrow!" });
     if (r.napLives) msgs.push({ cls: "", icon: "heart", text: `Cat nap: +${r.napLives} ${r.napLives > 1 ? "lives" : "life"}` });
     for (const e of r.streakEvents || []) {
       if (e.type === "freeFreeze") msgs.push({ icon: "shield", text: "Free streak freeze!" });

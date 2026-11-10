@@ -246,7 +246,191 @@ const HAT_DEFS = {
       '.ttttttttttt.',
     ],
     map: { T: '#ecc28a', t: '#c98a52', R: '#ff5d8f' },
+  },  // ---------- story prizes ----------
+  moonclip: {
+    dx: 3, dy: 0,
+    rows: [
+      '..YY.',
+      '.Yy..',
+      'YY...',
+      'YY...',
+      '.Yy..',
+      '..YY.',
+    ],
+    map: { Y: '#ffe68a', y: '#fff6c8' },
   },
+  mouseears: {
+    dx: 0, dy: 1,
+    rows: [
+      '.GGG.....GGG.',
+      'GPPPG...GPPPG',
+      'GPPPG...GPPPG',
+      '.GGG.....GGG.',
+    ],
+    map: { G: '#9aa0b0', P: '#ffb6c7' },
+  },
+  feather: {
+    dx: 3, dy: 0,
+    rows: [
+      '....R',
+      '...RR',
+      '..RrR',
+      '..Rr.',
+      '.RrR.',
+      '.Rr..',
+      'Y....',
+    ],
+    map: { R: '#5bb5ff', r: '#ffffff', Y: '#ffd23f' },
+  },
+  paperboat: {
+    dx: 0, dy: 0,
+    rows: [
+      '....W....',
+      '...WWW...',
+      '..WWwWW..',
+      'wWWWWWWWw',
+      '.wWWWWWw.',
+    ],
+    map: { W: '#f4efe2', w: '#b8c4d8' },
+  },
+  nightcap: {
+    dx: 1, dy: 0,
+    rows: [
+      '.......Y.',
+      '......BB.',
+      '....BBb..',
+      '..BBbBB..',
+      '.BBBBBBb.',
+      'WWWWWWWW.',
+    ],
+    map: { B: '#3b4ea8', b: '#7ec4ff', Y: '#ffd23f', W: '#f4efe2' },
+  },
+  bellhat: {
+    dx: 3, dy: 0,
+    rows: [
+      '.R.R.',
+      '..R..',
+      '.YYY.',
+      'YyYYY',
+      'YYYYY',
+      '..d..',
+    ],
+    map: { R: '#e8434f', Y: '#ffd23f', y: '#fff1a8', d: '#a87a00' },
+  },
+  froghat: {
+    dx: 0, dy: 0,
+    rows: [
+      '.WW.....WW.',
+      'WkW.....WkW',
+      '.GGGGGGGGG.',
+      'GGgGGGGGgGG',
+      'GGGGGGGGGGG',
+    ],
+    map: { G: '#3aa34f', g: '#93e04c', W: '#ffffff', k: '#1d1d2b' },
+  },
+  antenna: {
+    dx: 0, dy: 0,
+    rows: [
+      '..R..',
+      '.RrR.',
+      '..R..',
+      '..s..',
+      '..s..',
+      'sSSSs',
+    ],
+    map: { R: '#e8434f', r: '#ffd0d0', s: '#9aa5b8', S: '#d8dee8' },
+  },
+  starcrown: {
+    dx: 0, dy: 0,
+    rows: [
+      '.....W.....',
+      '....YWY....',
+      'Y..YYYYY..Y',
+      'YY.YYbYY.YY',
+      'YYYYYYYYYYY',
+      'dYdYdYdYdYd',
+    ],
+    map: { Y: '#ffd23f', W: '#ffffff', b: '#5bb5ff', d: '#d99a00' },
+  },
+  // ---------- shop / events ----------
+  chef: {
+    dx: 0, dy: 0,
+    rows: [
+      '.WW.WW.',
+      'WWWWWWW',
+      'WwWWWwW',
+      '.WWWWW.',
+      '.ggggg.',
+    ],
+    map: { W: '#ffffff', w: '#dfe3ea', g: '#c8ccd8' },
+  },
+  pirate: {
+    dx: 0, dy: 0,
+    rows: [
+      '...KKKKK...',
+      '..KKKWKKK..',
+      '.KKKWKWKKK.',
+      'KKKKKKKKKKK',
+      'YYYYYYYYYYY',
+    ],
+    map: { K: '#2a2a36', W: '#f4efe2', Y: '#ffd23f' },
+  },
+  viking: {
+    dx: 0, dy: 0,
+    rows: [
+      'W.........W',
+      'WW.......WW',
+      '.WW.SSS.WW.',
+      '..SSsSSSS..',
+      '..SSSSSSS..',
+      '.YYYYYYYYY.',
+    ],
+    map: { W: '#f4efe2', S: '#9aa5b8', s: '#d8dee8', Y: '#c98a3a' },
+  },
+  flowercrown: {
+    dx: 0, dy: 0,
+    rows: [
+      '.P...Y...B.',
+      'PyP.YrY.BwB',
+      'gPgggYgggBg',
+    ],
+    map: { P: '#ff8fb1', y: '#ffd23f', Y: '#ffd23f', r: '#ff5d5d', B: '#7ec4ff', w: '#ffffff', g: '#3aa34f' },
+  },
+  bobble: {
+    dx: 0, dy: 0,
+    rows: [
+      '...WW...',
+      '...WW...',
+      '.RRRRRR.',
+      'RRWRRWRR',
+      'RRRRRRRR',
+      'WWWWWWWW',
+    ],
+    map: { R: '#e8434f', W: '#f4efe2' },
+  },
+  heartclip: {
+    dx: 3, dy: 0,
+    rows: [
+      '.R.R.',
+      'RrRRR',
+      'RRRRR',
+      '.RRR.',
+      '..R..',
+    ],
+    map: { R: '#ff5d8f', r: '#ffd0e0' },
+  },
+  gradcap: {
+    dx: 0, dy: 0,
+    rows: [
+      '....KKK....',
+      'KKKKKKKKKKK',
+      '.KKKKKKKKY.',
+      '..KKKKKK.Y.',
+      '..KKKKKK.Y.',
+    ],
+    map: { K: '#2a2a36', Y: '#ffd23f' },
+  },
+
 };
 
 const cache = new Map();

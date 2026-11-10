@@ -20,7 +20,7 @@ export function freshSave(id, profile) {
     owned: { skins: ["ginger"], hats: ["none"] },
     equipped: { skin: "ginger", hat: "none" },
     tower: { checkpoint: 0, best: 0, bossesBeaten: 0 },
-    daily: { date: today(), runs: 0, ms: 0 },   // ms = czas gry dziś (malejące nagrody)
+    daily: { date: today(), runs: 0, ms: 0, pageDay: null },   // ms = czas gry dziś (malejące nagrody); pageDay = dzień ostatniej strony fabuły (1/dzień)
     lives: { n: 9, at: Date.now(), date: today(), free: 0 }, // 9 żyć/dzień; at = od kiedy liczymy regenerację; free = darmowe błędy użyte dziś
     streak: { count: 0, last: null, freezes: 0, best: 0 },
     srs: {},          // itemKey -> { b: pudełko 0-5, due: ms, n: próby, ok: dobre, last: ms }

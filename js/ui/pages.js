@@ -6,7 +6,10 @@ import { persist, levelInfo, talentPoints, exportCode, freshSave } from "../stat
 import { canRaise, tr, weeklyStatus, weeklyReward, weeklyBossInfo } from "../meta.js";
 import { activeSkills, itemsForSkill, wordOf, cardTier, reportText, isCardWord, badgeTier, genOpts } from "../engine.js";
 import { sfx, setAudio, speak, canSpeak } from "../audio.js";
-import { TALENTS, ECON, STORY } from "../../data/progression.js";
+import { TALENTS, ECON, STORY, CHAPTERS, SKY, skyStars, MOON_PAGES, STORY_REWARDS } from "../../data/progression.js";
+import { drawConstellation } from "../game/world.js";
+import { syncStory } from "../rewards.js";
+import { today } from "../util.js";
 import { SKINS } from "../../data/cosmetics.js";
 import VOCAB from "../../data/vocab.js";
 import { SKILLS } from "../../data/grammar.js";
@@ -166,7 +169,8 @@ export const cardsScreen = {
 // =================== MOON DIARY ===================
 const stripEmoji = (s) => s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]️?/gu, "").replace(/\s+/g, " ").trim();
 // ilustracja każdej strony (pikselizowane emoji, spójne z resztą gry)
-const PAGE_ART = ["🌑", "🗼", "📜", "📚", "🔑", "👻", "👋", "🤫", "🐸", "🤴", "🌫️", "🌋", "🌙", "❄️", "🗺️", "☁️", "🐱", "🤖", "❓", "👑"];
+const PAGE_ART = ["🌑", "🗼", "📜", "📚", "🔑", "👻", "👋", "🤫", "🐸", "🤴", "🌫️", "🌋", "🌙", "❄️", "🗺️", "☁️", "🐱", "🤖", "❓", "👑",
+  "🌌", "🤴", "😢", "🤝", "🌕", "🌠", "🛏️", "⭐", "🐠", "🐟", "✨", "🧀", "💬", "😋", "🐭", "🐣", "🥚", "🪶", "☁️", "🐦", "🌧️", "🚪", "🌑", "🌟", "⛵", "❔", "📦", "🤔", "🔓", "🔑", "📖", "💡", "📚", "😴", "🦉", "🌬️", "🏃", "🐦", "🐾", "🪁", "🎵", "👀", "👤", "☀️", "🔔", "🤫", "👑", "❤️", "🪴", "🌳", "🍭", "🧱", "👋", "🦆", "👻", "🤴", "🔢", "🌿", "🦘", "🐸", "📞", "✅", "🔭", "⛄", "🤖", "❄️", "🏗️", "🚪", "🎩", "🏠", "🧐", "🐈", "🎁", "👂", "🐱", "🐱", "🔭", "👑", "💫", "🌟"];
 function moonCanvas(open, total) {
   const R = 22, S = 4, c = document.createElement("canvas");
   c.width = c.height = (R * 2 + 6) * S;
@@ -193,6 +197,8 @@ export const storyScreen = {
     const save = app.save;
     const open = Math.min(save.story || 0, STORY.length);
     try { localStorage.setItem(`ninelives:storySeen:${save.id}`, String(open)); } catch {}
+    const curCh = Math.max(0, CHAPTERS.findIndex((c) => open < c.to) < 0 ? CHAPTERS.length - 1 : CHAPTERS.findIndex((c) => open < c.to));
+    let ch = curCh;
     const showPl = save.settings.pl !== false;
     const page = (p, i) => panel(`
         <div class="dp-head"><span class="pn">page ${i + 1}</span><span class="hand dp-date">${["night", "later", "next day", "morning", "at night"][i % 5]}</span></div>
@@ -202,18 +208,42 @@ export const storyScreen = {
         </div>
         <div class="row">${canSpeak() ? pxButton("Listen", { icon: "speaker", act: "say", variant: "paper", cls: "px-btn--sm", attrs: `data-i="${i}"` }) : ""}${showPl ? pxButton("PL", { act: "pl", variant: "paper", cls: "px-btn--sm" }) : ""}</div>`,
       { cls: `diary-page paper--lined ${i % 2 ? "odd" : ""}`, grid: false, tape: i % 3 === 0, tilt: [-0.8, 0.5, -0.3, 0.9][i % 4] });
+    const gotToday = save.daily && save.daily.pageDay === today();
+    const prizeAt = (n) => { const r = STORY_REWARDS[n]; return r ? (r.skin ? "a new skin" : "a new hat") : ""; };
+    const nextPrize = Object.keys(STORY_REWARDS).map(Number).find((n) => n > open);
+    const stars = skyStars(open);
+    const head = open < MOON_PAGES
+      ? `<div class="moon-head"><div class="moon-slot"></div><p><b>${open}/${MOON_PAGES}</b> Moon pieces</p>`
+      : `<div class="moon-head sky-head"><div class="sky-map">${SKY.map((c, i) => `<div class="sky-cell ${stars >= i * 5 + 5 ? "done" : stars > i * 5 ? "now" : ""}"><span class="sky-c" data-i="${i}"></span><small>${stars >= i * 5 + 5 ? c.name : stars > i * 5 || i === Math.floor(stars / 5) ? "?" : ""}</small></div>`).join("")}</div>
+          <p>${open >= 100 ? "<b>The sky is full!</b>" : `<b>${stars}/${SKY.length * 5}</b> stars`}</p>`;
+    const note = open >= STORY.length ? "The End. Thank you!" : gotToday ? "Next page tomorrow!" : "Beat a boss today = new page!";
+    const lockedPage = (i) => panel(`<div class="dp-locked"><img class="px-ico" src="${iconSrc("lock", 4)}" alt=""><div><span class="pn">page ${i + 1}</span><p class="en">${gotToday ? "Come back tomorrow!" : "Beat a boss today!"}</p>${prizeAt(i + 1) ? `<p class="hand">prize: ${prizeAt(i + 1)}!</p>` : ""}</div><span class="dp-q px">?</span></div>`, { cls: "diary-page locked torn", grid: false, tape: false, tilt: 0.4 });
     const el = h(`<div class="screen page story">${pageHead("Moon Diary", save, { fish: false })}
-      <div class="moon-head"><div class="moon-slot"></div>
-        <p><b>${open}/${STORY.length}</b> Moon pieces</p><span class="note">beat a boss = new page</span></div>
-      <div class="diary">${STORY.map((p, i) => i < open ? page(p, i)
-        : i === open ? panel(`<div class="dp-locked"><img class="px-ico" src="${iconSrc("lock", 4)}" alt=""><div><span class="pn">page ${i + 1}</span><p class="en">Beat the next boss!</p></div><span class="dp-q px">?</span></div>`, { cls: "diary-page locked torn", grid: false, tape: false, tilt: 0.4 }) : "").join("")}
-        ${open < STORY.length - 1 ? `<p class="muted dp-more">${STORY.length - open - 1} more pages…</p>` : ""}</div>
+      ${head}<span class="note">${note}${nextPrize && open < STORY.length ? ` · prize on page ${nextPrize}` : ""}</span></div>
+      <div class="tabs dp-tabs">${CHAPTERS.map((c, i) => `<button class="tab ${i === ch ? "on" : ""}" data-act="chap" data-c="${i}" ${c.from > open + 1 ? "disabled" : ""}>${i + 1}</button>`).join("")}</div>
+      <div class="diary"></div>
     </div>`);
+    const renderCh = () => {
+      const c = CHAPTERS[ch];
+      el.querySelectorAll(".dp-tabs .tab").forEach((b) => b.classList.toggle("on", +b.dataset.c === ch));
+      let html = `<h3 class="dp-chap">${ch + 1}. ${c.name}</h3>`;
+      for (let i = c.from - 1; i < c.to; i++) html += i < open ? page(STORY[i], i) : i === open ? lockedPage(i) : "";
+      if (open < c.to - 1) html += `<p class="muted dp-more">${c.to - Math.max(open, c.from - 1) - 1} more pages…</p>`;
+      el.querySelector(".diary").innerHTML = html;
+    };
     root.append(el);
-    el.querySelector(".moon-slot").append(moonCanvas(open, STORY.length));
+    renderCh();
+    const ms = el.querySelector(".moon-slot"); if (ms) ms.append(moonCanvas(open, MOON_PAGES));
+    el.querySelectorAll(".sky-c").forEach((s) => {
+      const i = +s.dataset.i, cv = document.createElement("canvas"); cv.width = 26; cv.height = 21; cv.className = "px-canvas";
+      const g = cv.getContext("2d"); g.fillStyle = "#14123a"; g.fillRect(0, 0, 26, 21);
+      drawConstellation(g, SKY[i], 2, 2, Math.max(0, Math.min(5, stars - i * 5)), 1, 1, i === Math.floor(stars / 5));
+      s.append(cv);
+    });
     return onAct(el, {
       back,
       say: (b) => speak(stripEmoji(STORY[+b.dataset.i].en), 0.8),
+      chap: (b) => { ch = +b.dataset.c; sfx.tap(); renderCh(); },
       pl: (b) => { const p = b.closest(".diary-page").querySelector(".pl"); if (p) p.hidden = !p.hidden; sfx.tap(); },
     });
   },
@@ -232,7 +262,7 @@ export const weeklyScreen = {
       if (!el.isConnected) return;
       const info = weeklyBossInfo(w.week);
       let m = null; try { m = makeMonster(info.seed, ["#e8434f", "#8a55d6", "#ffa04d", "#6fe3d3", "#93e04c"], { boss: true }); } catch {}
-      const p = Math.min(1, w.total / w.hp), done = p >= 1, claimed = save.weekly.claimed.includes(w.week);
+      const p = Math.min(1, w.total / w.hp), done = p >= 1, claimed = save.weekly.claimed.includes(w.week), helped = w.mine > 0;
       const queue = SKINS.filter((s) => s.source === "weekly" && !s.retired).sort((a, b) => a.order - b.order);
       const next = queue.find((s) => !save.owned.skins.includes(s.id));
       el.querySelector(".wk-body").innerHTML = `
@@ -241,15 +271,16 @@ export const weeklyScreen = {
           <div class="boss-name">${esc(m ? m.name : "???")}</div>
           <div class="hpbar"><i style="width:${(1 - p) * 100}%"></i><span>${done ? "0" : Math.max(0, w.hp - w.total)} HP</span></div>
           <div class="reward-box">${next ? catImg(next.id, "none", { scale: 2, silhouette: !(done && !claimed) && !claimed }) : `<img class="px-img" src="${chestSrc("gold", 3)}" alt="" style="width:64px;height:64px;object-fit:contain">`}
-            <div><b>Prize: ${next ? (done ? esc(next.name) : "secret skin") : "Gold chest"}</b><small>+100 fish</small></div></div>
-          ${done && !claimed ? `<div style="margin-top:14px">${pxButton("Get prize!", { act: "claim", big: true, variant: "ok" })}</div>` : claimed ? `<div style="margin-top:12px">${stamp("Got it", { color: "ok" })}</div>` : ""}
+            <div><b>Prize: ${next ? (done ? esc(next.name) : "secret skin") : "Gold chest"}</b><small>${w.cloud ? `fish pool: ${w.pool}` : `+${w.pool} fish`}</small>
+              ${w.cloud ? `<small>${helped ? `your hits: ${w.mine} → ${w.share} fish` : "hit the boss to get fish!"}</small>` : ""}</div></div>
+          ${done && !claimed && helped ? `<div style="margin-top:14px">${pxButton("Get prize!", { act: "claim", big: true, variant: "ok" })}</div>` : claimed ? `<div style="margin-top:12px">${stamp("Got it", { color: "ok" })}</div>` : ""}
         `, { cls: "wanted", grid: false, tilt: -1.5 })}
-        <p class="wanted-info">${w.cloud ? "Everyone fights this boss together." : "Fight this boss in the tower."} Every right answer is a hit!<br>New boss every Monday.</p>`;
+        <p class="wanted-info">${w.cloud ? "Everyone fights this boss together. More hits = more fish for you!" : "Fight this boss in the tower."} Every right answer is a hit!<br>New boss every Monday.</p>`;
     };
     const claim = () => {
-      if (!w || save.weekly.claimed.includes(w.week)) return;
-      const r = weeklyReward(save); save.weekly.claimed.push(w.week); persist(true); sfx.chest();
-      if (r.skin) { save.equipped.skin = r.skin.id; persist(); toast(`New skin: ${r.skin.name}!`); } else toast("Gold chest!");
+      if (!w || save.weekly.claimed.includes(w.week) || !(w.mine > 0)) return;
+      const r = weeklyReward(save, w); save.weekly.claimed.push(w.week); persist(true); sfx.chest();
+      if (r.skin) { save.equipped.skin = r.skin.id; persist(); toast(`New skin: ${r.skin.name}! +${r.coins} fish`); } else toast(`Gold chest! +${r.coins} fish`);
       refreshFish(el, save); render();
     };
     await render();
@@ -279,7 +310,7 @@ export const settingsScreen = {
       ${profile.tester ? panel(`<h3>Test account</h3><div class="set-row">
         ${pxButton("+1000 fish", { act: "t-coins", variant: "paper", cls: "px-btn--sm" })}${pxButton("+5 levels", { act: "t-xp", variant: "paper", cls: "px-btn--sm" })}
         ${pxButton("+5 chests", { act: "t-chest", variant: "paper", cls: "px-btn--sm" })}${pxButton("+9 lives", { act: "t-lives", variant: "paper", cls: "px-btn--sm" })}
-        ${pxButton("0 lives", { act: "t-sleep", variant: "paper", cls: "px-btn--sm" })}${pxButton("Tutorial again", { act: "t-tips", variant: "paper", cls: "px-btn--sm" })}${pxButton("Reset all", { act: "t-reset", variant: "danger", cls: "px-btn--sm" })}</div>`, { cls: "set-card tester", tape: false }) : ""}
+        ${pxButton("0 lives", { act: "t-sleep", variant: "paper", cls: "px-btn--sm" })}${pxButton("Tutorial again", { act: "t-tips", variant: "paper", cls: "px-btn--sm" })}${pxButton("Story +5", { act: "t-story", variant: "paper", cls: "px-btn--sm" })}${pxButton("Reset all", { act: "t-reset", variant: "danger", cls: "px-btn--sm" })}</div>`, { cls: "set-card tester", tape: false }) : ""}
     </div>`);
     root.append(el);
     el.querySelectorAll("input[data-k]").forEach((i) => i.addEventListener("change", () => { s[i.dataset.k] = i.checked; setAudio(s); persist(); sfx.tap(); }));
@@ -299,6 +330,7 @@ export const settingsScreen = {
       "t-xp": () => { const l = levelInfo(save.xp).lvl; for (let i = 0; i < 5; i++) save.xp += ECON.levelXp(l + i); persist(); toast("+5 levels"); },
       "t-chest": () => { save.chests.push("wood", "silver", "gold", "epic", "mythic"); persist(); toast("+5 chests"); },
       "t-tips": () => { save.tips = {}; persist(); toast("Tutorial: ON"); },
+      "t-story": () => { save.story = Math.min(STORY.length, (save.story || 0) + 5); save.tower.bossesBeaten = Math.max(save.tower.bossesBeaten, save.story); const g = syncStory(save); persist(); toast(`Story: page ${save.story}${g.length ? " + " + g.map((x) => x.item.name).join(", ") : ""}`); },
       "t-lives": () => { for (let i = 0; i < 9; i++) gainLife(save, "tester"); persist(); toast("Lives: 9"); },
       "t-sleep": () => { save.lives.n = 0; save.lives.at = Date.now(); persist(); toast("Lives: 0"); },
       "t-reset": async () => {

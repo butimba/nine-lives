@@ -1,4 +1,4 @@
-# Moon Diary → 100 etapów (PROPOZYCJA do akceptacji)
+# Moon Diary → 100 etapów (WDROŻONE 10.11, ?v=17)
 
 Stan dziś: 20 stron (`STORY` w `data/progression.js`), 1 strona za nowego bossa. Dzieci robią ~4–5 bossów dziennie, więc fabuła kończy się po ~5 dniach i urywa na „Ciąg dalszy nastąpi…”, a Księżyc nadal nie wraca na niebo.
 

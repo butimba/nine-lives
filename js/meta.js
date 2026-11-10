@@ -4,6 +4,7 @@ import { CHESTS, ECON, TALENTS, DUP_COINS } from "../data/progression.js";
 import EVENTS, { activeEvent, eventAllows } from "../data/events.js";
 import { today, dayDiff, isoWeek } from "./util.js";
 import * as cloud from "./cloud.js";
+import ROSTER from "../data/roster.js";
 
 export const tr = (save, id) => save.talents[id] || 0;
 
@@ -79,7 +80,8 @@ export function openChest(save, type, date = new Date()) {
   let cat = "coins";
   for (const [k, v] of Object.entries(w)) { roll -= v; if (roll <= 0) { cat = k; break; } }
   const coinAmt = c.coins || [40, 90];
-  if (type === "mythic") cat = "legendary";
+  // mityczna (decyzja Maxa): 50% legendarny przedmiot, 50% kupa rybek (1000–1500 ≈ 2–3 dni gry)
+  if (type === "mythic") cat = Math.random() < MYTHIC.itemChance ? "legendary" : "coins";
   if (cat !== "coins") {
     // skórki "mythic" wypadają tylko z mitycznej skrzyni (podwójna waga)
     const mythicOnly = type === "mythic" ? SKINS.filter((s) => !s.retired && s.source === "mythic" && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })) : [];
@@ -112,9 +114,9 @@ export function openChest(save, type, date = new Date()) {
   return { kind: "coins", amount: amt };
 }
 // skrzynia za bossa na piętrze `floor` (wielokrotność 5): 'wood'|'silver'|'gold'|'epic'|'mythic'
-// MYTHIC (od piętra 50, „za grind”): złota skrzynia zamienia się w mityczną z szansą 20%, każda inna z 5%
-// (przy ~4–5 bossach dziennie wypada mniej więcej raz na 2–4 dni).
-export const MYTHIC = { fromFloor: 50, fromGold: 0.2, other: 0.05 };
+// MYTHIC (od piętra 50, „za grind”): złota skrzynia zamienia się w mityczną z szansą 15%, każda inna z 3%
+// (przy ~4–5 bossach dziennie wypada mniej więcej raz na 4–6 dni). W środku: 50% legendarny przedmiot, 50% 1000–1500 rybek.
+export const MYTHIC = { fromFloor: 50, fromGold: 0.15, other: 0.03, itemChance: 0.5 };
 export function chestForFloor(floor, save, rng = Math.random) {
   const c = baseChest(floor, rng);
   if (floor >= MYTHIC.fromFloor && rng() < (c === "gold" ? MYTHIC.fromGold : MYTHIC.other)) return "mythic";
@@ -174,24 +176,41 @@ export function ensureWeek(save) {
   if (save.weekly.week !== w) { save.weekly.week = w; save.weekly.dmg = 0; }
   return w;
 }
+// Boss tygodnia (decyzja Maxa): wspólna pula rybek dzielona wg obrażeń, HP rośnie z wysiłkiem z zeszłego tygodnia.
+// Konta testowe (tester w rosterze) nie liczą się do HP ani puli innych.
+const isTester = (id) => !!(ROSTER.players && ROSTER.players[id] && ROSTER.players[id].tester);
+export function weeklyNumbers({ total, players, lastTotal = 0, lastPlayers = 0, mine = 0 }) {
+  const per = ECON.weeklyHpPerPlayer;
+  const hp = Math.max(per * Math.max(1, players, lastPlayers), Math.round(lastTotal * ECON.weeklyLastWeek));
+  const pool = Math.round(hp * ECON.weeklyFishPerHp);
+  const share = mine > 0 ? Math.max(ECON.weeklyMinShare, Math.round(pool * mine / Math.max(total, hp, mine))) : 0;
+  return { hp, pool, share };
+}
 export async function weeklyStatus(save) {
-  const w = ensureWeek(save);
+  const w = ensureWeek(save), mine = save.weekly.dmg;
   if (cloud.enabled()) {
     try {
-      const st = await cloud.weeklyStatus(w);
-      const players = Math.max(1, st.players);
-      return { week: w, total: Math.max(st.total, save.weekly.dmg), hp: ECON.weeklyHpPerPlayer * players, cloud: true };
+      const kids = (rows) => rows.filter((r) => r.id === save.id || !isTester(r.id));
+      const now = kids((await cloud.weeklyStatus(w)).rows);
+      let last = [];
+      try { last = kids((await cloud.weeklyStatus(isoWeek(new Date(Date.now() - 7 * 864e5)))).rows); } catch {}
+      const sum = (rows) => rows.reduce((a, r) => a + (r.dmg || 0), 0);
+      const total = Math.max(sum(now), mine);
+      const n = weeklyNumbers({ total, players: now.length, lastTotal: sum(last), lastPlayers: last.length, mine });
+      return { week: w, total, mine, ...n, players: now.length, cloud: true };
     } catch (e) { console.warn(e); }
   }
-  return { week: w, total: save.weekly.dmg, hp: ECON.weeklyHpPerPlayer, cloud: false };
+  return { week: w, total: mine, mine, ...weeklyNumbers({ total: mine, players: 1, mine }), players: 1, cloud: false };
 }
-export function weeklyReward(save) {
+// nagroda: następna skórka z kolejki (albo złota skrzynia) + mój kawałek puli rybek (tylko jeśli biłem bossa)
+export function weeklyReward(save, w) {
+  const fish = (w && w.share) || ECON.weeklyMinShare;
   const queue = SKINS.filter((s) => s.source === "weekly" && !s.retired).sort((a, b) => a.order - b.order);
   const next = queue.find((s) => !save.owned.skins.includes(s.id));
-  save.coins += 100;
-  if (next) { save.owned.skins.push(next.id); save.weeklySkins++; return { skin: next, coins: 100 }; }
+  save.coins += fish;
+  if (next) { save.owned.skins.push(next.id); save.weeklySkins++; return { skin: next, coins: fish }; }
   save.chests.push("gold");
-  return { chest: "gold", coins: 100 };
+  return { chest: "gold", coins: fish };
 }
 
 // ---- skórki dzieci: rysunek ucznia + zatwierdzone skórki z chmury ----

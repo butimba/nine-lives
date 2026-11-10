@@ -45,7 +45,7 @@ export async function weeklyAdd(week, id, dmg) {
 }
 export async function weeklyStatus(week) {
   const rows = await req(`weekly?week=eq.${encodeURIComponent(week)}&select=id,dmg`);
-  return { total: rows.reduce((a, r) => a + (r.dmg || 0), 0), players: rows.length };
+  return { total: rows.reduce((a, r) => a + (r.dmg || 0), 0), players: rows.length, rows };
 }
 
 // ---------- skórki dzieci (tabela `skins`, tools/supabase-v3.sql) ----------
