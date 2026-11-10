@@ -65,3 +65,28 @@ Mniejsze słabe punkty:
 3. Decyzja o rybkach po kolekcji (sekcja 3, pkt 3).
 4. Keep-alive dla Supabase.
 5. Pełne testy z CLAUDE.md, zrzuty, push i koniec rozwoju; dalej działa tylko asystent lekcji.
+
+## 5. Decyzje Maxa (10.11) i plan rozbudowy
+
+**Zrobione (gałąź `claude/fervent-jackson-8aebd4`, jeszcze nie na `main`):** scalona gałąź boss/samouczek/diamenty (w niej levele od 16 są już wolniejsze, więc talenty starczają na ~2 miesiące, i są 4 legendarne skórki tylko z mitycznej skrzyni), licznik słówek ⭐ na ekranie głównym, keep-alive Supabase (`.github/workflows/supabase-keepalive.yml`, co 3 dni).
+
+**Safari / nowe urządzenie:** już działa tak, jak chce Max. Po wyczyszczeniu danych wystarczy zalogować się tym samym imieniem i zapis wraca z chmury (`loadSave` bierze nowszy z lokalnego i chmurowego). Warunek: baza nie śpi (keep-alive).
+
+**Łucja = „Mega Pebble”, ale nie pod loginem `lucja`.** Jej zapis ma id `3z6hbm`, którego nie ma w rosterze, więc gra traktuje ją jak gościa: bez `focus` od Maxa, bez duetu i bez ustawień z rostera. Do wyboru: (a) Max pyta, co wpisuje (na jej urządzeniu: ostatni login), i dopisujemy ten login w roster-src, albo (b) kopiuję jej zapis w bazie pod `lucja` i od teraz loguje się jako „Łucja”. W chmurze nie ma też zapisów Matyldy, Niny ani Bruna (nie grały w tej wersji albo grają pod innymi imionami).
+
+### Fabuła: Księżyc na 100 stron czy malowanie nieba?
+**Rekomendacja: Księżyc 1–25, potem malowanie nieba.** Jeden Księżyc ze 100 kawałków to 1% dziennie, czyli postęp, którego nie widać. Gwiazdozbiory dają co 5 dni coś nowego, nazwanego i widocznego na ekranie głównym (dziecko pokaże rodzicom „zobacz, ułożyłam sowę!”), a niebo z tygodnia na tydzień jest pełniejsze. UI: jedna książka **Moon Diary** z zakładkami rozdziałów. U góry: dla rozdziałów 1–2 kawałki Księżyca (jak dziś), od rozdziału 3 mała mapa nieba z gwiazdozbiorami. Napis przy Księżycu: „where is the Moon?” → (strona 25) „find the stars!” → (100) „the sky is full!”.
+
+### Kosmetyki: ile dodać, żeby starczyło na ~5 miesięcy (tyle trwa fabuła)
+Dziś (bez eventów): 15 skórek + 10 czapek ze sklepu i skrzyń (~8 tys. rybek), 5 skórek tygodnia, 4 mityczne. Dziecko zarabia ~500 rybek dziennie, więc w 5 miesięcy ok. 50 tys.
+
+1. **Nagrody z fabuły (nowe źródło `source: "story"`):** za każdy ukończony gwiazdozbiór (co 5 dni) czapka albo skórka w jego klimacie (Fish, Owl, Kite…), a do tego Księżyc za stronę 25 i specjalna za stronę 100. To **16 przedmiotów**, rozłożonych na całe 5 miesięcy, bez rybek. Wyliczane z `save.story`, więc bez migracji.
+2. **Sklep: +12 skórek, +8 czapek**, w tym droższe cele (epickie 2–3 tys., legendarne 4–6 tys.), żeby rybki miały na co iść przez miesiące. Skórka to tylko dane (kolory + wzór + efekt), czapka wymaga małego sprite'a.
+3. **Eventy: po 2–3 przedmioty na każdy.** Dziś Boże Narodzenie ma dużo (8 skórek + 5 czapek), Halloween 3 + 2, wiosna i lato po 1 czapce, a Friendship i Back to School nic. Do świąt (od 1.12) zostały 3 tygodnie, więc warto dodać 2–3 świąteczne przed 1.12, a resztę eventów uzupełnić od razu, żeby gra była „domknięta”.
+4. **Tydzień:** kolejka skórek bossa tygodnia (dziś 5) +5, czyli razem ~10 tygodni zamiast 5.
+
+### Eventowe przedmioty: czy znikają na zawsze?
+Nie. Kupione lub wylosowane zostają na zawsze. W sklepie i skrzyniach są tylko w czasie eventu i **wracają co roku** w tym samym terminie (event włącza się sam według daty). Proponuję tak zostawić: to motywacja „wróć na święta” i nie ma żalu „przegapiłam na zawsze”.
+
+### Rybki po pełnej kolekcji
+Po rozbudowie z pkt 1–4 pełna kolekcja to raczej wiele miesięcy niż tygodnie. Gdy już wszystko jest kupione: odznaka „Collection complete!” w Wardrobe, a rybki zostają na skrzynie i ochronę serii. Bez nowego systemu (prestiż itp. to za dużo jak na wersję finalną).
