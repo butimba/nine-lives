@@ -7,7 +7,7 @@ import { biomeForFloor, SHADOW_BIOME } from "./biomes.js";
 import { bossIntro, createBossFight } from "./boss.js";
 import { createRunUI } from "./runui.js";
 import { planTask, MECHANICS } from "./mechanics/index.js";
-import { Session, record } from "../engine.js";
+import { Session, record, isDiamondCheck } from "../engine.js";
 import { SKILLS } from "../../data/grammar.js";
 import { PERKS, ECON, powerById, RUN_EVENTS, MERCHANT_OFFERS } from "../../data/progression.js";
 import { ensureDaily, progressDaily } from "../daily.js";
@@ -747,6 +747,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       stage, fx, arena, task: plan.task || task, prompt, rng: Math.random, difficulty, sfx, speak: say,
       sprites: { getCat, ICONS, iconURL, drawSprite, pixelURL }, cat: catApi, hints: S.hints, revealCard: false, ground: footY(),
       target: mon ? { x: mon.wx, y: toScreenY(mon.wy) - monH() / 2 } : { x: 190, y: footY() - 20 },
+      pace: save.pace && save.pace.catch,
     });
     mech = m;
     if (S.freezeTasks > 0) { try { m.freeze && m.freeze(true); } catch {} }
@@ -766,8 +767,12 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const tt = plan.task || task;
     S.answers++;
     const prev = save.srs[tt.key];
-    const info = { wasNew: !prev || !prev.n, repeat: S.failedKeys.has(tt.key) };
+    const info = { wasNew: !prev || !prev.n, repeat: S.failedKeys.has(tt.key), diamond: isDiamondCheck(prev) };
+    const wasDia = !!(prev && prev.dia); // prev to ten sam obiekt, który record() zmienia
     record(save, tt, res.ok, res.ms, res.tag, { hinted: res.hinted, shadowMode: isShadow });
+    if (plan.mech === "catch" && m.stats) adaptCatchPace(m.stats(), res.ok, prev);
+    const nowR = save.srs[tt.key];
+    if (nowR && nowR.dia && !wasDia && tt.word) { ui.toast("DIAMOND CARD!", tt.word.en, "gem"); S_("perk"); }
     tickPlay();
     if (mon && mon.off) mon.off = 0;
     if (S.freezeTasks > 0) S.freezeTasks--;
@@ -782,6 +787,17 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     ui.clearPrompt();
     persist();
     return res;
+  }
+
+  // spadające litery/słowa: tempo na następny raz. Zna słowo (pudełko 3+), a i tak przegrał albo zgubił 2+ potrzebne
+  // klocki = nie nadąża zręcznościowo → wyraźnie wolniej; zwykła pomyłka → trochę wolniej; czysto = trochę szybciej.
+  function adaptCatchPace(st, ok, prev) {
+    save.pace = save.pace || { catch: 1 };
+    const knows = !!(prev && prev.b >= 3);
+    let f = 1;
+    if (!ok || st.drops >= 2) f = knows || st.drops >= 2 ? 0.82 : 0.92;
+    else if (!st.wrong && !st.drops) f = 1.06;
+    save.pace.catch = Math.round(Math.max(0.55, Math.min(1.3, (save.pace.catch || 1) * f)) * 100) / 100;
   }
 
   async function onRight(task, res) {
@@ -877,7 +893,8 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     fx.burst(c.x, c.y, { n: 12, colors: ["#e8434f", "#ffffff"], speed: 70 });
     // life rules
     let msg = null, lost = false;
-    if (isShadow && S.dream) { S.dreamErrors++; msg = ["DREAM", "#bfb4ff"]; }
+    if (info.diamond) msg = ["BACK TO GOLD", "#ffd23f"]; // sprawdzian diamentu: bez kary (engine.DIAMOND)
+    else if (isShadow && S.dream) { S.dreamErrors++; msg = ["DREAM", "#bfb4ff"]; }
     else if (isShadow && S.cellarErrors < 2) { S.cellarErrors++; msg = ["FREE TRY", "#9ae86a"]; }
     else {
       if (isShadow) S.cellarErrors++;

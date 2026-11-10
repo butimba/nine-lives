@@ -70,6 +70,8 @@ export const CHESTS = {
   wood: { name: "Wooden Chest", icon: "🧰", rolls: { coins: 70, common: 20, rare: 9, epic: 1, legendary: 0 }, coins: [40, 90] },
   silver: { name: "Silver Chest", icon: "🎁", rolls: { coins: 45, common: 25, rare: 22, epic: 7, legendary: 1 }, coins: [90, 180] },
   gold: { name: "Golden Chest", icon: "👑", rolls: { coins: 20, common: 15, rare: 35, epic: 22, legendary: 8 }, coins: [180, 350] },
+  // mythic: always a legendary item you don't have yet (else epic, else lots of fish) — meta.openChest
+  mythic: { name: "Mythic Chest", icon: "🌌", rolls: { coins: 0, common: 0, rare: 0, epic: 0, legendary: 100 }, coins: [800, 1200] },
   epic: { name: "Epic Chest", icon: "💎", rolls: { coins: 5, common: 0, rare: 30, epic: 45, legendary: 20 }, coins: [350, 600] },
 };
 export const CHEST_ORDER = ["wood", "silver", "gold", "epic"];

@@ -13,6 +13,12 @@ import { shuffle, pick } from "./util.js";
 
 const DAY = 86400000;
 export const BOX_DAYS = [0, 1, 2, 4, 8, 16]; // ile dni do następnej powtórki po trafieniu w danym pudełku
+// DIAMENT (tylko słówka): złota karta (pudełko 5) + 3 kolejne wymagalne powtórki bez błędu i podpowiedzi, co najmniej
+// 6 tygodni od złota → słówko wypada z powtórek; wraca tylko na „sprawdzian diamentu” co ~4 miesiące.
+// Błąd na sprawdzianie = karta wraca do złota (bez spadku pudełka, bez utraty życia — run.js), odliczanie od nowa.
+// Pola w srs (opcjonalne, jak st/lw): g = kiedy złoto, gk = dobre powtórki od złota, dia = kiedy diament.
+export const DIAMOND = { reviews: 3, minDays: 42, checkDays: 120 };
+export const isDiamondCheck = (r, now = Date.now()) => !!(r && r.dia && r.due <= now);
 const ALL_WORDS = Object.values(VOCAB).flatMap((th) => th.words);
 
 // które błędy wzmacniają którą umiejętność
@@ -206,7 +212,7 @@ const hasGrammar = (set) => [...set.keys()].some((k) => !k.startsWith("v:"));
 
 // "zapomniane słowa" = jawne cienie + rzeczy mocno przeterminowane
 export function shadowList(save, now = Date.now()) {
-  const extra = Object.entries(save.srs).filter(([k, r]) => r.b >= 1 && r.due && now - r.due > 7 * DAY).map(([k]) => k);
+  const extra = Object.entries(save.srs).filter(([k, r]) => r.b >= 1 && !r.dia && r.due && now - r.due > 7 * DAY).map(([k]) => k);
   return [...new Set([...save.shadows, ...extra])].filter((k) => (isVocab(k) ? wordOf(k) : SKILLS[skillOf(k)]));
 }
 
@@ -308,6 +314,7 @@ export class Session {
       const sk = this.save.skills[skillOf(key)] || { m: 0.3, n: 0 };
       let w;
       if (!r) w = this.canIntroduce(key) ? 3 : 0;
+      else if (r.dia && r.due > now) w = 0; // diament: poza powtórkami aż do sprawdzianu
       else if (r.due <= now) w = 6 + (5 - r.b);
       else w = r.b <= 2 ? 0.8 : 0.15;
       if (this.mode === "shadow") w = 3;
@@ -515,6 +522,7 @@ export function record(save, task, ok, ms, tag, opts = {}) {
   // Terminy liczone od początku lokalnego dnia (P1-1): "jutro" = od północy, niezależnie od godziny gry.
   // Odpowiedź na rzecz NIEwymagalną (powtórka w tym samym dniu) nie przesuwa terminu ani pudełka.
   const isDue = r.due <= now || r.b === 0;
+  const diaMiss = !ok && !!r.dia;
   const d0 = dayStart(now);
   if (ok) {
     r.ok++;
@@ -523,10 +531,22 @@ export function record(save, task, ok, ms, tag, opts = {}) {
     if (pg > 0.34 && r.st < 2) up = false;
     if (r.b >= 3 && task.canStrong && !STRONG.has(task.type)) up = false;
     if (task.justIntroduced) up = false; // P1-6: pierwszy test tuż po karcie NEW nie liczy się do pudełka (wraca za 3–5 zadań)
+    const wasGold = r.b >= 5;
     if (up) { r.b = Math.min(5, r.b + 1); r.due = d0 + BOX_DAYS[r.b] * DAY; }
+    if (isVocab(key) && r.b >= 5) {
+      if (r.dia) { if (isDue) r.due = d0 + DIAMOND.checkDays * DAY; } // zdany sprawdzian diamentu
+      else if (!wasGold || !r.g) { r.g = r.g || now; r.gk = 0; }
+      else if (up) {
+        r.gk = (r.gk || 0) + 1;
+        if (r.gk >= DIAMOND.reviews && now - r.g >= DIAMOND.minDays * DAY) { r.dia = now; r.due = d0 + DIAMOND.checkDays * DAY; }
+      }
+    }
     // brak awansu: rzecz zostaje wymagalna (np. czeka na 2. dobrą z rzędu albo na zadanie "mocne"), niewymagalna — bez zmian
+  } else if (r.dia) {
+    // sprawdzian diamentu nie wyszedł: z powrotem złota karta, bez kary; diament trzeba zdobyć od nowa
+    r.st = 0; delete r.dia; r.g = now; r.gk = 0; r.due = d0 + DAY; r.lw = now;
   } else {
-    r.st = 0;
+    r.st = 0; if (r.gk) r.gk = 0;
     if (isDue) { r.b = Math.max(0, r.b - 2); r.due = now; }
     else {
       // pomyłka przy powtórce w tym samym dniu: bez −2; drugi błąd tego dnia = −1; i tak wraca najpóźniej jutro (+ requeue w biegu)
@@ -535,6 +555,7 @@ export function record(save, task, ok, ms, tag, opts = {}) {
     }
     r.lw = now; // ostatni błąd (opcjonalne pole)
   }
+  if (r.b < 5) { delete r.g; delete r.gk; }
   save.srs[key] = r;
   const sk = save.skills[task.skill] || { m: 0.3, n: 0 };
   let a = sk.n < 5 ? 0.3 : 0.12; // na początku szybciej, potem stopniowo
@@ -544,7 +565,7 @@ export function record(save, task, ok, ms, tag, opts = {}) {
   for (const k of Object.keys(save.confusions)) { save.confusions[k] *= 0.97; if (save.confusions[k] < 0.2) delete save.confusions[k]; }
   const vocabPick = tag && String(tag).startsWith("pick:");
   if (!ok && tag && !vocabPick) save.confusions[tag] = (save.confusions[tag] || 0) + 1;
-  if (!ok) { if (!save.shadows.includes(key)) save.shadows.push(key); if (save.shadows.length > 40) save.shadows.shift(); }
+  if (!ok && !diaMiss) { if (!save.shadows.includes(key)) save.shadows.push(key); if (save.shadows.length > 40) save.shadows.shift(); }
   else if (opts.shadowMode) save.shadows = save.shadows.filter((k) => k !== key);
   try { task.feedback = feedbackFor(task, ok, tag); } catch { task.feedback = null; }
   save.log.push([now, key, ok ? 1 : 0, Math.round(ms), tag || ""]);
@@ -555,10 +576,38 @@ export function record(save, task, ok, ms, tag, opts = {}) {
 // ---------- album: karty = opanowanie słówek / umiejętności ----------
 export function cardTier(r) {
   if (!r) return 0;          // nieodkryta
+  if (r.dia) return 5;       // diamentowa
   if (r.b >= 5) return 4;    // złota
   if (r.b >= 3) return 3;    // srebrna
   if (r.b >= 1) return 2;    // brązowa
   return 1;                  // szara (widziana)
+}
+
+// ---------- karty i odznaki ----------
+// Karta albumu = pojedyncze słówko albo krótka fraza (≤ 3 słowa) z obrazkiem. Gramatyka nie ma kart, tylko odznaki.
+export function isCardWord(key) {
+  const w = isVocab(key) ? wordOf(key) : null;
+  return !!(w && w.img && w.en && w.en.trim().split(/\s+/).length <= 3);
+}
+// ODZNAKA GRAMATYKI (wyliczana z srs/skills/log, nic nie zapisujemy): 0 brak, 1 brąz, 2 srebro, 3 złoto, 4 diament (sekretny).
+//  brąz: każdy wzorzec zaliczony bez podpowiedzi (pudełko ≥ 1)
+//  srebro: opanowanie ≥ 0.7 i każdy wzorzec w pudełku ≥ 3
+//  złoto: opanowanie ≥ 0.85, każdy wzorzec w pudełku 5 (przetrwał powtórki), ≥ 16/20 dobrych w ostatnich 20 próbach
+//  diament: złoto + 0 błędów w ostatnich 30 próbach
+export const BADGE = { silverM: 0.7, goldM: 0.85, goldLast: 20, goldOk: 16, diamondLast: 30 };
+export function badgeTier(save, skill, opts) {
+  const keys = itemsForSkill(skill, opts);
+  if (!keys.length || isVocab(skill)) return 0;
+  const rs = keys.map((k) => save.srs[k]);
+  if (!rs.every((r) => r && r.b >= 1)) return 0;
+  const m = (save.skills[skill] || {}).m || 0;
+  const tries = save.log.filter((l) => String(l[1]).startsWith(`g:${skill}:`));
+  const last = (n) => tries.slice(-n);
+  if (!(m >= BADGE.silverM && rs.every((r) => r.b >= 3))) return 1;
+  const l20 = last(BADGE.goldLast);
+  if (!(m >= BADGE.goldM && rs.every((r) => r.b >= 5) && l20.length >= BADGE.goldLast && l20.filter((l) => l[2]).length >= BADGE.goldOk)) return 2;
+  const l30 = last(BADGE.diamondLast);
+  return l30.length >= BADGE.diamondLast && l30.every((l) => l[2]) ? 4 : 3;
 }
 
 // ---------- raport dla nauczyciela ----------

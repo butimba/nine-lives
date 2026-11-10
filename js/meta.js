@@ -79,6 +79,7 @@ export function openChest(save, type, date = new Date()) {
   let cat = "coins";
   for (const [k, v] of Object.entries(w)) { roll -= v; if (roll <= 0) { cat = k; break; } }
   const coinAmt = c.coins || [40, 90];
+  if (type === "mythic") cat = "legendary";
   if (cat !== "coins") {
     const pool = [
       ...SKINS.filter((s) => !s.retired && s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })),
@@ -92,6 +93,13 @@ export function openChest(save, type, date = new Date()) {
       (it.kind === "skin" ? save.owned.skins : save.owned.hats).push(it.id);
       return { kind: it.kind, item: it };
     }
+    // mythic: no legendary left → an epic one → else the big fish pile below (never a duplicate)
+    if (type === "mythic" && cat === "legendary") {
+      const epic = [...SKINS.filter((s) => !s.retired && s.rarity === "epic" && (s.source === "chest" || s.source === "shop") && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })),
+        ...HATS.filter((s) => !s.retired && s.rarity === "epic" && (s.source === "chest" || s.source === "shop") && !save.owned.hats.includes(s.id)).map((s) => ({ ...s, kind: "hat" }))];
+      if (epic.length) { const it = epic[Math.floor(Math.random() * epic.length)]; (it.kind === "skin" ? save.owned.skins : save.owned.hats).push(it.id); return { kind: it.kind, item: it }; }
+      const amt = Math.round(coinAmt[0] + Math.random() * (coinAmt[1] - coinAmt[0])); save.coins += amt; return { kind: "coins", amount: amt };
+    }
     // wszystko już ma → monety za duplikat
     const bonus = DUP_COINS[cat] || 60;
     save.coins += bonus;
@@ -101,9 +109,17 @@ export function openChest(save, type, date = new Date()) {
   save.coins += amt;
   return { kind: "coins", amount: amt };
 }
-// skrzynia za bossa na piętrze `floor` (wielokrotność 5): 'wood'|'silver'|'gold'|'epic'
-export function chestForFloor(floor, save) {
-  const r = Math.random();
+// skrzynia za bossa na piętrze `floor` (wielokrotność 5): 'wood'|'silver'|'gold'|'epic'|'mythic'
+// MYTHIC (od piętra 50, „za grind”): złota skrzynia zamienia się w mityczną z szansą 20%, każda inna z 5%
+// (przy ~4–5 bossach dziennie wypada mniej więcej raz na 2–4 dni).
+export const MYTHIC = { fromFloor: 50, fromGold: 0.2, other: 0.05 };
+export function chestForFloor(floor, save, rng = Math.random) {
+  const c = baseChest(floor, rng);
+  if (floor >= MYTHIC.fromFloor && rng() < (c === "gold" ? MYTHIC.fromGold : MYTHIC.other)) return "mythic";
+  return c;
+}
+function baseChest(floor, rng) {
+  const r = rng();
   if (floor % 50 === 0) return "epic";
   if (floor % 25 === 0) return "gold";
   if (floor >= 40 && r < 0.06) return "epic";

@@ -61,6 +61,12 @@ const MATS = {
     T: '#241640', t: '#140b28', M: '#6fe3d3', K: '#6fe3d3', G: '#ff5df0', g: '#a82894', i: '#1a0d33', y: '#ffb8f7',
     light: '#ff9df5',
   },
+  // mythic: obsidian + gold trim, rainbow gem (rare: from floor 50, see meta.chestForFloor)
+  mythic: {
+    L: '#2d3352', l: '#1c2038', h: '#4a557f', B: '#262b47', b: '#14172b', H: '#39406a', P: '#ffd23f',
+    T: '#ffd23f', t: '#a87a12', M: '#fff1a8', K: '#9df2ff', G: '#ff5df0', g: '#6fe3d3', i: '#0a0b18', y: '#d2fbff',
+    light: '#9df2ff',
+  },
 };
 
 // crack paths (interior coords), cumulative by stage
@@ -81,8 +87,8 @@ export function chestSprite(type = 'wood') {
   const spr = defineSprite({ id: 'chest_' + type, w: 20, h: 16, frames: [CLOSED, OPEN], map, outline: 'k', anchor: { x: 10, y: 16 } });
   const light = MATS[type].light;
   const W = spr.w, H = spr.h;
-  const crackCol = { wood: '#2a160c', silver: '#232c45', gold: '#6b2a04', epic: '#12082a' }[type];
-  const sparkleCol = { wood: null, silver: '#ffffff', gold: '#fff6c8', epic: '#6fe3d3' }[type];
+  const crackCol = { wood: '#2a160c', silver: '#232c45', gold: '#6b2a04', epic: '#12082a', mythic: '#05060f' }[type];
+  const sparkleCol = { wood: null, silver: '#ffffff', gold: '#fff6c8', epic: '#6fe3d3', mythic: '#ffd23f' }[type];
   const api = {
     w: W, h: H, type, light, sprite: spr,
     draw(ctx, x, y, { cracks = 0, open = false, shake = 0, scale = 1, t, alpha = 1, flash = false } = {}) {

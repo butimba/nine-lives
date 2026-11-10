@@ -1,6 +1,7 @@
 // Testy systemów (bez przeglądarki): migracja v1→v2, życia, malejące nagrody, nagrody po biegu.
 // Uruchom: node tools/test-systems.mjs
 import { migrate, freshSave, SAVE_VERSION, levelInfo, freshDuo } from "../js/state.js";
+import { record, cardTier, DIAMOND, isDiamondCheck } from "../js/engine.js";
 import { shopItems, eventChestItems, ensureDuo, sendGift, receiveGifts, duoChallenge, claimDuo, duoAddCorrect, canSendGift, DUO } from "../js/meta.js";
 import { duoPub } from "../js/cloud.js";
 import { SKINS, HATS } from "../data/cosmetics.js";
@@ -50,6 +51,7 @@ const V1 = {
   eq(SAVE_VERSION, 5, "SAVE_VERSION is 5");
   eq(s.duo, freshDuo(), "v4: duo added");
   eq(s.tips, { _old: 1 }, "v5: old accounts skip the tutorial");
+  eq(s.pace, { catch: 1 }, "v5: catch pace added");
   // nic ze starych danych nie zginęło (v1 -> v3)
   for (const k of Object.keys(V1)) if (!["v", "settings", "daily", "stats"].includes(k)) eq(s[k], V1[k], `v1 field preserved: ${k}`);
   for (const k of Object.keys(V1.stats)) eq(s.stats[k], V1.stats[k], `v1 stats preserved: ${k}`);
@@ -387,7 +389,14 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   ok(kinds.skin || kinds.hat, "epic chest gives items");
   ok(new Set(s.owned.skins).size === s.owned.skins.length, "no duplicate skins");
   const s2 = freshSave("ch2", {}); const c = openChest(s2, "nope"); ok(c && c.kind, "unknown chest type falls back");
-  eq(chestForFloor(50), "epic", "floor 50 -> epic"); eq(chestForFloor(25), "gold", "floor 25 -> gold");
+  const hi = () => 0.99, lo = () => 0.01;
+  eq(chestForFloor(50, null, hi), "epic", "floor 50 -> epic"); eq(chestForFloor(25, null, hi), "gold", "floor 25 -> gold");
+  // mythic: never below floor 50, rare above
+  ok(chestForFloor(45, null, lo) !== "mythic", "floor 45: no mythic even on a lucky roll");
+  eq(chestForFloor(75, null, lo), "mythic", "floor 75 gold + lucky roll -> mythic");
+  { let m = 0; for (let i = 0; i < 4000; i++) if (chestForFloor(55 + 5 * (i % 20)) === "mythic") m++; ok(m > 80 && m < 400, `mythic rate ~2-10% from floor 50 (${m}/4000)`); }
+  { const sm = freshSave("myth", {}); const r1 = openChest(sm, "mythic"); ok((r1.kind === "skin" || r1.kind === "hat") && r1.item.rarity === "legendary", "mythic -> legendary item");
+    for (let i = 0; i < 30; i++) openChest(sm, "mythic"); const r2 = openChest(sm, "mythic"); ok(r2.kind === "coins" && r2.amount >= 800, "mythic with everything owned -> big fish, no duplicate"); }
   ok(TALENTS.length === 9 && TALENTS.every((t) => /^[\x20-\x7e]+$/.test(t.desc(1)) && t.desc(1).length < 40), "talent descs short English");
   ok(PERKS.every((p) => /^[\x20-\x7e]+$/.test(p.desc)), "perk descs English");
   const names = new Set(); for (let i = 0; i < 400; i++) names.add(randomCatName());

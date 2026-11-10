@@ -813,3 +813,22 @@ canvas.cat-live { display: block; image-rendering: pixelated; }
 .duo-pop-n { display: inline-flex; align-items: center; gap: 4px; font: 700 22px/1 var(--f-px); color: var(--px-accent, #ff8a1f); }
 .duo-pop-n img { width: 30px; height: 30px; }
 @keyframes popIn { from { transform: translate(-50%, -50%) scale(.3); opacity: 0; } 70% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } to { transform: translate(-50%, -50%) scale(1); } }
+
+/* ---------- diamond cards + grammar badges (v5) ---------- */
+.wcard.t5 { --f: #9df2ff; background: #e8fdff; box-shadow: 0 0 0 3px var(--px-ink), inset 0 0 0 5px var(--f), 0 0 0 6px rgba(157, 242, 255, .45), 2px 3px 0 3px rgba(8, 5, 18, .45); }
+.wcard.t5::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .9) 45%, rgba(255, 93, 240, .35) 52%, transparent 62%); background-size: 250% 100%; animation: shine 2.2s steps(14) infinite; pointer-events: none; }
+.wcard.t5 .rib { background: #9df2ff; color: var(--px-ink); }
+.mini-card.t5 { box-shadow: 0 0 0 3px var(--px-ink), inset 0 0 0 4px #9df2ff; background: #e8fdff; }
+.mini-card.t5 i { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .95) 50%, transparent 65%); background-size: 260% 100%; animation: shine 1.8s steps(10) infinite; }
+.al-seg i.t5 { background: #9df2ff; }
+.bd-card { margin-bottom: 10px; }
+.bd-title { font-weight: 700; font-size: 1.05em; margin-bottom: 6px; }
+.bd-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 84px; text-align: center; }
+.badge b { font-size: .78em; line-height: 1.15; }
+.badge small { font-size: .7em; opacity: .75; }
+.badge .medal { position: relative; width: 34px; height: 34px; background: #8a8299; box-shadow: 0 0 0 3px var(--px-ink), inset 0 0 0 4px rgba(255, 255, 255, .25);
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%); opacity: .45; }
+.badge.b1 .medal { background: #c98a52; opacity: 1; } .badge.b2 .medal { background: #a9b6cb; opacity: 1; }
+.badge.b3 .medal { background: #ffd23f; opacity: 1; } .badge.b4 .medal { background: #9df2ff; opacity: 1; }
+.badge.b3 .medal i, .badge.b4 .medal i { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .95) 50%, transparent 65%); background-size: 260% 100%; animation: shine 2.4s steps(10) infinite; }

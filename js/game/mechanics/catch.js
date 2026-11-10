@@ -64,9 +64,11 @@ export function create(ctx) {
 
   // ---------------- items ----------------
   const items = [];
-  let spawnIn = 0.25, tt = 0, introK = 0, frozen = false, checkState = null, shakeK = 0, hintGlow = false, wrongTries = 0;
+  let spawnIn = 0.25, tt = 0, introK = 0, frozen = false, checkState = null, shakeK = 0, hintGlow = false, wrongTries = 0, drops = 0;
   // slow but never boring: an item needs ~5 s (4 s at high floors) from the top to the basket, whatever the screen height
-  const speed = () => Math.max(18, (catchY() - spawnY()) / (5.2 - 1.2 * d));
+  // pace: dopasowane do dziecka (save.pace.catch, run.js) — wolniej, gdy nie nadąża, szybciej, gdy idzie świetnie
+  const pace = Math.max(0.5, Math.min(1.4, ctx.pace || 1));
+  const speed = () => Math.max(12, ((catchY() - spawnY()) / (5.2 - 1.2 * d)) * pace);
   const laneBusy = (li) => items.some((it) => it.lane === li && (it.state === "fall" || it.state === "grab"));
   function pickToken() {
     const falling = new Set(items.filter((it) => it.state === "fall").map((it) => it.tok));
@@ -273,7 +275,7 @@ export function create(ctx) {
           if (!leap && Math.abs(it.y - cy) < 5 && Math.abs(cat.x - LANES[it.lane]) < 12 && placed.length < goalTokens.length && !checkState) {
             place(it, "basket");
             if (cat.attack) cat.attack();
-          } else if (it.y > groundY() - ITEM_H / 2) { it.state = "poof"; it.k = 0; fx.burst(it.x, groundY() - 4, { n: 6, colors: ["#d8ccb4", "#a89c86"], speed: 30, gravity: -20, size: 1 }); }
+          } else if (it.y > groundY() - ITEM_H / 2) { if (!checkState && it.tok === nextNeed()) drops++; it.state = "poof"; it.k = 0; fx.burst(it.x, groundY() - 4, { n: 6, colors: ["#d8ccb4", "#a89c86"], speed: 30, gravity: -20, size: 1 }); }
         } else if (it.state === "fly") {
           it.k = Math.min(1, it.k + dt * 4.5);
           if (it.k >= 1) {
@@ -382,6 +384,7 @@ export function create(ctx) {
       }
     },
     result: B.result,
+    stats: () => ({ wrong: wrongTries, drops }), // dla dopasowania tempa (run.js)
     typing: false,
     hint() {
       if (B.done || checkState) return false;

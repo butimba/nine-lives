@@ -43,6 +43,7 @@ export const chestScreen = {
       update(dt, t) {
         fx.update(dt);
         S.shake = Math.max(0, S.shake - dt * 6);
+        if (type === "mythic" && !S.open && Math.random() < 0.3) fx.burst(cx() + (Math.random() - 0.5) * 70, cy() - 8 - Math.random() * 40, { n: 1, colors: ["#9df2ff", "#ff5df0", "#ffd23f", "#93e04c"], speed: 10, gravity: -18, life: 1, size: 1 });
         if (gift && !S.open && Math.random() < 0.12) fx.burst(cx() + (Math.random() - 0.5) * 90, cy() - 20 - Math.random() * 50, { n: 1, colors: ["#fff1a8", "#ffd23f", "#ff8fa3"], speed: 8, gravity: -14, life: 1.1, size: 1 });
       if (S.open) { S.openT += dt; S.spinT += dt; if (S.openT < 2.2 && Math.random() < 0.35 + S.rank * 0.15) fx.burst(cx() + (Math.random() - 0.5) * 120, -4, { n: 2, colors: confetti(S.color), speed: 20, gravity: 60, life: 2.4, size: 2 }); }
       },
@@ -119,6 +120,7 @@ export const chestScreen = {
       const rarity = res.kind === "chest" ? "epic" : res.kind === "coins" ? (res.had && res.had.rarity) || res.dup || "common" : res.item.rarity || "common";
       S.rank = RAR_RANK[rarity] || 0;
       if (res.gift) S.rank = Math.max(2, S.rank); // prezent = pełna dopamina
+      if (type === "mythic") S.rank = 3; // mityczna = zawsze pełny fajerwerk
       S.color = RARITY_COLOR[rarity] || "#f4efe2";
       let isNew = false;
       if (res.kind === "skin") { save.equipped.skin = res.item.id; isNew = true; }

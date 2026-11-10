@@ -102,7 +102,7 @@ export function fmtTime(ms) {
 }
 
 export const RARITY_EN = { common: "Common", rare: "Rare", epic: "Epic", legendary: "Legendary" };
-export const CHEST_EN = { wood: "Wood chest", silver: "Silver chest", gold: "Gold chest", epic: "Epic chest" };
+export const CHEST_EN = { wood: "Wood chest", silver: "Silver chest", gold: "Gold chest", epic: "Epic chest", mythic: "MYTHIC chest" };
 
 // delegacja kliknięć po data-act
 export function onAct(root, map) {
