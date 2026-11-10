@@ -10,7 +10,7 @@ import ROSTER from "../../data/roster.js";
 import { SKINS } from "../../data/cosmetics.js";
 import { dailySummary, loadDaily } from "./daily.js";
 import { hasPowers, slotsHTML, powerPicker } from "./powers.js";
-import { shadowList } from "../engine.js";
+import { shadowList, isCardWord } from "../engine.js";
 import { sfx, startMusic } from "../audio.js";
 import { ECON, STORY } from "../../data/progression.js";
 import EVENTS, { activeEvent } from "../../data/events.js";
@@ -206,6 +206,8 @@ export const homeScreen = {
     const winter = !!(ev && ev.decor === "winter");
     const shadows = shadowList(save).length;
     const pts = talentPoints(save);
+    // licznik nauczonych słówek (złote i diamentowe karty albumu) — wyliczany z srs, nic nie zapisujemy
+    const goldWords = Object.entries(save.srs).filter(([k, r]) => r && r.b >= 5 && isCardWord(k)).length;
     const el = h(`<div class="screen home">
       <header class="home-hud">
         <div class="hud-row hud-row--top">
@@ -216,6 +218,7 @@ export const homeScreen = {
           <div class="chip lvl-chip"><span class="lv">LV <b data-lv></b></span><div class="xpbar"><i data-xp></i></div></div>
           <div class="chip chip--fish">${ico("fish")}<b data-fish>${save.coins}</b></div>
           <div class="chip chip--streak">${ico("flame")}<b data-streak>0</b></div>
+          <div class="chip chip--words" data-act="cards" role="button" aria-label="Words learned">${ico("star")}<b>${goldWords}</b></div>
         </div>
       </header>
       <div class="home-scene"></div>
