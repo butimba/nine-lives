@@ -278,7 +278,7 @@ export const settingsScreen = {
       ${profile.tester ? panel(`<h3>Test account</h3><div class="set-row">
         ${pxButton("+1000 fish", { act: "t-coins", variant: "paper", cls: "px-btn--sm" })}${pxButton("+5 levels", { act: "t-xp", variant: "paper", cls: "px-btn--sm" })}
         ${pxButton("+4 chests", { act: "t-chest", variant: "paper", cls: "px-btn--sm" })}${pxButton("+9 lives", { act: "t-lives", variant: "paper", cls: "px-btn--sm" })}
-        ${pxButton("0 lives", { act: "t-sleep", variant: "paper", cls: "px-btn--sm" })}${pxButton("Reset all", { act: "t-reset", variant: "danger", cls: "px-btn--sm" })}</div>`, { cls: "set-card tester", tape: false }) : ""}
+        ${pxButton("0 lives", { act: "t-sleep", variant: "paper", cls: "px-btn--sm" })}${pxButton("Tutorial again", { act: "t-tips", variant: "paper", cls: "px-btn--sm" })}${pxButton("Reset all", { act: "t-reset", variant: "danger", cls: "px-btn--sm" })}</div>`, { cls: "set-card tester", tape: false }) : ""}
     </div>`);
     root.append(el);
     el.querySelectorAll("input[data-k]").forEach((i) => i.addEventListener("change", () => { s[i.dataset.k] = i.checked; setAudio(s); persist(); sfx.tap(); }));
@@ -297,6 +297,7 @@ export const settingsScreen = {
       "t-coins": () => { save.coins += 1000; persist(); toast("+1000 fish"); },
       "t-xp": () => { const l = levelInfo(save.xp).lvl; for (let i = 0; i < 5; i++) save.xp += ECON.levelXp(l + i); persist(); toast("+5 levels"); },
       "t-chest": () => { save.chests.push("wood", "silver", "gold", "epic"); persist(); toast("+4 chests"); },
+      "t-tips": () => { save.tips = {}; persist(); toast("Tutorial: ON"); },
       "t-lives": () => { for (let i = 0; i < 9; i++) gainLife(save, "tester"); persist(); toast("Lives: 9"); },
       "t-sleep": () => { save.lives.n = 0; save.lives.at = Date.now(); persist(); toast("Lives: 0"); },
       "t-reset": async () => {
