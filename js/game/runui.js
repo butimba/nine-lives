@@ -8,10 +8,8 @@ const el = (html) => { const t = document.createElement("template"); t.innerHTML
 // English perk texts (data/progression.js has Polish descriptions)
 export const PERK_EN = {
   fishbone: { name: "Fishbone Sword", desc: "Crits hit +1" },
-  catnip: { name: "Catnip", desc: "+1 life now" },
   bell: { name: "Golden Bell", desc: "+50% fish" },
   lightning: { name: "Lightning Paws", desc: "Fast answer = +1 hit" },
-  bubble: { name: "Bubble Shield", desc: "Blocks the next boss shot" },
   fire_combo: { name: "Fire Combo", desc: "Combo 3+ = x2 hit" },
   clover: { name: "Lucky Clover", desc: "More crits" },
   magnet: { name: "Star Magnet", desc: "+30% XP" },

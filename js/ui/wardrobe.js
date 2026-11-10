@@ -9,7 +9,7 @@ import { SKINS, HATS } from "../../data/cosmetics.js";
 import { ECON } from "../../data/progression.js";
 import EVENTS, { activeEvent } from "../../data/events.js";
 
-const SOURCE_HINT = { start: "", shop: "shop", chest: "chest", weekly: "boss prize" };
+const SOURCE_HINT = { start: "", shop: "shop", chest: "chest", weekly: "boss prize", mythic: "mythic chest" };
 const EVENT_WHEN = { halloween: "Halloween", winter: "Christmas (December)", newyear: "New Year", spring: "Spring", summer: "Summer", friendship: "Friendship Week", school: "Back to School" };
 function eventHint(it) {
   const id = String(it.source).slice(6), when = EVENT_WHEN[id] || "special events";

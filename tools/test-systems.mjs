@@ -159,15 +159,17 @@ const V1 = {
 
 // ---------- moce ----------
 {
-  ok(POWERS.length === 5 && POWERS.every((p) => p.id && p.name && /^[\x20-\x7e]+$/.test(p.desc) && p.icon.startsWith("power_") && p.charge > 0 && p.unlockLevel >= 1), "POWERS shape");
+  ok(POWERS.length === 6 && POWERS.every((p) => p.id && p.name && /^[\x20-\x7e]+$/.test(p.desc) && p.icon.startsWith("power_") && p.charge > 0 && p.unlockLevel >= 1), "POWERS shape");
   const s = freshSave("pw", {});
   eq(syncPowers(s), [], "level 1: no powers");
-  let need = 0; for (let l = 1; l < 6; l++) need += ECON.levelXp(l); s.xp = need; // level 6
+  let need = 0; for (let l = 1; l < 7; l++) need += ECON.levelXp(l); s.xp = need; // level 7
   const fresh = syncPowers(s).map((p) => p.id);
-  eq(fresh, ["owl_eye", "freeze", "claw_storm", "fish_magnet"], "level 6 unlocks 4");
+  eq(fresh, ["owl_eye", "freeze", "claw_storm"], "level 7 unlocks 3 (slower unlocks)");
+  ok(POWERS.find((p) => p.id === "catnip").unlockLevel === 16 && POWERS.some((p) => p.id === "ball_buster"), "catnip late, ball buster exists");
+  ok(!PERKS.some((p) => p.id === "catnip" || p.id === "bubble"), "no perks duplicating powers");
   eq(s.powers.equipped, ["owl_eye", "freeze"], "auto-equip first 2");
   eq(syncPowers(s), [], "idempotent");
-  s.powers.equipped = ["fish_magnet", "nope", "fish_magnet"]; syncPowers(s); eq(s.powers.equipped, ["fish_magnet"], "equipped cleaned");
+  s.powers.equipped = ["claw_storm", "nope", "claw_storm"]; syncPowers(s); eq(s.powers.equipped, ["claw_storm"], "equipped cleaned");
   // level-up w biegu -> results.extras
   const s2 = freshSave("pw2", {}); s2.xp = ECON.levelXp(1) - 5;
   const r = applyRunResults(s2, { ...clone({ mode: "tower", answers: 3, xp: 10, coins: 0 }), unlockedPowers: [] });
@@ -396,7 +398,9 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   eq(chestForFloor(75, null, lo), "mythic", "floor 75 gold + lucky roll -> mythic");
   { let m = 0; for (let i = 0; i < 4000; i++) if (chestForFloor(55 + 5 * (i % 20)) === "mythic") m++; ok(m > 80 && m < 400, `mythic rate ~2-10% from floor 50 (${m}/4000)`); }
   { const sm = freshSave("myth", {}); const r1 = openChest(sm, "mythic"); ok((r1.kind === "skin" || r1.kind === "hat") && r1.item.rarity === "legendary", "mythic -> legendary item");
-    for (let i = 0; i < 30; i++) openChest(sm, "mythic"); const r2 = openChest(sm, "mythic"); ok(r2.kind === "coins" && r2.amount >= 800, "mythic with everything owned -> big fish, no duplicate"); }
+    for (let i = 0; i < 30; i++) openChest(sm, "mythic"); const r2 = openChest(sm, "mythic"); ok(r2.kind === "coins" && r2.amount >= 800, "mythic with everything owned -> big fish, no duplicate");
+    ok(["mooncat", "phoenix", "crystal", "aurora"].every((id) => sm.owned.skins.includes(id)), "mythic gives the 4 mythic-only skins"); }
+  { const sg = freshSave("gold", {}); for (let i = 0; i < 60; i++) openChest(sg, "gold"); ok(!sg.owned.skins.some((id) => SKINS.find((k) => k.id === id).source === "mythic"), "mythic-only skins never in normal chests"); }
   ok(TALENTS.length === 9 && TALENTS.every((t) => /^[\x20-\x7e]+$/.test(t.desc(1)) && t.desc(1).length < 40), "talent descs short English");
   ok(PERKS.every((p) => /^[\x20-\x7e]+$/.test(p.desc)), "perk descs English");
   const names = new Set(); for (let i = 0; i < 400; i++) names.add(randomCatName());

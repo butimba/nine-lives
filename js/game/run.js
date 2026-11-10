@@ -72,7 +72,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     shields: tr(save, "nine_lives"), hints: { left: tr(save, "sixth_sense") > 0 ? tr(save, "sixth_sense") + 1 : 1 },
     startFloor: isShadow ? -1 : save.tower.checkpoint + 1, bossBeaten: false, quit: false, asleep: false,
     livesN: startLives, dream: isShadow && startLives <= 0, cellarErrors: 0, dreamErrors: 0,
-    livesLost: 0, failedKeys: new Set(), freezeTasks: 0, clawHits: 0, magnetFloor: null, powersUsed: 0,
+    livesLost: 0, failedKeys: new Set(), freezeTasks: 0, noShots: 0, clawHits: 0, magnetFloor: null, powersUsed: 0,
     stageEvent: null, events: [], eventChests: [],
   };
   const has = (id) => S.perks.includes(id);
@@ -263,7 +263,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
         mon.sx += (1 - mon.sx) * Math.min(1, dt * 12); mon.sy += (1 - mon.sy) * Math.min(1, dt * 12);
         mon.hpShow += (mon.hp - mon.hpShow) * Math.min(1, dt * 5);
       }
-      if (fight) { fight.paused = runState !== "task" || typing() || !!(mech && mech.typing) || ui.modalOpen || S.freezeTasks > 0; fight.update(dt, t); }
+      if (fight) { fight.paused = runState !== "task" || typing() || !!(mech && mech.typing) || ui.modalOpen || S.freezeTasks > 0 || S.noShots > 0; fight.update(dt, t); }
       if (mech && mech.update) mech.update(dt, t);
       updateExtras(dt, t);
       fx.update(dt);
@@ -629,6 +629,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     else if (id === "freeze") { S.freezeTasks = 3; try { mech.freeze && mech.freeze(true); } catch {} }
     else if (id === "claw_storm") S.clawHits = 3;
     else if (id === "fish_magnet") S.magnetFloor = floor;
+    else if (id === "ball_buster") { if (!fight) { ok = false; why = "NO BOSS"; } else { fight.clear(); S.noShots = 3; } }
     else if (id === "catnip") { if (S.livesN >= lives.MAX_LIVES) { ok = false; why = "FULL!"; } else { lives.gainLife(save, "catnip"); refreshLives(); heartFly(c); } }
     if (!ok) { ui.powerFeedback(id, "no"); fx.float(c.x, c.y - 10, why, { color: "#ff9a8a" }); S_("tap"); return; }
     p.n = 0; p.ready = false; pwSync(); ui.powerFeedback(id, "fire");
@@ -776,6 +777,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     tickPlay();
     if (mon && mon.off) mon.off = 0;
     if (S.freezeTasks > 0) S.freezeTasks--;
+    if (S.noShots > 0) S.noShots--;
     if (res.ok) {
       dailyEv("correct"); if (tt.skill) dailyEv("skill:" + tt.skill);
       if (["spell", "type"].includes(tt.type)) dailyEv("typed");
@@ -983,9 +985,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (S.quit || !p || p === "quit") return;
     S_("perk");
     const c = { x: cat.wx, y: toScreenY(cat.wy) - 40 };
-    if (p.id === "catnip") { lives.gainLife(save, "catnip"); refreshLives(); heartFly(c); fx.float(c.x, c.y, "+1 LIFE", { color: "#ff8a9a" }); }
-    else if (p.id === "bubble") { S.shields++; fx.float(c.x, c.y, "+1 SHIELD", { color: "#7ec4ff" }); }
-    else if (p.id === "big_heart") { lives.gainLife(save, "perk"); refreshLives(); S.shields++; heartFly(c); fx.float(c.x, c.y, "+1 LIFE", { color: "#ff8a9a" }); }
+    if (p.id === "big_heart") { lives.gainLife(save, "perk"); refreshLives(); S.shields++; heartFly(c); fx.float(c.x, c.y, "+1 LIFE", { color: "#ff8a9a" }); }
     else S.perks.push(p.id);
     fx.burst(c.x, c.y, { n: 16, colors: ["#ffcf3f", "#ffffff"], speed: 60, gravity: 40 });
     cat.anim = "dance"; cat.animT = 0;

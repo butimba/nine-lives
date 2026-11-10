@@ -81,7 +81,9 @@ export function openChest(save, type, date = new Date()) {
   const coinAmt = c.coins || [40, 90];
   if (type === "mythic") cat = "legendary";
   if (cat !== "coins") {
-    const pool = [
+    // skórki "mythic" wypadają tylko z mitycznej skrzyni (podwójna waga)
+    const mythicOnly = type === "mythic" ? SKINS.filter((s) => !s.retired && s.source === "mythic" && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })) : [];
+    const pool = [...mythicOnly, ...mythicOnly,
       ...SKINS.filter((s) => !s.retired && s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })),
       ...HATS.filter((s) => !s.retired && s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.hats.includes(s.id)).map((s) => ({ ...s, kind: "hat" })),
     ];

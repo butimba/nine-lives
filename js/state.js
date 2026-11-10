@@ -143,4 +143,5 @@ export function levelInfo(xp) {
   while (rest >= ECON.levelXp(lvl)) { rest -= ECON.levelXp(lvl); lvl++; }
   return { lvl, into: rest, need: ECON.levelXp(lvl) };
 }
-export const talentPoints = (s) => levelInfo(s.xp).lvl - 1 - Object.values(s.talents).reduce((a, b) => a + b, 0);
+// max(0): gdyby zmiana krzywej leveli obniżyła komuś level, nic nie zabieramy i nie pokazujemy ujemnych punktów
+export const talentPoints = (s) => Math.max(0, levelInfo(s.xp).lvl - 1 - Object.values(s.talents).reduce((a, b) => a + b, 0));
