@@ -72,13 +72,16 @@ export function applyRunResults(save, stats = {}) {
   let chest = null, story = null, napLives = 0;
   const startFloor = num(stats.startFloor) || (save.tower.checkpoint + 1);
   if (!isShadow) {
-    if (save.daily.date !== today()) { save.daily.date = today(); save.daily.runs = 0; save.daily.ms = 0; }
+    if (save.daily.date !== today()) { save.daily.date = today(); save.daily.runs = 0; save.daily.ms = 0; save.daily.bossChests = 0; }
     save.daily.runs = (save.daily.runs || 0) + 1;
     if (stats.bossBeaten) {
       save.tower.checkpoint = Math.max(save.tower.checkpoint, startFloor + ECON.floorsPerStage - 1);
       save.tower.bossesBeaten++;
-      chest = chestForFloor(save.tower.checkpoint, save);
-      save.chests.push(chest);
+      if ((save.daily.bossChests || 0) < ECON.bossChestsPerDay || save.tower.checkpoint % ECON.kingEvery === 0) { // Król zawsze daje złotą
+        save.daily.bossChests = (save.daily.bossChests || 0) + 1;
+        chest = chestForFloor(save.tower.checkpoint, save);
+        save.chests.push(chest);
+      }
       // fabuła: 1 nowa strona dziennie (za pierwszego bossa dnia); kto ma przerwę, nic nie traci
       if (save.story < STORY.length && save.tower.bossesBeaten > save.story && save.daily.pageDay !== today()) { save.story++; story = save.story; save.daily.pageDay = today(); }
       for (const g of syncStory(save)) extras.push({ cls: "violet", icon: "moon", text: `Story prize: ${g.item.name}!`, story: g.item.id });
@@ -96,6 +99,8 @@ export function applyRunResults(save, stats = {}) {
   const weeklyDmg = Math.max(0, Math.round(num(stats.weeklyDmg)));
   ensureWeek(save);
   save.weekly.dmg += weeklyDmg;
+  const weeklyFish = Math.round(weeklyDmg * ECON.weeklyFishPerHit * rewardMult(save, mode));
+  if (weeklyFish) { save.coins += weeklyFish; extras.push({ cls: "ok", icon: "coin", text: `Weekly boss: +${weeklyFish} fish!` }); }
 
   // --- duet: moje dobre odpowiedzi dziś = wkład do wspólnego wyzwania (publikowany w saves.pub.duo) ---
   duoAddCorrect(save, num(stats.correct));
@@ -113,7 +118,7 @@ export function applyRunResults(save, stats = {}) {
 
   return {
     ...stats, mode,
-    coins, xp, coinsBase: num(stats.coins), xpBase: num(stats.xp),
+    coins, xp, weeklyFish, coinsBase: num(stats.coins), xpBase: num(stats.xp),
     lvlBefore, lvlAfter, levelChests, newPowers: newPowers.map((p) => p.id), extras, eventChests,
     chest, story, napLives, streakEvents,
     sleepy: sleepyTier(save), mult: rewardMult(save, mode),

@@ -499,6 +499,58 @@ const ANIM = {
     if (layer !== 'front') return;
     if (Math.floor(o.t * 2) % 2) { const [gx, gy] = hp(o, 5, -3); P(o, gx, gy, '#ffffff'); }
   },
+  // ---------- paczka 2026-11: hearts / notes / bubbles / zap ----------
+  hearts(o, layer) {
+    if (layer !== 'front') return;
+    // two small hearts float up from above the head, fading at the top
+    const H = [[1, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [2, 3]];
+    for (let i = 0; i < 2; i++) {
+      const ph = (o.t * 0.55 + i * 0.5) % 1;
+      if (ph > 0.85) continue;
+      const [gx, gy] = hp(o, 2 + i * 9 + Math.round(Math.sin(o.t * 3 + i * 2) * 1.5), -3 - Math.round(ph * 9));
+      for (const [x, y] of H) P(o, gx + x, gy + y, x === 1 && y === 1 ? '#ffc9d3' : i ? '#ff8fb1' : '#ff4f7a');
+    }
+  },
+  notes(o, layer) {
+    if (layer !== 'front') return;
+    // music notes drift up and sideways, as if the cat is singing
+    const N = [[2, 0], [3, 0], [4, 1], [2, 1], [2, 2], [2, 3], [0, 3], [1, 3], [0, 4], [1, 4]];
+    const col = o.rec.skin.colors.eye;
+    for (let i = 0; i < 2; i++) {
+      const ph = (o.t * 0.45 + i * 0.5) % 1;
+      if (ph > 0.8) continue;
+      const [gx, gy] = hp(o, -4 + Math.round(ph * 5) + i * 16, 1 - Math.round(ph * 10));
+      for (const [x, y] of N) P(o, gx + x, gy + y, y >= 3 ? col : shade(col, -0.25));
+    }
+  },
+  bubbles(o, layer) {
+    if (layer !== 'front') return;
+    // round bubbles rise from the fur and pop
+    const pts = o.rec.furMask[o.fi];
+    for (let i = 0; i < 3; i++) {
+      const cyc = Math.floor(o.t * 0.8 + i / 3), ph = (o.t * 0.8 + i / 3) % 1;
+      const r = rng32(cyc * 7 + i + 5), p = pts[Math.floor(r() * pts.length)];
+      const gx = p[0] + Math.round(Math.sin(o.t * 4 + i) * 1), gy = p[1] - Math.round(ph * 12);
+      if (ph > 0.9) { sparkle(o, gx, gy, 0, '#bff4ff'); continue; }
+      const big = i === 0;
+      for (const [x, y] of big ? [[1, 0], [0, 1], [2, 1], [1, 2]] : [[0, 0], [1, 0], [0, 1], [1, 1]]) P(o, gx + x, gy + y, big ? '#7fdcff' : '#bff4ff');
+      if (big) P(o, gx + 1, gy + 1, '#e8fbff');
+    }
+  },
+  zap(o, layer) {
+    if (layer !== 'front') return;
+    // a lightning bolt flashes next to the cat now and then, sparks crackle on the fur
+    const B = [[2, 0], [3, 0], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2], [3, 2], [2, 3], [1, 4], [0, 5]];
+    const cyc = Math.floor(o.t * 1.2), ph = (o.t * 1.2) % 1;
+    if (ph < 0.25) {
+      const r = rng32(cyc + 77), side = r() < 0.5;
+      const [gx, gy] = hp(o, side ? -6 : 15, -6 + Math.floor(r() * 4));
+      for (const [x, y] of B) P(o, gx + x, gy + y, ph < 0.1 ? '#ffffff' : '#ffe14d');
+    }
+    const pts = o.rec.furMask[o.fi], r2 = rng32(Math.floor(o.t * 8) + 3);
+    const p = pts[Math.floor(r2() * pts.length)];
+    if (r2() < 0.6) sparkle(o, p[0], p[1], 0, '#ffe14d');
+  },
   ghost(o, layer) {
     if (layer !== 'back') return;
     // faint trail wisps

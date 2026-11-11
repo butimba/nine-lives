@@ -47,8 +47,9 @@ const V1 = {
 // ---------- migracja ----------
 {
   const s = migrate(clone(V1), { noReading: false });
-  eq(s.v, SAVE_VERSION, "version bumped to 5");
-  eq(SAVE_VERSION, 5, "SAVE_VERSION is 5");
+  eq(s.v, SAVE_VERSION, "version bumped to latest");
+  eq(SAVE_VERSION, 6, "SAVE_VERSION is 6");
+  eq(s.base, { owned: [], placed: {} }, "v6: Moon Base field added");
   eq(s.duo, freshDuo(), "v4: duo added");
   eq(s.tips, { _old: 1 }, "v5: old accounts skip the tutorial");
   eq(s.pace, { catch: 1 }, "v5: catch pace added");
@@ -79,7 +80,7 @@ const V1 = {
   // fresh save has all new fields
   const f = freshSave("x", { noReading: true });
   eq(f.tips, {}, "v5: fresh account gets the tutorial");
-  ok(f.v === 5 && f.duo && Array.isArray(f.duo.got) && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
+  ok(f.v === SAVE_VERSION && f.duo && Array.isArray(f.duo.got) && f.lives.n === 9 && f.daily.ms === 0 && f.challenges && f.powers && f.settings.voice === true, "freshSave v2 fields");
   eq(freshSave("x", { voice: true }).settings.voice, false, "freshSave: voice follows noReading, not profile.voice");
   eq(migrate(null), null, "migrate(null) -> null");
 }
@@ -91,7 +92,7 @@ const V1 = {
   V2.powers = { owned: ["owl_eye"], equipped: ["owl_eye"] }; V2.lives = { n: 4, at: 123, date: "2026-10-27" }; V2.daily.ms = 777;
   const before = clone(V2);
   const s = migrate(clone(V2), {});
-  eq(s.v, 5, "v2 -> v5");
+  eq(s.v, SAVE_VERSION, "v2 -> latest");
   for (const k of Object.keys(before)) if (!["v", "stats", "lives"].includes(k)) eq(s[k], before[k], `v2 field preserved: ${k}`);
   for (const k of Object.keys(before.stats)) eq(s.stats[k], before.stats[k], `v2 stats preserved: ${k}`);
   ok(s.lives.n === 4 && s.lives.at === 123 && s.lives.date === "2026-10-27", "v2 lives preserved");
@@ -174,12 +175,12 @@ const V1 = {
 // ---------- boss tygodnia: wspólna pula ----------
 {
   const a = weeklyNumbers({ total: 300, players: 2, mine: 100 });
-  eq(a.hp, 500, "weekly hp = 250/player"); eq(a.pool, 1500, "pool = hp x 3"); eq(a.share, 300, "share by damage (100/500 of 1500)");
+  eq(a.hp, 500, "weekly hp = 250/player"); eq(a.pool, 1000, "pool = hp x 2"); eq(a.share, 200, "share by damage (100/500 of 1000)");
   const b = weeklyNumbers({ total: 2000, players: 2, lastTotal: 2000, lastPlayers: 3, mine: 1000 });
-  eq(b.hp, 1800, "hp grows with last week's effort (90%)"); eq(b.share, Math.round(5400 * 1000 / 2000), "big helper gets big share");
+  eq(b.hp, 1800, "hp grows with last week's effort (90%)"); eq(b.share, Math.round(3600 * 1000 / 2000), "big helper gets big share");
   eq(weeklyNumbers({ total: 500, players: 2, mine: 0 }).share, 0, "no hits -> no share");
   eq(weeklyNumbers({ total: 5000, players: 2, mine: 1 }).share, 50, "tiny helper gets min 50");
-  const s = freshSave("wk", {}); const r = weeklyReward(s, { share: 420 }); ok(r.coins === 420 && s.coins === 50 + 420 && r.skin, "weekly reward = skin + my share");
+  const s = freshSave("wk", {}); const r = weeklyReward(s, { share: 420 }); ok(r.coins === 420 && s.coins === 50 + 420 && r.skin && s.chests.includes("mythic"), "weekly reward = mythic chest + skin + my share");
 }
 
 // ---------- moce ----------
@@ -210,13 +211,13 @@ const V1 = {
   const s = freshSave("ev", {}); const r = applyRunResults(s, { mode: "tower", eventChests: ["wood"] });
   ok(s.chests.includes("wood") && r.eventChests[0] === "wood", "mimic chest goes to save.chests");
   const h = activeEvent(new Date(2026, 9, 31), EVENTS); ok(h && h.id === "halloween" && h.mech === "trickortreat", "halloween on 31.10");
-  ok(!activeEvent(new Date(2026, 10, 20), EVENTS), "no event on 20.11");
-  ok(activeEvent(new Date(2026, 10, 7), EVENTS)?.id === "halloween" && !activeEvent(new Date(2026, 10, 8), EVENTS), "halloween ends 7.11");
-  ok(!activeEvent(new Date(2026, 10, 30), EVENTS), "no event on 30.11");
+  ok(activeEvent(new Date(2026, 10, 20), EVENTS)?.id === "halloween", "halloween on 20.11");
+  ok(activeEvent(new Date(2026, 10, 30), EVENTS)?.id === "halloween", "halloween lasts till 30.11");
   const w = activeEvent(new Date(2026, 11, 1), EVENTS); ok(w && w.id === "winter" && w.mech === "presents" && w.vocab === "winter", "winter switches on by itself on 1.12");
   ok(activeEvent(new Date(2026, 11, 24), EVENTS)?.id === "winter", "winter on 24.12");
   const ny = activeEvent(new Date(2026, 11, 31), EVENTS); ok(ny && ny.id === "newyear" && ny.sky === "fireworks", "new year on 31.12");
-  ok(activeEvent(new Date(2027, 0, 6), EVENTS)?.id === "newyear" && !activeEvent(new Date(2027, 0, 7), EVENTS), "new year ends 6.01");
+  ok(activeEvent(new Date(2027, 0, 6), EVENTS)?.id === "newyear" && activeEvent(new Date(2027, 0, 7), EVENTS)?.id === "winter", "new year ends 6.01, winter goes on");
+  ok(activeEvent(new Date(2027, 0, 15), EVENTS)?.id === "winter" && !activeEvent(new Date(2027, 0, 16), EVENTS), "winter ends 15.01");
   ok(eventAllows(ny, "event:winter") && eventAllows(w, "event:newyear") && !eventAllows(w, "event:halloween"), "winter <-> newyear share items");
 }
 
@@ -236,7 +237,7 @@ const V1 = {
   ok(!dec.skins.some((k) => k.id === "reindeer"), "reindeer is chest-only");
   const evc = eventChestItems(new Date(2026, 11, 5)).map((x) => x.id);
   ok(evc.includes("reindeer") && evc.includes("antlers") && evc.includes("lights") && !evc.includes("santacat"), "event chest pool");
-  ok(!eventChestItems(new Date(2026, 10, 20)).length, "no event chest items in November");
+  ok(!eventChestItems(new Date(2026, 0, 20)).length, "no event chest items on 20.01");
   // skrzynie w grudniu dają świąteczne rzeczy
   const c = freshSave("chx", {}); let got = 0;
   for (let i = 0; i < 400; i++) { const r = (0, openChest)(c, "epic", new Date(2026, 11, 5)); if (r.item && xmas.concat(["antlers", "star"]).includes(r.item.id)) got++; }
@@ -402,6 +403,9 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   const s = freshSave("wk", {}); s.weekly = { week: "1999-W01", dmg: 500, claimed: [] };
   applyRunResults(s, { ...clone(baseStats), weeklyDmg: 33 });
   ok(s.weekly.week !== "1999-W01" && s.weekly.dmg === 33, "weekly reset + dmg added");
+  { const sc = freshSave("cap", {}); const got = [1, 6, 11, 16, 21].map((f) => applyRunResults(sc, { mode: "tower", bossBeaten: true, startFloor: f }).chest);
+    ok(got.slice(0, 3).every(Boolean) && !got[3] && got[4] === "gold", `3 boss chests a day, King always gold (${got})`); }
+  { const s3 = freshSave("wk3", {}); const c0 = s3.coins; const r3 = applyRunResults(s3, { ...clone(baseStats), weeklyDmg: 20 }); ok(r3.weeklyFish > 0 && s3.coins === c0 + r3.coins + r3.weeklyFish, `weekly hits pay fish right away (+${r3.weeklyFish})`); }
   // pusty / dziwny stats nie wywala
   const s2 = freshSave("e", {}); const r = applyRunResults(s2, {});
   ok(r.coins === 0 && r.xp === 0 && s2.tower.checkpoint === 0, "empty stats safe");
@@ -417,15 +421,13 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   ok(new Set(s.owned.skins).size === s.owned.skins.length, "no duplicate skins");
   const s2 = freshSave("ch2", {}); const c = openChest(s2, "nope"); ok(c && c.kind, "unknown chest type falls back");
   const hi = () => 0.99, lo = () => 0.01;
-  eq(chestForFloor(50, null, hi), "epic", "floor 50 -> epic"); eq(chestForFloor(25, null, hi), "gold", "floor 25 -> gold");
-  // mythic: never below floor 50, rare above
-  ok(chestForFloor(45, null, lo) !== "mythic", "floor 45: no mythic even on a lucky roll");
-  eq(chestForFloor(75, null, lo), "mythic", "floor 75 gold + lucky roll -> mythic");
-  { let m = 0; for (let i = 0; i < 4000; i++) if (chestForFloor(55 + 5 * (i % 20)) === "mythic") m++; ok(m > 60 && m < 300, `mythic rate ~1.5-7% from floor 50 (${m}/4000)`); }
+  eq(chestForFloor(50, null, hi), "epic", "floor 50 (big King) -> epic"); eq(chestForFloor(25, null, lo), "gold", "floor 25 (King) -> gold");
+  eq(chestForFloor(45, null, lo), "epic", "very lucky roll from floor 40 -> epic"); eq(chestForFloor(45, null, () => 0.1), "silver", "lucky roll -> silver"); eq(chestForFloor(35, null, lo), "silver", "no random epic below floor 40"); eq(chestForFloor(45, null, hi), "wood", "normal boss -> wood");
+  { const seen = new Set(); for (let i = 1; i < 4000; i++) seen.add(chestForFloor(5 * i)); ok(!seen.has("mythic") && seen.has("epic"), "tower: epic sometimes, mythic never"); }
   { const sm = freshSave("myth", {}); const res = Array.from({ length: 12 }, () => openChest(sm, "mythic"));
-    ok(res.every((r) => (r.kind === "coins" && r.amount >= 1000 && r.amount <= 1500) || ((r.kind === "skin" || r.kind === "hat") && ["legendary", "epic"].includes(r.item.rarity))), "mythic -> legendary item or 1000-1500 fish");
-    { const sx = freshSave("myth2", {}); let it = 0; for (let i = 0; i < 400; i++) if (openChest(sx, "mythic").kind !== "coins") it++; ok(it > 10, `mythic gives items (${it})`); }
-    for (let i = 0; i < 150; i++) openChest(sm, "mythic"); const r2 = Array.from({ length: 6 }, () => openChest(sm, "mythic")); ok(r2.every((r) => r.kind === "coins" && r.amount >= 1000), "mythic with everything owned -> big fish, no duplicate");
+    ok(res.every((r) => (r.kind === "coins" && r.amount >= 500 && r.amount <= 800) || ((r.kind === "skin" || r.kind === "hat") && ["legendary", "epic"].includes(r.item.rarity))), "mythic -> legendary item or 500-800 fish");
+    { const sx = freshSave("myth2", {}); ok(Array.from({ length: 8 }, () => openChest(sx, "mythic")).every((r) => r.kind !== "coins"), "mythic always gives an item while some are left"); }
+    for (let i = 0; i < 150; i++) openChest(sm, "mythic"); const r2 = Array.from({ length: 6 }, () => openChest(sm, "mythic")); ok(r2.every((r) => r.kind === "coins" && r.amount >= 500), "mythic with everything owned -> big fish, no duplicate");
     ok(["mooncat", "phoenix", "crystal", "aurora"].every((id) => sm.owned.skins.includes(id)), "mythic gives the 4 mythic-only skins"); }
   { const sg = freshSave("gold", {}); for (let i = 0; i < 60; i++) openChest(sg, "gold"); ok(!sg.owned.skins.some((id) => SKINS.find((k) => k.id === id).source === "mythic"), "mythic-only skins never in normal chests"); }
   ok(TALENTS.length === 9 && TALENTS.every((t) => /^[\x20-\x7e]+$/.test(t.desc(1)) && t.desc(1).length < 40), "talent descs short English");
@@ -476,6 +478,53 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   const g2 = mk(0.1); g2.tapNext(); g2.run(60);
   eq(g2.log.miss, 0, "boss: missed golden shots never hurt");
   ok(ECON.kingEvery === 25 && ECON.kingHp > 0 && ECON.kingFish > 0, "king boss config");
+}
+
+// ---- ekonomia 2026-11: ceny, drabinka skrzyń, sklep tygodnia ----
+{
+  const { PRICE } = await import("../data/cosmetics.js");
+  const { CHESTS: CH } = await import("../data/progression.js");
+  const { featuredItem, FEATURED, touchStreak: tS, openChest: oC } = await import("../js/meta.js");
+  ok(SKINS.filter((x) => x.price).every((x) => x.price === PRICE.skin[x.rarity]) && HATS.filter((x) => x.price).every((x) => x.price === PRICE.hat[x.rarity]), "one price per rarity (skins + hats)");
+  const rank = { common: 0, rare: 1, epic: 2, legendary: 3 };
+  for (const t of ["wood", "silver", "gold", "epic", "mythic"]) {
+    const sv = freshSave("lad" + t, {}); let bad = 0;
+    for (let i = 0; i < 300; i++) { const r = oC(sv, t, new Date(2026, 1, 1)); if (r.item && rank[r.item.rarity] < rank[CH[t].min]) bad++; }
+    eq(bad, 0, `${t} chest never below ${CH[t].min}`);
+  }
+  { const sv = freshSave("silv", {}); ok(Array.from({ length: 10 }, () => oC(sv, "silver", new Date(2026, 1, 1))).every((r) => r.kind !== "coins"), "silver chest always gives an item while some are left"); }
+  { const sv = freshSave("feat", {}); let bad = 0; for (let i = 0; i < 400; i++) { const r = oC(sv, "gold", new Date(2026, 1, 1)); if (r.item && r.item.source === "featured") bad++; } eq(bad, 0, "chests never give featured skins"); }
+  const wk = (n) => new Date(2026, 0, 5 + 7 * n);
+  const ids = Array.from({ length: FEATURED.length + 1 }, (_, i) => featuredItem(wk(i)).id);
+  ok(new Set(ids.slice(0, FEATURED.length)).size === FEATURED.length && ids[0] === ids[FEATURED.length], `featured skin changes weekly and comes back (${ids})`);
+  eq(featuredItem(new Date(2026, 0, 5)).id, featuredItem(new Date(2026, 0, 11)).id, "same featured skin Mon..Sun");
+  { const sv = freshSave("shopf", {}); const si = shopItems(sv, wk(0)); ok(si.featured && !si.skins.some((x) => x.source === "featured"), "shop: featured only as the weekly card"); }
+  { const sv = freshSave("st28", {}); const d = new Date(Date.now() - 864e5);
+    sv.streak.last = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; sv.streak.count = 27;
+    const evs = tS(sv); ok(sv.chests.includes("epic") && evs.some((e) => e.chest === "epic"), "28-day streak -> epic chest"); }
+}
+
+// ---- Moon Base + paczka ze statku ----
+{
+  const { baseUnlocked, buyFurniture, placeFurniture, openParcel } = await import("../js/meta.js");
+  const { FURNITURE } = await import("../data/base.js");
+  const { PRICE } = await import("../data/cosmetics.js");
+  ok(new Set(FURNITURE.map((f) => f.id)).size === FURNITURE.length, "furniture ids unique");
+  ok(FURNITURE.every((f) => f.source === "ship" ? f.price === 0 : f.price === PRICE.hat[f.rarity]), "furniture price = hat table");
+  const sv = freshSave("base1", {}); sv.coins = 1000;
+  sv.story = 24; ok(!baseUnlocked(sv), "base locked before page 25");
+  sv.story = 25; ok(baseUnlocked(sv), "base unlocked on page 25");
+  const lamp = FURNITURE.find((f) => f.id === "lamp");
+  ok(buyFurniture(sv, lamp) && sv.coins === 1000 - lamp.price && !buyFurniture(sv, lamp), "buy furniture once");
+  ok(!buyFurniture(sv, FURNITURE.find((f) => f.source === "ship")), "ship furniture not for sale");
+  ok(placeFurniture(sv, "top", "lamp") && sv.base.placed.top === "lamp", "place furniture");
+  ok(!placeFurniture(sv, "wall1", "planet"), "cannot place furniture you do not own");
+  placeFurniture(sv, "wall1", "lamp"); ok(!sv.base.placed.top && sv.base.placed.wall1 === "lamp", "moving furniture empties old slot");
+  sv.story = 44; eq(openParcel(sv, "2026-11-12"), null, "no ship parcel before page 45");
+  sv.story = 45; const c0 = sv.coins; const r1 = openParcel(sv, "2026-11-12", () => 0.9);
+  ok(r1 && r1.fish >= 15 && r1.fish <= 30 && sv.coins === c0 + r1.fish, "parcel gives 15-30 fish");
+  eq(openParcel(sv, "2026-11-12"), null, "ship parcel once per day");
+  const r2 = openParcel(sv, "2026-11-13", () => 0.1); ok(r2 && r2.item && r2.item.source === "ship" && sv.base.owned.includes(r2.item.id), "parcel sometimes gives ship furniture");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -60,12 +60,12 @@ export function makeDaily(save, profile = {}, date = new Date()) {
   // 3) game
   const owned = (save.powers && save.powers.owned) || [];
   const game = [
-    { ev: "combo", goal: young ? 8 : 10, text: `Get a combo of ${young ? 8 : 10}`, icon: "flame", w: 3, reward: { fish: 50, chest: "wood" } },
-    { ev: "boss", goal: 1, text: "Beat a boss", icon: "skull", w: 2, reward: { fish: 50, chest: "wood" } },
+    { ev: "combo", goal: young ? 8 : 10, text: `Get a combo of ${young ? 8 : 10}`, icon: "flame", w: 3, reward: { fish: 60 } },
+    { ev: "boss", goal: 1, text: "Beat a boss", icon: "skull", w: 2, reward: { fish: 60 } },
     { ev: "noLifeBoss", goal: 1, text: "Beat a boss without losing a life", icon: "heart", w: young ? 1 : 2, reward: { fish: 60, chest: "silver" } },
-    { ev: "floor", goal: 8, text: "Climb 8 floors", icon: "arrowR", w: 2, reward: { fish: 50, chest: "wood" } },
+    { ev: "floor", goal: 8, text: "Climb 8 floors", icon: "arrowR", w: 2, reward: { fish: 60 } },
   ];
-  if (owned.length) game.push({ ev: "power", goal: 2, text: "Use a power 2 times", icon: "power_" + owned[0], w: 2, reward: { fish: 50, chest: "wood" } });
+  if (owned.length) game.push({ ev: "power", goal: 2, text: "Use a power 2 times", icon: "power_" + owned[0], w: 2, reward: { fish: 60 } });
   list.push({ ...pickW(game, rng), kind: "game" });
   return list.map((c, i) => ({ id: `${d}:${i}`, ev: c.ev, text: c.text, goal: c.goal, n: 0, done: false, claimed: false, reward: { ...c.reward }, icon: c.icon, kind: c.kind }));
 }

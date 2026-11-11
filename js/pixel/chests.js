@@ -61,7 +61,7 @@ const MATS = {
     T: '#241640', t: '#140b28', M: '#6fe3d3', K: '#6fe3d3', G: '#ff5df0', g: '#a82894', i: '#1a0d33', y: '#ffb8f7',
     light: '#ff9df5',
   },
-  // mythic: obsidian + gold trim, rainbow gem (rare: from floor 50, see meta.chestForFloor)
+  // mythic: obsidian + gold trim, rainbow gem (only from the weekly boss, see meta.weeklyReward)
   mythic: {
     L: '#2d3352', l: '#1c2038', h: '#4a557f', B: '#262b47', b: '#14172b', H: '#39406a', P: '#ffd23f',
     T: '#ffd23f', t: '#a87a12', M: '#fff1a8', K: '#9df2ff', G: '#ff5df0', g: '#6fe3d3', i: '#0a0b18', y: '#d2fbff',

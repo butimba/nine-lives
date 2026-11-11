@@ -111,7 +111,7 @@ function drawCloud(ctx, x, y, w, col, hi) {
 }
 
 // story = save.story (tylko ekran główny): Księżyc wypełnia się kawałkami (strony 1–25), potem gwiazdozbiory (26–95), 100 = Gwiazda Północna
-export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, birds = true, fireflies = false, story = null } = {}) {
+export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, birds = true, fireflies = false, story = null, hide = -1 } = {}) {
   const p = asPhase(phase);
   ctx.drawImage(skyCanvas(w, h, p), 0, 0);
   const night = p.phase === "night", day = p.phase === "day";
@@ -148,7 +148,7 @@ export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, bi
   }
   ctx.globalAlpha = 1;
   // the stolen moon: dashed outline (story!)
-  if (story != null) drawStorySky(ctx, story, t, night ? 1 : p.phase === "day" ? 0.55 : 0.8);
+  if (story != null) drawStorySky(ctx, story, t, night ? 1 : p.phase === "day" ? 0.55 : 0.8, hide);
   if (moon) {
     const mx = moonX ?? Math.round(w * 0.76), my = moonY ?? Math.round(h * 0.13);
     if (story != null && story > 0) drawMoonPieces(ctx, mx, my, t, night ? 1 : 0.75, Math.min(1, story / MOON_PAGES));
@@ -214,9 +214,11 @@ export function drawNorthStar(ctx, x, y, t = 0, alpha = 1) {
   ctx.fillStyle = "#ffffff"; ctx.fillRect(x, y, 1, 1);
   ctx.globalAlpha = 1;
 }
-function drawStorySky(ctx, story, t, alpha) {
+// hide = indeks gwiazdozbioru, który właśnie „ożywa” (skyshow.js rysuje go w ruchu)
+function drawStorySky(ctx, story, t, alpha, hide = -1) {
   const lit = skyStars(story);
   CONSTELLATIONS.forEach((c, i) => {
+    if (i === hide) return;
     const n = Math.max(0, Math.min(5, lit - i * 5));
     const cur = i === Math.floor(lit / 5) && story >= MOON_PAGES;
     if (!n && !cur) return;

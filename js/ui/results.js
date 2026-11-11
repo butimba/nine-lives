@@ -29,7 +29,7 @@ export const resultsScreen = {
     for (const e of r.streakEvents || []) {
       if (e.type === "freeFreeze") msgs.push({ icon: "shield", text: "Free streak freeze!" });
       if (e.type === "freezeUsed") msgs.push({ icon: "shield", text: "A freeze saved your streak!" });
-      if (e.type === "streakChest") msgs.push({ cls: "gold", icon: "flame", text: `${e.n} days in a row! Silver chest!` });
+      if (e.type === "streakChest") msgs.push({ cls: "gold", icon: "flame", text: `${e.n} days in a row! ${e.chest === "epic" ? "EPIC" : "Silver"} chest!` });
       if (e.type === "streakLost") msgs.push({ icon: "flame", text: "New streak. Go go go!" });
     }
     // dodatki z rewards.js (G): nowe moce, skrzynia z mimika, złoty potwór, sekretne piętro — [{cls, icon, text}]

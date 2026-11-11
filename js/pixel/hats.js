@@ -246,7 +246,8 @@ const HAT_DEFS = {
       '.ttttttttttt.',
     ],
     map: { T: '#ecc28a', t: '#c98a52', R: '#ff5d8f' },
-  },  // ---------- story prizes ----------
+  },
+  // ---------- story prizes ----------
   moonclip: {
     dx: 3, dy: 0,
     rows: [
@@ -429,6 +430,51 @@ const HAT_DEFS = {
       '..KKKKKK.Y.',
     ],
     map: { K: '#2a2a36', Y: '#ffd23f' },
+  },
+
+  // ---------- paczka 2026-11 ----------
+  beret: {
+    dx: 1, dy: 0,
+    rows: [
+      '....b....',
+      '..rrrrr..',
+      '.rRrrrrr.',
+      'rrrrrrrrr',
+      '.ddddddd.',
+    ],
+    map: { b: '#3a1a2a', r: '#c2306a', R: '#ff6f9a', d: '#8a1f48' },
+  },
+  bandana: {
+    dx: 0, dy: 1,
+    rows: [
+      '.rrrrrrr...',
+      'rrWrrrWrr..',
+      'rrrrrrrrrrr',
+      '........rr.',
+    ],
+    map: { r: '#e8434f', W: '#ffffff' },
+  },
+  dragonhorns: {
+    dx: 0, dy: 0,
+    rows: [
+      'g.........g',
+      'gg.......gg',
+      '.gG.....Gg.',
+      '..GG...GG..',
+    ],
+    map: { g: '#3aa34f', G: '#93e04c' },
+  },
+  astronaut: {
+    dx: 0, dy: 2,
+    rows: [
+      '...WWWWW...',
+      '..WbbbbBW..',
+      '.WbbbbbbBW.',
+      '.WbbbbbbbW.',
+      '.WWWWWWWWW.',
+      'SSSSRSSSSSS',
+    ],
+    map: { W: '#f4f8ff', b: '#3b78d8', B: '#bfe6ff', S: '#9aa5b8', R: '#e8434f' },
   },
 
 };

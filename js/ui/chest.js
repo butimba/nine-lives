@@ -8,6 +8,7 @@ import { openChest, isGift } from "../meta.js";
 import { sfx, startMusic } from "../audio.js";
 import { RARITY_COLOR } from "../pixel/palette.js";
 import { chestSprite } from "../pixel/chests.js";
+import { CHEST_PROMISE } from "../../data/progression.js";
 import { getCat } from "../pixel/cat.js";
 import { createStage } from "../game/stage.js";
 import { createFx, pxText } from "../game/juice.js";
@@ -29,7 +30,7 @@ export const chestScreen = {
         <div class="chip chip--fish">${ico("fish")}<b data-fish>${save.coins}</b></div></div>
       ${gift ? `<div class="gift-banner">${sticker(`<span class="sticker-label sticker-label--red">A gift from your teacher!</span>`, { tilt: -3 })}<span class="hand gift-note">for you!</span></div>` : ""}
       <div class="chest-stage"><button class="tap-chest-hot" data-act="tap-chest" aria-label="Tap the chest"></button></div>
-      <div class="chest-ui"><div class="chest-hint">Tap! Tap! Tap!</div><div class="tap-dots"><i></i><i></i><i></i></div></div>
+      <div class="chest-ui">${!gift && CHEST_PROMISE[type] ? `<div class="chest-left chest-promise">${esc(CHEST_PROMISE[type])}</div>` : ""}<div class="chest-hint">Tap! Tap! Tap!</div><div class="tap-dots"><i></i><i></i><i></i></div></div>
     </div>`);
     root.append(el);
     const $ = (s) => el.querySelector(s);

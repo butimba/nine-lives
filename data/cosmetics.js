@@ -2,10 +2,12 @@
 // Nowa skórka = nowy wpis. Nie usuwaj starych — ustaw "retired: true", żeby zniknęła ze sklepu.
 // source: "shop" (za monety), "chest" (tylko ze skrzynek), "weekly" (nagroda za bossa tygodnia, po kolei wg "order"),
 //         "mythic" (TYLKO z mitycznej skrzyni, rarity legendary), "story" (nagroda z fabuły, STORY_REWARDS),
-//         "event:<id>" (do kupienia tylko w czasie wydarzenia), "start" (każdy ma od początku)
+//         "event:<id>" (do kupienia tylko w czasie wydarzenia), "start" (każdy ma od początku),
+//         "featured" (sklep tygodnia: do kupienia tylko w swoim tygodniu, rotacja FEATURED w js/meta.js)
+// price: liczba = „da się kupić”; prawdziwa cena zawsze z tabeli PRICE na dole pliku (jedna cena na rzadkość)
 // colors: fur, belly, stripe, ear, eye, nose. pattern: none | stripes | spots | tux | socks
 // fx: dodatkowe efekty rysowane przez grę (shrimp, fire, toxic, candy, ghost, galaxy, robot, ice, zombie, golden, pumpkin, rainbow,
-//     shark, santa, lights, xmastree, reindeer, snowman, elf, candycane, firework, moon)
+//     shark, santa, lights, xmastree, reindeer, snowman, elf, candycane, firework, moon, hearts, notes, bubbles, zap)
 // chest: true = przedmiot wydarzenia może też wypaść ze skrzyni w czasie wydarzenia (bez ceny = TYLKO ze skrzyni w czasie wydarzenia)
 
 export const SKINS = [
@@ -31,13 +33,13 @@ export const SKINS = [
     colors: { fur: "#bfeaff", belly: "#effaff", stripe: "#7cc8f0", ear: "#ffffff", eye: "#2266ff", nose: "#7cc8f0" } },
   { id: "fire", name: "Fire Cat", rarity: "epic", source: "chest", pattern: "stripes", fx: ["fire"],
     colors: { fur: "#ff6b2c", belly: "#ffd36b", stripe: "#c7280f", ear: "#ffd36b", eye: "#fff35c", nose: "#7a1505" } },
-  { id: "galaxy", name: "Galaxy Cat", rarity: "epic", source: "shop", price: 900, pattern: "none", fx: ["galaxy"],
+  { id: "galaxy", name: "Galaxy Cat", rarity: "epic", source: "shop", price: 1400, pattern: "none", fx: ["galaxy"],
     colors: { fur: "#3b2a7a", belly: "#5a43b0", stripe: "#22195a", ear: "#ff7ae0", eye: "#7affea", nose: "#ff7ae0" } },
   { id: "golden", name: "Golden Cat", rarity: "legendary", source: "chest", pattern: "none", fx: ["golden"],
     colors: { fur: "#ffcf3f", belly: "#fff1b0", stripe: "#d99a00", ear: "#ffe68a", eye: "#b8336a", nose: "#d99a00" } },
-  { id: "rainbow", name: "Rainbow Cat", rarity: "legendary", source: "shop", price: 2500, pattern: "none", fx: ["rainbow"],
+  { id: "rainbow", name: "Rainbow Cat", rarity: "legendary", source: "shop", price: 4000, pattern: "none", fx: ["rainbow"],
     colors: { fur: "#ffffff", belly: "#ffffff", stripe: "#ffffff", ear: "#ff9ad5", eye: "#5b3cff", nose: "#ff6fa5" } },
-  { id: "shark", name: "Shark Cat", rarity: "epic", source: "shop", price: 950, pattern: "none", fx: ["shark"],
+  { id: "shark", name: "Shark Cat", rarity: "epic", source: "shop", price: 1500, pattern: "none", fx: ["shark"],
     colors: { fur: "#6f8fae", belly: "#eef4f8", stripe: "#4a6a8a", ear: "#9fb8d0", eye: "#101828", nose: "#3a4a5e" } },
   // --- wydarzenia ---
   { id: "pumpkin", name: "Pumpkin Cat", rarity: "rare", source: "event:halloween", price: 350, pattern: "stripes", fx: ["pumpkin"],
@@ -115,13 +117,13 @@ export const SKINS = [
     colors: { fur: "#ff9ad5", belly: "#ffe0f2", stripe: "#ff5db0", ear: "#ffd0ea", eye: "#3b4ea8", nose: "#ff5d8f" } },
   { id: "ocean", name: "Ocean Cat", rarity: "rare", source: "shop", price: 550, pattern: "stripes",
     colors: { fur: "#3b9ad8", belly: "#c8ecff", stripe: "#1f5a9a", ear: "#7ec4ff", eye: "#ffe14d", nose: "#1f3a78" } },
-  { id: "tiger", name: "Tiger Cat", rarity: "epic", source: "shop", price: 1800, pattern: "stripes",
+  { id: "tiger", name: "Tiger Cat", rarity: "epic", source: "shop", price: 2400, pattern: "stripes",
     colors: { fur: "#ff9a1f", belly: "#fff1d8", stripe: "#2a1a10", ear: "#ffd0a0", eye: "#3fae5a", nose: "#2a1a10" } },
-  { id: "neon", name: "Neon Cat", rarity: "epic", source: "shop", price: 2600, pattern: "stripes", fx: ["galaxy"],
+  { id: "neon", name: "Neon Cat", rarity: "epic", source: "shop", price: 3200, pattern: "stripes", fx: ["galaxy"],
     colors: { fur: "#15152a", belly: "#24244a", stripe: "#4dffb0", ear: "#ff4dd8", eye: "#4dffb0", nose: "#ff4dd8" } },
-  { id: "sunset", name: "Sunset Cat", rarity: "legendary", source: "shop", price: 4500, pattern: "stripes", fx: ["golden"],
+  { id: "sunset", name: "Sunset Cat", rarity: "legendary", source: "shop", price: 6500, pattern: "stripes", fx: ["golden"],
     colors: { fur: "#ff7a5a", belly: "#ffd08a", stripe: "#c84a8a", ear: "#ffd08a", eye: "#5b3cff", nose: "#c84a8a" } },
-  { id: "comet", name: "Comet Cat", rarity: "legendary", source: "shop", price: 6000, pattern: "none", fx: ["ice", "galaxy"],
+  { id: "comet", name: "Comet Cat", rarity: "legendary", source: "shop", price: 9000, pattern: "none", fx: ["ice", "galaxy"],
     colors: { fur: "#e8f4ff", belly: "#ffffff", stripe: "#9ad0ff", ear: "#9ad0ff", eye: "#2b4ea8", nose: "#7ec4ff" } },
   // --- wydarzenia (wracają co roku) ---
   { id: "cocoa", name: "Cocoa Cat", rarity: "rare", source: "event:winter", price: 380, pattern: "socks",
@@ -155,6 +157,32 @@ export const SKINS = [
     colors: { fur: "#4a2a1a", belly: "#7a4a2a", stripe: "#ffa04d", ear: "#ffa04d", eye: "#ffe14d", nose: "#ffa04d" } },
   { id: "glacier", name: "Glacier Cat", rarity: "epic", source: "weekly", order: 10, pattern: "stripes", fx: ["ice"],
     colors: { fur: "#bfe6ff", belly: "#f0faff", stripe: "#5fa8e0", ear: "#d8b8ff", eye: "#1f3a78", nose: "#7ec4ff" } },
+  // --- paczka 2026-11: zwykły sklep (common/rare, też w skrzyniach) ---
+  { id: "honey", name: "Honey Cat", rarity: "common", source: "shop", price: 1, pattern: "socks",
+    colors: { fur: "#f2b84b", belly: "#fff3d0", stripe: "#fff3d0", ear: "#ffc59a", eye: "#6b3a1a", nose: "#d8706b" } },
+  { id: "cloud", name: "Cloud Cat", rarity: "common", source: "shop", price: 1, pattern: "spots",
+    colors: { fur: "#e6eef8", belly: "#ffffff", stripe: "#a9b9d0", ear: "#ffc6d9", eye: "#4aa8ff", nose: "#ff8fb1" } },
+  { id: "mocha", name: "Mocha Cat", rarity: "common", source: "shop", price: 1, pattern: "tux",
+    colors: { fur: "#6b4a34", belly: "#f4e6d0", stripe: "#6b4a34", ear: "#c98a6a", eye: "#93e04c", nose: "#ff9aa8" } },
+  { id: "bubble", name: "Bubble Cat", rarity: "rare", source: "shop", price: 1, pattern: "none", fx: ["bubbles"],
+    colors: { fur: "#7fd8e8", belly: "#e0fbff", stripe: "#3aaac8", ear: "#ffb3d1", eye: "#1f3a78", nose: "#ff8fb1" } },
+  { id: "melody", name: "Melody Cat", rarity: "rare", source: "shop", price: 1, pattern: "stripes", fx: ["notes"],
+    colors: { fur: "#c8b4f0", belly: "#f4eeff", stripe: "#8f73ff", ear: "#ffd23f", eye: "#5b3cff", nose: "#ff8fb1" } },
+  { id: "sweetie", name: "Sweetie Cat", rarity: "rare", source: "shop", price: 1, pattern: "spots", fx: ["hearts"],
+    colors: { fur: "#ffd8e6", belly: "#fff4f8", stripe: "#ff8fb1", ear: "#ff5d8f", eye: "#c2306a", nose: "#ff4f7a" } },
+  // --- SKLEP TYGODNIA (source "featured"): co tydzień inna, kolejność = FEATURED w js/meta.js ---
+  { id: "zapcat", name: "Zap Cat", rarity: "epic", source: "featured", price: 1, pattern: "stripes", fx: ["zap"],
+    colors: { fur: "#ffe14d", belly: "#fff8c8", stripe: "#2a2a4a", ear: "#2a2a4a", eye: "#3b78d8", nose: "#2a2a4a" } },
+  { id: "deepsea", name: "Deep Sea Cat", rarity: "epic", source: "featured", price: 1, pattern: "none", fx: ["bubbles", "shark"],
+    colors: { fur: "#1f4a7a", belly: "#3aaac8", stripe: "#143358", ear: "#4dffb0", eye: "#4dffb0", nose: "#4dffb0" } },
+  { id: "rockstar", name: "Rock Star Cat", rarity: "epic", source: "featured", price: 1, pattern: "stripes", fx: ["notes"],
+    colors: { fur: "#26262e", belly: "#4a4a5a", stripe: "#e8434f", ear: "#e8434f", eye: "#ffd23f", nose: "#e8434f" } },
+  { id: "thunderking", name: "Thunder King", rarity: "legendary", source: "featured", price: 1, pattern: "stripes", fx: ["zap", "golden"],
+    colors: { fur: "#3a2a7a", belly: "#5a43b0", stripe: "#ffe14d", ear: "#ffe14d", eye: "#ffffff", nose: "#ffe14d" } },
+  { id: "lovecat", name: "Love Cat", rarity: "legendary", source: "featured", price: 1, pattern: "none", fx: ["hearts", "rainbow"],
+    colors: { fur: "#ffffff", belly: "#ffffff", stripe: "#ffffff", ear: "#ff5d8f", eye: "#c2306a", nose: "#ff4f7a" } },
+  { id: "diamond", name: "Diamond Cat", rarity: "legendary", source: "featured", price: 1, pattern: "spots", fx: ["ice", "galaxy", "golden"],
+    colors: { fur: "#d8f6ff", belly: "#ffffff", stripe: "#7fd8f0", ear: "#b8a0ff", eye: "#3b4ea8", nose: "#b8a0ff" } },
 ];
 
 export const HATS = [
@@ -193,10 +221,15 @@ export const HATS = [
   { id: "chef", name: "Chef hat", rarity: "common", source: "shop", price: 180 },
   { id: "pirate", name: "Pirate hat", rarity: "rare", source: "shop", price: 320 },
   { id: "viking", name: "Viking helmet", rarity: "rare", source: "shop", price: 380 },
-  { id: "flowercrown", name: "Flower crown", rarity: "epic", source: "shop", price: 900 },
+  { id: "flowercrown", name: "Flower crown", rarity: "epic", source: "shop", price: 1200 },
   { id: "bobble", name: "Bobble hat", rarity: "common", source: "event:winter", price: 140 },
   { id: "heartclip", name: "Heart clip", rarity: "common", source: "event:friendship", price: 150 },
   { id: "gradcap", name: "Grad cap", rarity: "rare", source: "event:school", price: 220 },
+  // --- paczka 2026-11 ---
+  { id: "beret", name: "Beret", rarity: "common", source: "shop", price: 1 },
+  { id: "bandana", name: "Bandana", rarity: "common", source: "shop", price: 1 },
+  { id: "dragonhorns", name: "Dragon horns", rarity: "rare", source: "shop", price: 1 },
+  { id: "astronaut", name: "Space helmet", rarity: "epic", source: "shop", price: 1 },
 ];
 
 export const RARITY = {
@@ -205,3 +238,12 @@ export const RARITY = {
   epic: { name: "Epicka", color: "#b04dff" },
   legendary: { name: "Legendarna", color: "#ffb21f" },
 };
+
+// JEDNA CENA NA RZADKOŚĆ (decyzja Maxa): każdy przedmiot do kupienia (sklep, wydarzenia, sklep tygodnia) kosztuje tyle,
+// ile mówi ta tabela — "price" w definicji oznacza tylko „da się kupić”. Zmiana ceny = zmiana tutaj.
+export const PRICE = {
+  skin: { common: 200, rare: 500, epic: 1500, legendary: 5000 },
+  hat: { common: 100, rare: 300, epic: 900, legendary: 2500 },
+};
+for (const s of SKINS) if (s.price) s.price = PRICE.skin[s.rarity || "common"];
+for (const h of HATS) if (h.price) h.price = PRICE.hat[h.rarity || "common"];

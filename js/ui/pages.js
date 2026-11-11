@@ -169,8 +169,7 @@ export const cardsScreen = {
 // =================== MOON DIARY ===================
 const stripEmoji = (s) => s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]️?/gu, "").replace(/\s+/g, " ").trim();
 // ilustracja każdej strony (pikselizowane emoji, spójne z resztą gry)
-const PAGE_ART = ["🌑", "🗼", "📜", "📚", "🔑", "👻", "👋", "🤫", "🐸", "🤴", "🌫️", "🌋", "🌙", "❄️", "🗺️", "☁️", "🐱", "🤖", "❓", "👑",
-  "🌌", "🤴", "😢", "🤝", "🌕", "🌠", "🛏️", "⭐", "🐠", "🐟", "✨", "🧀", "💬", "😋", "🐭", "🐣", "🥚", "🪶", "☁️", "🐦", "🌧️", "🚪", "🌑", "🌟", "⛵", "❔", "📦", "🤔", "🔓", "🔑", "📖", "💡", "📚", "😴", "🦉", "🌬️", "🏃", "🐦", "🐾", "🪁", "🎵", "👀", "👤", "☀️", "🔔", "🤫", "👑", "❤️", "🪴", "🌳", "🍭", "🧱", "👋", "🦆", "👻", "🤴", "🔢", "🌿", "🦘", "🐸", "📞", "✅", "🔭", "⛄", "🤖", "❄️", "🏗️", "🚪", "🎩", "🏠", "🧐", "🐈", "🎁", "👂", "🐱", "🐱", "🔭", "👑", "💫", "🌟"];
+const PAGE_ART = ["🌑", "🗼", "📜", "📚", "🔑", "👻", "👋", "🤫", "🐸", "🤴", "🌫️", "🌋", "🌙", "❄️", "🗺️", "☁️", "🐱", "🤖", "❓", "👑", "🌌", "🤴", "😢", "🤝", "🌕", "🌠", "🛏️", "⭐", "🐠", "🐟", "🔍", "🐭", "🔧", "✨", "🐭", "🐦", "🎨", "🌈", "☁️", "🌫️", "👑", "🔨", "⛵", "🚪", "🚢", "🌬️", "🎈", "✉️", "🗝️", "🔑", "📚", "🦉", "📖", "🤔", "🦉", "⛈️", "🪁", "💪", "😱", "🌫️", "👑", "🔔", "🌌", "📡", "🔔", "🌳", "🍂", "💡", "🍃", "🐋", "🐋", "😶", "👻", "🤫", "👻", "🌑", "🐸", "☄️", "🤲", "🐸", "🤖", "🏮", "👣", "👑", "🤖", "💔", "🥺", "🏠", "🤔", "☄️", "🐋", "🧭", "🤝", "📣", "🐱", "🌫️", "💬", "🌟", "💫", "🎆"];
 function moonCanvas(open, total) {
   const R = 22, S = 4, c = document.createElement("canvas");
   c.width = c.height = (R * 2 + 6) * S;
@@ -270,9 +269,9 @@ export const weeklyScreen = {
           <div class="portrait ${done ? "defeated" : ""}">${m ? `<img class="px-img" src="${m.portraitURL(4)}" alt="">` : ""}${done ? stamp("Beaten", { color: "danger" }) : ""}</div>
           <div class="boss-name">${esc(m ? m.name : "???")}</div>
           <div class="hpbar"><i style="width:${(1 - p) * 100}%"></i><span>${done ? "0" : Math.max(0, w.hp - w.total)} HP</span></div>
-          <div class="reward-box">${next ? catImg(next.id, "none", { scale: 2, silhouette: !(done && !claimed) && !claimed }) : `<img class="px-img" src="${chestSrc("gold", 3)}" alt="" style="width:64px;height:64px;object-fit:contain">`}
-            <div><b>Prize: ${next ? (done ? esc(next.name) : "secret skin") : "Gold chest"}</b><small>${w.cloud ? `fish pool: ${w.pool}` : `+${w.pool} fish`}</small>
-              ${w.cloud ? `<small>${helped ? `your hits: ${w.mine} → ${w.share} fish` : "hit the boss to get fish!"}</small>` : ""}</div></div>
+          <div class="reward-box"><img class="px-img" src="${chestSrc("mythic", 3)}" alt="" style="width:64px;height:64px;object-fit:contain">
+            <div><b>Every hit = ${ECON.weeklyFishPerHit} fish!</b><small>${helped ? `your hits: ${w.mine}` : "hit the boss to get fish!"}</small>
+              <br><small>Beat it: MYTHIC chest${next ? ` + ${done ? esc(next.name) : "secret skin"}` : ""} + ${helped ? w.share : "bonus"} fish</small></div></div>
           ${done && !claimed && helped ? `<div style="margin-top:14px">${pxButton("Get prize!", { act: "claim", big: true, variant: "ok" })}</div>` : claimed ? `<div style="margin-top:12px">${stamp("Got it", { color: "ok" })}</div>` : ""}
         `, { cls: "wanted", grid: false, tilt: -1.5 })}
         <p class="wanted-info">${w.cloud ? "Everyone fights this boss together. More hits = more fish for you!" : "Fight this boss in the tower."} Every right answer is a hit!<br>New boss every Monday.</p>`;
@@ -280,7 +279,7 @@ export const weeklyScreen = {
     const claim = () => {
       if (!w || save.weekly.claimed.includes(w.week) || !(w.mine > 0)) return;
       const r = weeklyReward(save, w); save.weekly.claimed.push(w.week); persist(true); sfx.chest();
-      if (r.skin) { save.equipped.skin = r.skin.id; persist(); toast(`New skin: ${r.skin.name}! +${r.coins} fish`); } else toast(`Gold chest! +${r.coins} fish`);
+      if (r.skin) { save.equipped.skin = r.skin.id; persist(); toast(`MYTHIC chest + ${r.skin.name}! +${r.coins} fish`); } else toast(`MYTHIC chest! +${r.coins} fish`);
       refreshFish(el, save); render();
     };
     await render();

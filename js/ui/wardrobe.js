@@ -2,14 +2,14 @@
 import { h, esc, app, ico, catImg, pxButton, panel, pageHead, refreshFish, toast, modal, onAct, liveCat, sticker, RARITY_EN } from "./components.js";
 import { go } from "./router.js";
 import { persist } from "../state.js";
-import { shopItems, buy, ensureMySkin, MY_SKIN, SKIN_SENDING } from "../meta.js";
+import { shopItems, buy, ensureMySkin, MY_SKIN, SKIN_SENDING, featuredItem, daysLeftInWeek } from "../meta.js";
 import { registerSkin } from "../pixel/custom.js";
 import { sfx } from "../audio.js";
 import { SKINS, HATS } from "../../data/cosmetics.js";
 import { ECON } from "../../data/progression.js";
-import EVENTS, { activeEvent } from "../../data/events.js";
+import EVENTS, { activeEvent, eventAllows } from "../../data/events.js";
 
-const SOURCE_HINT = { start: "", shop: "shop", chest: "chest", weekly: "boss prize", mythic: "mythic chest", story: "Moon Diary" };
+const SOURCE_HINT = { start: "", shop: "shop", chest: "chest", weekly: "boss prize", mythic: "mythic chest", story: "Moon Diary", featured: "this week" };
 const EVENT_WHEN = { halloween: "Halloween", winter: "Christmas (December)", newyear: "New Year", spring: "Spring", summer: "Summer", friendship: "Friendship Week", school: "Back to School" };
 function eventHint(it) {
   const id = String(it.source).slice(6), when = EVENT_WHEN[id] || "special events";
@@ -17,7 +17,10 @@ function eventHint(it) {
   if (live) return !it.price ? "Find it in a chest now!" : "It is in the Shop now!";
   return `Only at ${when}!`;
 }
-let ev = null;
+let ev = null, feat = null;
+// przedmiot wydarzenia widać tylko w czasie wydarzenia (albo gdy już go masz)
+// tak samo sklep tygodnia: nieposiadaną skórkę widać tylko w jej tygodniu
+const shown = (it, own) => own.includes(it.id) || (!it.retired && (it.source === "featured" ? !!feat && feat.id === it.id : !String(it.source || "").startsWith("event:") || eventAllows(ev, it.source)));
 const srcHint = (it) => (it.source || "").startsWith("event:") ? "event" : SOURCE_HINT[it.source] || "";
 
 export const wardrobeScreen = {
@@ -25,7 +28,7 @@ export const wardrobeScreen = {
     const save = app.save;
     let tab = params.tab || "skins";
     let tryOn = null; // { kind, id, price, name } — przymierzanie w sklepie
-    ev = activeEvent(new Date(), EVENTS);
+    ev = activeEvent(new Date(), EVENTS); feat = featuredItem();
     const el = h(`<div class="screen page wardrobe">
       ${pageHead("Wardrobe", save)}
       <div class="preview-box"><i class="spot"></i><div class="preview-cat"></div>
@@ -38,9 +41,9 @@ export const wardrobeScreen = {
     const cat = liveCat({ skin: save.equipped.skin, hat: save.equipped.hat, scale: 5 });
     $(".preview-cat").append(cat.el);
 
-    let skinsAll = SKINS.filter((s) => !s.retired || save.owned.skins.includes(s.id));
+    let skinsAll = SKINS.filter((s) => shown(s, save.owned.skins));
     const mine = ensureMySkin(save);
-    const hatsAll = HATS.filter((s) => s.id !== "none" && (!s.retired || save.owned.hats.includes(s.id)));
+    const hatsAll = HATS.filter((s) => s.id !== "none" && shown(s, save.owned.hats));
 
     const renderPreview = () => {
       const skin = tryOn && tryOn.kind === "skin" ? tryOn.id : save.equipped.skin;
@@ -56,7 +59,7 @@ export const wardrobeScreen = {
     };
 
     const renderTabs = () => {
-      skinsAll = SKINS.filter((s) => !s.retired || save.owned.skins.includes(s.id));
+      skinsAll = SKINS.filter((s) => shown(s, save.owned.skins));
       const nS = skinsAll.filter((s) => save.owned.skins.includes(s.id)).length;
       const nH = hatsAll.filter((s) => save.owned.hats.includes(s.id)).length;
       $(".tabs").innerHTML = [["skins", "Skins", `${nS}/${skinsAll.length}`], ["hats", "Hats", `${nH}/${hatsAll.length}`], ["shop", "Shop", ev ? "event!" : "fish"]]
@@ -94,13 +97,15 @@ export const wardrobeScreen = {
         body.innerHTML = `${diy}<div class="item-grid">${myTile}${sorted.map((it) => itemHTML(it, tab === "skins" ? "skin" : "hat", { owned: own.includes(it.id), on: (tab === "skins" ? save.equipped.skin : save.equipped.hat) === it.id })).join("")}</div>
           <div class="legend-row">${["common", "rare", "epic", "legendary"].map((r) => `<span><i style="background:var(--px-r-${r})"></i>${RARITY_EN[r]}</span>`).join("")}</div>`;
       } else {
-        const items = shopItems(save);
+        const items = shopItems(save), f = items.featured, left = daysLeftInWeek();
         const all = [...items.skins, ...items.hats].sort((a, b) => (a.owned - b.owned) || ((b.source || "").startsWith("event") - (a.source || "").startsWith("event")) || (a.price - b.price));
         body.innerHTML = `
+          ${f ? `<div class="section-title">This week only! <small>${left === 1 ? "last day!" : `${left} days left`}</small></div>
+          <div class="item-grid item-grid--featured">${itemHTML(f, "skin", { owned: f.owned, price: f.price, cant: !f.owned && save.coins < f.price, on: tryOn && tryOn.id === f.id })}</div>` : ""}
           <div class="shop-extras">
             ${panel(`<img class="px-ico big-ico" src="${iconURLsafe("snow")}" alt=""><b>Streak freeze</b><small>Miss 1 day, keep your streak. You have ${save.streak.freezes}/${ECON.freezeMax}.</small>
               ${pxButton(String(ECON.freezePrice), { icon: "fish", act: "buy-freeze", variant: save.coins >= ECON.freezePrice && save.streak.freezes < ECON.freezeMax ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: -1.5, tape: true })}
-            ${panel(`<img class="px-ico big-ico" src="${chestSrc("wood", 3)}" alt="" style="object-fit:contain"><b>Wood chest</b><small>Fish or a surprise!</small>
+            ${panel(`<img class="px-ico big-ico" src="${chestSrc("silver", 3)}" alt="" style="object-fit:contain"><b>Silver chest</b><small>A surprise inside!</small>
               ${pxButton(String(ECON.chestPrice), { icon: "fish", act: "buy-chest", variant: save.coins >= ECON.chestPrice ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: 1.2, tape: true })}
           </div>
           <div class="section-title">Skins + hats ${ev ? `<small>${esc(ev.name)}!</small>` : ""}</div>
@@ -121,7 +126,7 @@ export const wardrobeScreen = {
       back: () => { sfx.tap(); go("home"); },
       tab: (b) => { tab = b.dataset.tab; tryOn = null; sfx.tap(); render(); },
       equip: (b) => equip(b.dataset.kind, b.dataset.id),
-      locked: (b) => { sfx.tap(); const it = (b.dataset.kind === "skin" ? SKINS : HATS).find((x) => x.id === b.dataset.id); const s = it && srcHint(it); toast(s === "chest" ? "Find it in a chest!" : s === "boss prize" ? "Beat the weekly boss!" : s === "event" ? eventHint(it) : s === "shop" ? "Buy it in the Shop!" : "Not yet!"); },
+      locked: (b) => { sfx.tap(); const it = (b.dataset.kind === "skin" ? SKINS : HATS).find((x) => x.id === b.dataset.id); const s = it && srcHint(it); toast(s === "chest" ? "Find it in a chest!" : s === "boss prize" ? "Beat the weekly boss!" : s === "event" ? eventHint(it) : s === "shop" ? "Buy it in the Shop!" : s === "this week" ? "It is in the Shop this week!" : "Not yet!"); },
       try: (b) => {
         const kind = b.dataset.kind, it = (kind === "skin" ? SKINS : HATS).find((x) => x.id === b.dataset.id);
         tryOn = { kind, id: it.id, price: it.price, name: it.name };
@@ -148,7 +153,7 @@ export const wardrobeScreen = {
       },
       "buy-chest": () => {
         if (save.coins < ECON.chestPrice) { sfx.wrong(); return toast("Not enough fish"); }
-        save.coins -= ECON.chestPrice; save.chests.unshift("wood"); persist(); sfx.coin(); go("chest", { from: "wardrobe" });
+        save.coins -= ECON.chestPrice; save.chests.unshift("silver"); persist(); sfx.coin(); go("chest", { from: "wardrobe" });
       },
     });
     const onSkins = () => { if (el.isConnected) render(); };

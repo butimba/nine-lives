@@ -5,15 +5,27 @@ import EVENTS, { activeEvent, eventAllows } from "../data/events.js";
 import { today, dayDiff, isoWeek } from "./util.js";
 import * as cloud from "./cloud.js";
 import ROSTER from "../data/roster.js";
+import { FURNITURE } from "../data/base.js";
 
 export const tr = (save, id) => save.talents[id] || 0;
 
+// SKLEP TYGODNIA: co tydzień (od poniedziałku) jedna wyjątkowa skórka, do kupienia tylko w tym tygodniu.
+// Kolejka się zapętla (rzecz wraca po FEATURED.length tygodniach). Nowa skórka do rotacji = source "featured" + id tutaj.
+export const FEATURED = ["zapcat", "deepsea", "thunderking", "rockstar", "lovecat", "diamond"];
+export const weekIndex = (date = new Date()) => { const [y, w] = isoWeek(date).split("-W").map(Number); return y * 53 + w; };
+export function featuredItem(date = new Date()) {
+  const id = FEATURED[weekIndex(date) % FEATURED.length];
+  return SKINS.find((s) => s.id === id && !s.retired) || null;
+}
+export const daysLeftInWeek = (date = new Date()) => 8 - (date.getDay() || 7); // pon = 7 … niedz = 1
+
 export function shopItems(save, date = new Date()) {
-  const ev = activeEvent(date, EVENTS);
+  const ev = activeEvent(date, EVENTS), feat = featuredItem(date);
   const ok = (it) => !it.retired && !it.community && it.price && (it.source === "shop" || eventAllows(ev, it.source));
   return {
     skins: SKINS.filter(ok).map((s) => ({ ...s, kind: "skin", owned: save.owned.skins.includes(s.id) })),
     hats: HATS.filter(ok).map((s) => ({ ...s, kind: "hat", owned: save.owned.hats.includes(s.id) })),
+    featured: feat && { ...feat, kind: "skin", owned: save.owned.skins.includes(feat.id) },
     event: ev,
   };
 }
@@ -22,6 +34,31 @@ export function buy(save, item) {
   save.coins -= item.price;
   (item.kind === "skin" ? save.owned.skins : save.owned.hats).push(item.id);
   return true;
+}
+
+// ---- MOON BASE (domek kota, od strony 25) i paczka ze statku Króla (od strony 45, raz dziennie) ----
+export const BASE_PAGE = 25, SHIP_PAGE = 45;
+export const baseUnlocked = (save) => (save.story || 0) >= BASE_PAGE;
+export function buyFurniture(save, f) {
+  if (!f || !f.price || save.base.owned.includes(f.id) || save.coins < f.price) return false;
+  save.coins -= f.price; save.base.owned.push(f.id);
+  return true;
+}
+export function placeFurniture(save, slot, id) {
+  if (id && !save.base.owned.includes(id)) return false;
+  for (const k of Object.keys(save.base.placed)) if (save.base.placed[k] === id) delete save.base.placed[k];
+  if (id) save.base.placed[slot] = id; else delete save.base.placed[slot];
+  return true;
+}
+// paczka: 1/dzień (save.daily.shipDay). 1 na 4 — mebel tylko ze statku (jeśli jakiś brakuje), inaczej 15–30 rybek.
+export function openParcel(save, d = today(), rng = Math.random) {
+  if ((save.story || 0) < SHIP_PAGE || save.daily.shipDay === d) return null;
+  save.daily.shipDay = d;
+  const left = FURNITURE.filter((f) => f.source === "ship" && !save.base.owned.includes(f.id));
+  if (left.length && rng() < 0.25) { const f = left[Math.floor(rng() * left.length)]; save.base.owned.push(f.id); return { item: f }; }
+  const fish = 15 + Math.floor(rng() * 16);
+  save.coins += fish;
+  return { fish };
 }
 
 // ---- prezenty od nauczyciela (roster: profile.gifts = ["skin:shrimp", "hat:crown", "chest:gold", "fish:200"]) ----
@@ -70,66 +107,57 @@ export function eventChestItems(date = new Date()) {
   const ok = (it) => !it.retired && eventAllows(ev, it.source) && (it.chest || !it.price);
   return [...SKINS.filter(ok).map((s) => ({ ...s, kind: "skin" })), ...HATS.filter(ok).map((s) => ({ ...s, kind: "hat" }))];
 }
+// co może wypaść ze skrzyni: przedmioty "chest" + tanie (common/rare) ze sklepu.
+// Epickie i legendarne ze sklepu tylko za rybki — żeby rybki zawsze miały cel.
+const fromChest = (s) => s.source === "chest" || (s.source === "shop" && (s.rarity === "common" || s.rarity === "rare"));
+const RAR = ["common", "rare", "epic", "legendary"];
+// pula nieposiadanych przedmiotów danej rzadkości dla skrzyni `type`
+function chestPool(save, rarity, type, date) {
+  const own = (it) => (it.kind === "skin" ? save.owned.skins : save.owned.hats).includes(it.id);
+  // mityczna (nagroda tygodnia) może też dać epickie/legendarne ze sklepu; skórki "mythic" tylko stąd, podwójna waga
+  const ok = (s) => !s.retired && s.rarity === rarity && (fromChest(s) || (type === "mythic" && s.source === "shop"));
+  const all = [...SKINS.filter(ok).map((s) => ({ ...s, kind: "skin" })), ...HATS.filter(ok).map((s) => ({ ...s, kind: "hat" }))];
+  const mythic = type === "mythic" && rarity === "legendary" ? SKINS.filter((s) => !s.retired && s.source === "mythic").map((s) => ({ ...s, kind: "skin" })) : [];
+  // w czasie wydarzenia: przedmioty wydarzenia mają podwójną wagę (żeby skrzynie pachniały świętami)
+  const ev = eventChestItems(date).filter((it) => it.rarity === rarity);
+  return [...mythic, ...mythic, ...all, ...ev, ...ev].filter((it) => !own(it));
+}
+// Drabinka skrzyń: każda wyższa gwarantuje lepszą rzadkość (CHESTS[type].min). Gdy wylosowana rzadkość jest
+// wyczerpana, schodzimy niżej aż do `min`; dopiero gdy nic nie zostało — zwykłe rybki tej skrzyni.
 export function openChest(save, type, date = new Date()) {
   if (isGift(type)) return openGift(save, type);
   const c = CHESTS[type] || CHESTS.wood;
   const luck = tr(save, "treasure") * 8;
   const w = { ...c.rolls };
-  if (luck) { w.coins = Math.max(5, w.coins - luck); w.rare += luck * 0.5; w.epic += luck * 0.35; w.legendary += luck * 0.15; }
+  // talent Treasure Nose: mniej rybek, więcej lepszych rzeczy — tylko w kategoriach, które ta skrzynia w ogóle ma
+  if (luck) { if (w.coins) w.coins = Math.max(5, w.coins - luck); for (const [k, m] of [["rare", 0.5], ["epic", 0.35], ["legendary", 0.15]]) if (w[k]) w[k] += luck * m; }
   let roll = Math.random() * Object.values(w).reduce((a, b) => a + b, 0);
   let cat = "coins";
-  for (const [k, v] of Object.entries(w)) { roll -= v; if (roll <= 0) { cat = k; break; } }
-  const coinAmt = c.coins || [40, 90];
-  // mityczna (decyzja Maxa): 50% legendarny przedmiot, 50% kupa rybek (1000–1500 ≈ 2–3 dni gry)
-  if (type === "mythic") cat = Math.random() < MYTHIC.itemChance ? "legendary" : "coins";
+  for (const [k, v] of Object.entries(w)) { if (!v) continue; roll -= v; if (roll <= 0) { cat = k; break; } }
   if (cat !== "coins") {
-    // skórki "mythic" wypadają tylko z mitycznej skrzyni (podwójna waga)
-    const mythicOnly = type === "mythic" ? SKINS.filter((s) => !s.retired && s.source === "mythic" && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })) : [];
-    const pool = [...mythicOnly, ...mythicOnly,
-      ...SKINS.filter((s) => !s.retired && s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })),
-      ...HATS.filter((s) => !s.retired && s.rarity === cat && (s.source === "chest" || s.source === "shop") && !save.owned.hats.includes(s.id)).map((s) => ({ ...s, kind: "hat" })),
-    ];
-    // w czasie wydarzenia: przedmioty wydarzenia mają podwójną wagę (żeby skrzynie pachniały świętami)
-    const evPool = eventChestItems(date).filter((it) => it.rarity === cat && !(it.kind === "skin" ? save.owned.skins : save.owned.hats).includes(it.id));
-    if (evPool.length) pool.push(...evPool, ...evPool);
-    if (pool.length) {
+    for (let i = RAR.indexOf(cat), lo = RAR.indexOf(c.min || "common"); i >= lo; i--) {
+      const pool = chestPool(save, RAR[i], type, date);
+      if (!pool.length) continue;
       const it = pool[Math.floor(Math.random() * pool.length)];
       (it.kind === "skin" ? save.owned.skins : save.owned.hats).push(it.id);
       return { kind: it.kind, item: it };
     }
-    // mythic: no legendary left → an epic one → else the big fish pile below (never a duplicate)
-    if (type === "mythic" && cat === "legendary") {
-      const epic = [...SKINS.filter((s) => !s.retired && s.rarity === "epic" && (s.source === "chest" || s.source === "shop") && !save.owned.skins.includes(s.id)).map((s) => ({ ...s, kind: "skin" })),
-        ...HATS.filter((s) => !s.retired && s.rarity === "epic" && (s.source === "chest" || s.source === "shop") && !save.owned.hats.includes(s.id)).map((s) => ({ ...s, kind: "hat" }))];
-      if (epic.length) { const it = epic[Math.floor(Math.random() * epic.length)]; (it.kind === "skin" ? save.owned.skins : save.owned.hats).push(it.id); return { kind: it.kind, item: it }; }
-      const amt = Math.round(coinAmt[0] + Math.random() * (coinAmt[1] - coinAmt[0])); save.coins += amt; return { kind: "coins", amount: amt };
-    }
-    // wszystko już ma → monety za duplikat
-    const bonus = DUP_COINS[cat] || 60;
-    save.coins += bonus;
-    return { kind: "coins", amount: bonus, dup: cat };
   }
-  const amt = Math.round(coinAmt[0] + Math.random() * (coinAmt[1] - coinAmt[0]));
+  const [a, b] = c.coins || [20, 50];
+  const amt = Math.round(a + Math.random() * (b - a));
   save.coins += amt;
-  return { kind: "coins", amount: amt };
+  return cat === "coins" ? { kind: "coins", amount: amt } : { kind: "coins", amount: amt, dup: cat };
 }
-// skrzynia za bossa na piętrze `floor` (wielokrotność 5): 'wood'|'silver'|'gold'|'epic'|'mythic'
-// MYTHIC (od piętra 50, „za grind”): złota skrzynia zamienia się w mityczną z szansą 15%, każda inna z 3%
-// (przy ~4–5 bossach dziennie wypada mniej więcej raz na 4–6 dni). W środku: 50% legendarny przedmiot, 50% 1000–1500 rybek.
-export const MYTHIC = { fromFloor: 50, fromGold: 0.15, other: 0.03, itemChance: 0.5 };
+// Skrzynia za bossa na piętrze `floor` (wielokrotność 5). Trzy stopnie, łatwe dla dziecka:
+//   zwykły boss → drewniana albo srebrna (wyżej częściej srebrna), od piętra 40 rzadka niespodzianka: epicka (3%),
+//   Król (co 25 pięter) → złota, a co 50 pięter → epicka.
+// Mityczna NIE wypada z wieży — tylko za pokonanie bossa tygodnia (weeklyReward).
+// Symulacja (tools/sim-chests.mjs): wcześniej 3,5–5,5 skrzyni/dzień i ~1 złota/epicka dziennie → wszystkie przedmioty w 2–4 tyg.
 export function chestForFloor(floor, save, rng = Math.random) {
-  const c = baseChest(floor, rng);
-  if (floor >= MYTHIC.fromFloor && rng() < (c === "gold" ? MYTHIC.fromGold : MYTHIC.other)) return "mythic";
-  return c;
-}
-function baseChest(floor, rng) {
+  if (floor % ECON.kingEvery === 0) return floor % (ECON.kingEvery * 2) === 0 ? "epic" : "gold";
   const r = rng();
-  if (floor % 50 === 0) return "epic";
-  if (floor % 25 === 0) return "gold";
-  if (floor >= 40 && r < 0.06) return "epic";
-  if (floor >= 30 && r < 0.25) return "gold";
-  if (floor >= 10 && r < 0.5) return "silver";
-  return r < 0.2 ? "silver" : "wood";
+  if (floor >= 40 && r < 0.03) return "epic";
+  return r < (floor >= 50 ? 0.45 : floor >= 10 ? 0.3 : 0.15) ? "silver" : "wood";
 }
 
 // ---- talenty ----
@@ -156,7 +184,7 @@ export function touchStreak(save) {
   s.last = d;
   s.best = Math.max(s.best || 0, s.count);
   if (s.count === 3 && !s.freeGiven) { s.freeGiven = true; s.freezes = Math.min(ECON.freezeMax, s.freezes + 1); events.push({ type: "freeFreeze" }); }
-  if (s.count % 7 === 0) { save.chests.push("silver"); events.push({ type: "streakChest", n: s.count }); }
+  if (s.count % 7 === 0) { const c = s.count % 28 === 0 ? "epic" : "silver"; save.chests.push(c); events.push({ type: "streakChest", n: s.count, chest: c }); }
   return events;
 }
 export function streakAlive(save) {
@@ -202,15 +230,16 @@ export async function weeklyStatus(save) {
   }
   return { week: w, total: mine, mine, ...weeklyNumbers({ total: mine, players: 1, mine }), players: 1, cloud: false };
 }
-// nagroda: następna skórka z kolejki (albo złota skrzynia) + mój kawałek puli rybek (tylko jeśli biłem bossa)
+// nagroda za pokonanie: MITYCZNA skrzynia (jedyne źródło) + następna skórka z kolejki + mój bonus z puli rybek (tylko jeśli biłem bossa).
+// Rybki za same trafienia (ECON.weeklyFishPerHit) dostaje się od razu po biegu — rewards.applyRunResults.
 export function weeklyReward(save, w) {
   const fish = (w && w.share) || ECON.weeklyMinShare;
   const queue = SKINS.filter((s) => s.source === "weekly" && !s.retired).sort((a, b) => a.order - b.order);
   const next = queue.find((s) => !save.owned.skins.includes(s.id));
   save.coins += fish;
-  if (next) { save.owned.skins.push(next.id); save.weeklySkins++; return { skin: next, coins: fish }; }
-  save.chests.push("gold");
-  return { chest: "gold", coins: fish };
+  save.chests.push("mythic");
+  if (next) { save.owned.skins.push(next.id); save.weeklySkins++; return { skin: next, chest: "mythic", coins: fish }; }
+  return { chest: "mythic", coins: fish };
 }
 
 // ---- skórki dzieci: rysunek ucznia + zatwierdzone skórki z chmury ----

@@ -12,7 +12,7 @@ import { dailySummary, loadDaily } from "./daily.js";
 import { hasPowers, slotsHTML, powerPicker } from "./powers.js";
 import { shadowList, isCardWord } from "../engine.js";
 import { sfx, startMusic } from "../audio.js";
-import { ECON, STORY } from "../../data/progression.js";
+import { ECON, STORY, SKY, skyStars } from "../../data/progression.js";
 import EVENTS, { activeEvent } from "../../data/events.js";
 import * as cloud from "../cloud.js";
 import { getCat } from "../pixel/cat.js";
@@ -21,6 +21,9 @@ import { makeMonster } from "../pixel/monsters.js";
 import { createStage } from "../game/stage.js";
 import { createFx, pxText } from "../game/juice.js";
 import { dayPhase, drawSky, drawTrophy, biomeForFloor, drawSnowfall, drawFireworks } from "../game/world.js";
+import { drawSkyLife, drawShip, drawParcel, drawConstellationShow, SHOW_LEN, SKY_AT } from "../game/skyshow.js";
+import { openParcel, baseUnlocked } from "../meta.js";
+import { today } from "../util.js";
 
 // ---------- geometria sceny (logiczne px, szer. 240) ----------
 const W = 240, TX0 = 62, TX1 = 178, TCX = 120;  // wieża
@@ -310,6 +313,45 @@ export const homeScreen = {
     let bossURL = "";
     try { bossURL = makeMonster(weekInfo.seed, ["#e8434f", "#8a55d6", "#ffa04d", "#6fe3d3", "#93e04c"], { boss: true }).portraitURL(2); } catch {}
 
+    // ---------- żywe niebo (skyshow.js): gwiazdozbiór ożywa + statek Króla z paczką ----------
+    const story0 = save.story || 0, doneC = Math.floor(skyStars(story0) / 5);
+    const showKey = `ninelives:skyShow:${save.id}`;
+    let showSeen = 0; try { showSeen = +localStorage.getItem(showKey) || 0; } catch {}
+    const sky = { show: null, next: doneC > showSeen ? doneC - 1 : -1, nextAt: 2.5, ship: null, parcel: null, t: 0 };
+    if (doneC > showSeen) try { localStorage.setItem(showKey, String(doneC)); } catch {}
+    const PARCEL_X = 56;
+    if (story0 >= SKY_AT.ship && save.daily.shipDay !== today()) sky.ship = { t0: null, drop: true };
+    const skyStep = (ctx, t) => {
+      sky.t = t;
+      if (sky.t0 == null) { sky.t0 = t; sky.nextAt = t + 2.5; if (sky.ship) sky.ship.t0 = t + 4; } // t = czas globalny, liczymy od wejścia
+      // gwiazdozbiór: najpierw nowy (jednorazowo), potem czasem losowy w nocy (od strony 100 — zawsze)
+      if (!sky.show && sky.next >= 0 && t >= sky.nextAt) { sky.show = { i: sky.next, t0: t }; sky.next = -1; }
+      if (!sky.show && doneC && t >= sky.nextAt && (phase.phase === "night" || story0 >= SKY_AT.festival)) { sky.show = { i: Math.floor(Math.random() * doneC), t0: t }; }
+      if (sky.show && t - sky.show.t0 > SHOW_LEN) { sky.show = null; sky.nextAt = t + 45 + Math.random() * 45; }
+      return sky.show ? sky.show.i : -1;
+    };
+    const drawSkyExtras = (ctx, t) => {
+      drawSkyLife(ctx, W, L.H, phase.phase, t, story0);
+      if (sky.show) drawConstellationShow(ctx, SKY[sky.show.i], W, L.H, (t - sky.show.t0) / SHOW_LEN, t, phase.phase === "day" ? 0.8 : 1);
+      if (story0 >= SKY_AT.ship) {
+        // statek przelatuje co 75 s (16 s przelotu, z prawej w lewo); raz dziennie zrzuca paczkę na spadochronie
+        const s0 = sky.ship ? sky.ship.t0 : 20, cyc = ((t - s0) % 75 + 75) % 75;
+        if (t >= s0 && cyc < 16) {
+          const x = W + 10 - (cyc / 16) * (W + 40), y = L.H * 0.14 + Math.sin(t * 1.5) * 1.5;
+          drawShip(ctx, x, y, true);
+          if (sky.ship && sky.ship.drop && x <= PARCEL_X) { sky.ship.drop = false; sky.parcel = { x: PARCEL_X, y: y + 10, landed: false }; }
+        }
+      }
+    };
+    const drawParcelLayer = (ctx, t) => {
+      const p = sky.parcel;
+      if (p) {
+        const gy = L.groundY - 10;
+        if (!p.landed) { p.y += 1.2; if (p.y >= gy) { p.y = gy; p.landed = true; renderHot(); } }
+        drawParcel(ctx, p.x - 5, Math.round(p.y), !p.landed, t);
+      }
+    };
+
     const renderHot = () => {
       const story = save.story || 0;
       let seen = 0; try { seen = +localStorage.getItem(`ninelives:storySeen:${save.id}`) || 0; } catch {}
@@ -328,6 +370,10 @@ export const homeScreen = {
         <button class="hot hot--door" data-act="cellar" aria-label="Shadow Cellar" style="${pos(L.door.x, L.door.y)};${size(34, 34)}">
           ${shadows ? `<span class="hot-label" style="top:88%;--tilt:-4deg">${sticker(`<span class="sticker-label sticker-label--violet">${shadows} shadow${shadows === 1 ? "" : "s"}</span>`, { tilt: 0 })}</span>` : ""}
         </button>
+        ${baseUnlocked(save) ? `<button class="hot hot--base" data-act="base" aria-label="Moon Base" style="${pos(MOON.x, MOON.y + 50)};${size(30, 16)}">
+          <span class="hot-label" style="top:0;--tilt:-5deg">${sticker(`<span class="sticker-label sticker-label--violet">Moon Base</span>`, { tilt: 0 })}</span></button>` : ""}
+        ${sky.parcel && sky.parcel.landed ? `<button class="hot hot--parcel" data-act="parcel" aria-label="Open the parcel" style="${pos(PARCEL_X, L.groundY - 4)};${size(24, 22)}">
+          <span class="hot-label" style="top:-60%;--tilt:6deg">${sticker(`<span class="sticker-label sticker-label--red">parcel!</span>`, { tilt: 0 })}</span></button>` : ""}
         ${nC ? `<button class="hot hot--chest ${hasGift() ? "hot--gift" : ""}" data-act="chest" aria-label="${hasGift() ? "Open your gift" : "Open chest"}" style="${pos(211, L.groundY - 10)};${size(48, 30)}">
           <span class="chest-count">${sticker(`<span class="sticker-label sticker-label--red">${hasGift() ? "gift!" : nC}</span>`, { tilt: 8 })}</span></button>` : ""}
         ${partner ? `<span class="duo-tag" style="${pos(L.partner.x, L.groundY - 36)}">${esc(partner.name)}<small>${partner.ago}</small></span>
@@ -376,10 +422,13 @@ export const homeScreen = {
       draw(ctx, t) {
         bake();
         const night = phase.phase === "night";
-        drawSky(ctx, W, L.H, phase, t, { moon: true, moonX: MOON.x, moonY: MOON.y, birds: !winter, fireflies: false, story: save.story || 0 });
+        const hideC = skyStep(ctx, t);
+        drawSky(ctx, W, L.H, phase, t, { moon: true, moonX: MOON.x, moonY: MOON.y, birds: !winter, fireflies: false, story: save.story || 0, hide: hideC });
+        drawSkyExtras(ctx, t);
         if (ev && ev.sky === "fireworks") drawFireworks(ctx, W, L.H * 0.45, t);
         ctx.drawImage(hillsC, 0, 0);
         ctx.drawImage(towerC, 0, 0);
+        drawParcelLayer(ctx, t);
         // blask okien i pochodni
         const glowA = { day: 0.06, dawn: 0.22, dusk: 0.32, night: 0.5 }[phase.phase];
         ctx.globalCompositeOperation = "lighter";
@@ -542,6 +591,20 @@ export const homeScreen = {
       },
       pet,
       moon: () => { sfx.tap(); go("story"); },
+      base: () => { sfx.tap(); go("base"); },
+      parcel: () => {
+        const r = openParcel(save);
+        sky.parcel = null; renderHot();
+        if (!r) return;
+        persist(true); sfx.coin();
+        fx.burst(PARCEL_X, L.groundY - 8, { n: 12, colors: ["#ffd23f", "#e8434f", "#7ec4ff"], speed: 34, gravity: 30, life: 0.9 });
+        if (r.item) toast(`From the King's ship: ${r.item.name}! Look in your Moon Base.`, { icon: "star" });
+        else {
+          const chip = fishChip(), b = chip && chip.querySelector("b");
+          if (chip) flyFish(PARCEL_X, L.groundY - 10, chip, 6);
+          setTimeout(() => { if (b && el.isConnected) countUp(b, save.coins - r.fish, save.coins, 600); }, 700);
+          toast(`From the King's ship: ${r.fish} fish!`, { icon: "fish" }); }
+      },
       weekly: () => { sfx.tap(); go("weekly"); },
       chest: () => { if (save.chests.length) { sfx.tap(); go("chest"); } },
       settings: () => { sfx.tap(); go("settings"); },
