@@ -527,5 +527,18 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   const r2 = openParcel(sv, "2026-11-13", () => 0.1); ok(r2 && r2.item && r2.item.source === "ship" && sv.base.owned.includes(r2.item.id), "parcel sometimes gives ship furniture");
 }
 
+// ---- gramatyka na pierwszym planie (GRAMMAR_SHARE) ----
+{
+  const E = await import("../js/engine.js");
+  const prof = { focus: ["be", "v:animals", "v:food", "v:colors"] };
+  const sv = freshSave("gshare", prof); let g = 0, n = 0;
+  for (let d = 0; d < 5; d++) { const ses = new E.Session(sv, prof, "tower", d + 7); for (let i = 0; i < 60; i++) { const t = ses.next(); if (!t) break; n++; if (t.kind === "grammar") g++; E.record(sv, t, true, 2000, null); } }
+  ok(g / n > 0.5 && g / n < 0.85, `runs are mostly sentences when grammar is active (${Math.round(100 * g / n)}%)`);
+  const ses3 = new E.Session(sv, prof, "tower", 99); ses3.forceGrammar = true;
+  ok(Array.from({ length: 20 }, () => ses3.next()).filter(Boolean).every((t) => t.kind === "grammar"), "Glitch (forceGrammar) asks only sentences");
+  const kid = { focus: ["v:animals", "be"], noReading: true }; const s2 = freshSave("gnr", kid); const ses2 = new E.Session(s2, kid, "tower", 3);
+  ok(Array.from({ length: 30 }, () => ses2.next()).filter(Boolean).every((t) => t.kind === "vocab"), "non-readers still get only words");
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -79,7 +79,9 @@ export const loginScreen = {
       try { await login(inp.value.trim()); } catch (err) {
         if (!err.unknown) console.error(err);
         busy = false; b.disabled = false; b.querySelector("span").textContent = "Play";
-        if (err.unknown) { replay(inp, "shake"); sfx.wrong(); el.querySelector(".login-err").hidden = false; inp.select(); }
+        const msg = el.querySelector(".login-err");
+        msg.textContent = err.unknown ? "Hmm… I don't know this name. Ask your teacher!" : "Oops! Something went wrong. Try again!";
+        replay(inp, "shake"); sfx.wrong(); msg.hidden = false; inp.select();
       }
     };
     el.querySelector("form").addEventListener("submit", submit);

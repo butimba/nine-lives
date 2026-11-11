@@ -219,6 +219,10 @@ export function shadowList(save, now = Date.now()) {
 // ---------- wybór następnego zadania ----------
 // Udział tematu głównego (pierwszy element focus) w zadaniach, gdy ma kandydatów. DESIGN.md §7: ~65–70%.
 export const MAIN_SHARE = 0.68;
+// Gra stawia na gramatykę (Max, 11.2026): gdy dziecko ma i zdania, i słówka, ~70% zadań to zdania (słówek w puli jest
+// wielokrotnie więcej niż wzorców, więc wcześniej biegi były w ~90% słówkowe). Nieczytający: tylko słówka.
+// forceGrammar (Glitch w biegu) = same zdania.
+export const GRAMMAR_SHARE = 0.7;
 // nowe rzeczy na jeden bieg (temat główny / reszta) i na dzień (obciążenie poznawcze dzieci 7–9 lat)
 const NEW_CAP = { main: { vocab: 4, grammar: 2 }, other: { vocab: 2, grammar: 1 } };
 const DAILY_NEW = { vocab: 10, grammar: 4 };
@@ -304,7 +308,7 @@ export class Session {
       if (this.pool.some((k) => skillOf(k) === this.pending && this.save.srs[k])) this.pending = null;
     }
     const shadows = new Set(this.save.shadows);
-    const mainC = [], otherC = [];
+    let mainC = [], otherC = [];
     for (const key of this.pool) {
       const main = this.isMain(key);
       // temat główny może wracać częściej (zdania gramatyczne są za każdym razem inne)
@@ -322,12 +326,23 @@ export class Session {
       if (shadows.has(key)) w *= 1.5;
       if (w > 0) (main ? mainC : otherC).push([key, w, !!(r && r.due <= now)]);
     }
-    // ŚCIEŻKA: najpierw powtórki — gdy są zaległe, z prawd. REVIEW_FIRST bierzemy tylko spośród nich
+    // najpierw RODZAJ zadania: zdanie (GRAMMAR_SHARE; Glitch = zawsze) czy słówko — potem powtórki i temat główny w jego obrębie.
+    // Temat główny-zdania zachowuje swój udział w całości (~MAIN_SHARE); temat główny-słówka dostaje MAIN_SHARE tylko z części słówkowej.
+    let share = MAIN_SHARE;
+    if (this.mode !== "shadow") {
+      const isG = (c) => !isVocab(c[0]), all = [...mainC, ...otherC];
+      if (all.some(isG) && !all.every(isG)) {
+        const wantG = this.forceGrammar || this.rng() < GRAMMAR_SHARE, f = (c) => isG(c) === wantG;
+        mainC = mainC.filter(f); otherC = otherC.filter(f);
+        if (wantG && this.main && !this.main.startsWith("v:")) share = Math.min(0.95, MAIN_SHARE / GRAMMAR_SHARE);
+      }
+    }
+    // ŚCIEŻKA: najpierw powtórki
     if (this.path && this.mode !== "shadow") {
       const due = [...mainC, ...otherC].filter((c) => c[2]);
       if (due.length && this.rng() < REVIEW_FIRST) return wpick(due, this.rng);
     }
-    let cands = mainC.length && otherC.length ? (this.rng() < MAIN_SHARE ? mainC : otherC) : mainC.length ? mainC : otherC;
+    let cands = mainC.length && otherC.length ? (this.rng() < share ? mainC : otherC) : mainC.length ? mainC : otherC;
     if (!cands.length) return this.pool.length ? pick(this.pool, this.rng) : null;
     return wpick(cands, this.rng);
   }

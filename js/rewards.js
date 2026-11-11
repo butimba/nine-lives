@@ -65,6 +65,7 @@ export function applyRunResults(save, stats = {}) {
   for (const c of eventChests) { save.chests.push(c); extras.push({ cls: "ok", icon: "chest", text: "Mimic prize: a chest!", chest: c }); }
   for (const e of Array.isArray(stats.events) ? stats.events : []) {
     if (e === "golden") extras.push({ cls: "ok", icon: "coin", text: "You caught the Golden Monster!" });
+    if (e === "glitch") extras.push({ cls: "ok", icon: "star", text: "You fixed a Glitch!" });
     if (e === "secret") extras.push({ cls: "ok", icon: "star", text: "You found a secret floor!" });
   }
 

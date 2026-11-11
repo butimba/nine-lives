@@ -47,111 +47,107 @@ Kolumna „obrazek” = emoji do `PAGE_ART` (pikselizowane, Unicode ≤ 13).
 
 ---
 
-# WERSJA 2 (12.11.2026): nowy scenariusz stron 31–100 — ZAAKCEPTOWANA, w grze (data/progression.js STORY, js/ui/pages.js PAGE_ART)
+# WERSJA 3 (12.11.2026): gramatyka zamiast „słów” — W GRZE (zastępuje wersję 2 i stare teksty stron 11–100 wyżej)
+Max: fabuła była zbyt „słówkowa” i trochę kujońska. Strony 1–10 bez zmian (dzieci już je przeczytały). Od strony 11:
+- **Złoczyńca = Glitch**: szara, bzycząca chmura pikseli, która psuje ZDANIA (zła kolejność, brak -s, „I is”). Zepsute zdania w fabule są od razu naprawiane (19, 33→34, 53, 64, 79; list z 48 i serce Glitcha 87 → naprawione na 90).
+- **Moc kota = dobre zdania** („Good sentences fix glitches!”), a nie „ucz się słówek”. Słówka tylko jako dodatek (tęcza z kolorów, 37–38).
+- **Gra = fabuła**: od strony 34 w wieży pojawiają się **potwory Glitcha** (`RUN_EVENTS.glitch`, ~5% pięter, nie na bossach, nie dla nieczytających): migoczą, pytają TYLKO zdaniami, naprawiony = +20 rybek i „FIXED!”.
+- Ton: krótko, zabawnie, „Bzzt!”, „No way!”, „Let's go!”, „GG!”. Bez morałów typu „never stop learning words”.
+- Bez zmian: postacie (Pip, Skye, sowa, Kot Listonosz, Wieloryb, Król), gwiazdozbiory co 5 stron od 30, nagrody `STORY_REWARDS`, niebo `SKY_AT` (szara chmura 60–98 = Glitch), Moon Base od 25 (Król daje klucz), statek z paczką od 45.
+- Rozdziały: Moon Pieces, The Night King, Lost Stars, **The Glitch** (46–70), **Inside the Glitch** (71–95), The Full Sky.
 
-Stary plan stron 31–100 był powtarzalny („znalazłem gwiazdę → gwiazdozbiór” przez 70 dni). Nowa wersja ma tajemnicę, stawkę i zwroty akcji. Gwiazdozbiory i nagrody zostają na tych samych stronach, więc kod nieba i `STORY_REWARDS` się nie zmieniają.
-
-## Oś historii
-- **Tajemnica:** gwiazdy nie spadły same. Zabrała je **the Grey** (Szara Mgła). Na całą historię jedno pytanie: **kim jest Mgła i czego chce?**
-- **Zasada świata (już z rozdziału 1):** „Words are keys”, zapomniane słowa zamieniają się w cienie. Nowe: **słowo, które pamiętasz, świeci i Mgła nie może go dotknąć.** Nauka (i Shadow Cellar, czyli powtórki) dosłownie chroni niebo.
-- **Prawda (finał):** Mgła to tysiące zapomnianych słów sklejonych w jedną szarą chmurę. Nikt ich nie pamięta, więc są samotne i zimne. Zabierały gwiazdy, bo gwiazdy są ciepłe. Kot nie walczy z Mgłą, tylko **zaczyna ją pamiętać**: każde przypomniane słowo zamienia się w gwiazdę. Bez zabijania „złego”: wygrywają pamięć i przyjaźń. Ten sam motyw co u Króla Nocy (samotność), ale tym razem dziecko samo odkrywa prawdę (strony 66–89), zamiast ją usłyszeć.
-- **Bohaterowie:** Król Nocy (dumny, buduje statek, popełnia błąd i zostaje porwany), **Pip** — mysz-wynalazczyni (praktyczna, zabawna), **Skye** — ptak-zwiadowca (odważna, trochę narwana), Duszek z rozdziału 1, Żabi Książę, Robot ze Star Station, **Mailcat** — kot-listonosz w balonie, **Wieloryb Chmur** (stary, mądry, mówi powoli). Kot (dziecko) podejmuje decyzje i rozwiązuje zagadkę.
-- **Rytm:** każde 5 stron kończy się haczykiem, żeby chcieć wrócić jutro. Co 5 stron zapala się gwiazdozbiór, zawsze z powodu, który wynika z historii.
-
-## Rozdziały (cel → przeszkoda → zwrot)
-| Rozdział | Strony | Cel | Przeszkoda | Zwrot / haczyk |
-|---|---|---|---|---|
-| 3. Lost Stars | 31–45 | Zebrać gwiazdy | Gwiazdy mają szare, zimne plamy | 35: „Nie spadły. Coś je zabrało.” 40: Mgła istnieje. 45: statek Króla leci |
-| 4. Shadow Stars | 46–70 | Ścigać Mgłę statkiem | Mgła rośnie i kradnie Gwiazdę-Klucz | 48: tajemniczy list „Why?”. 60: **Mgła porywa Króla**. 68: Mgła to zapomniane słowa. 70: Wieloryb |
-| 5. Friends in the Sky | 71–95 | Uratować Króla z wnętrza Mgły | W środku nie ma słów | 78: deszcz zapomnianych słów. 86–88: **serce Mgły to małe, samotne słowo**, to ono napisało list. 95: kot = Strażnik Słów |
-| 6. The Full Sky | 96–100 | Przypomnieć Mgle wszystkie słowa | Słów jest bardzo dużo | 100: Mgła zamienia się w gwiazdy, festiwal nieba |
-
-## Strony 31–100
-### 3. Lost Stars (31–45)
-| # | obrazek | EN | PL |
+| Str. | Obrazek | EN | PL |
 |---|---|---|---|
-| 31 | 🔍 | The fish star has a grey spot. It is cold. “Who did this?” you ask. | Rybia gwiazda ma szarą plamę. Jest zimna. „Kto to zrobił?” — pytasz. |
-| 32 | 🐭 | In the kitchen you meet Pip, a mouse with big glasses. Her lamp is a star! | W kuchni poznajesz Pip, mysz w wielkich okularach. Jej lampka to gwiazda! |
-| 33 | 🔧 | Pip makes things. “I can fix the grey spot,” she says. “But you must tell me a word.” | Pip robi wynalazki. „Naprawię tę szarą plamę” — mówi. „Ale musisz powiedzieć mi słowo.” |
-| 34 | ✨ | You say “cheese”. The word glows. The grey spot is gone! Words are light. | Mówisz „cheese”. Słowo świeci. Szara plama znika! Słowa są światłem. |
-| 35 | 🐭 | Pip gives you her star. Now a mouse shines in the sky. Pip whispers: “The stars did not fall. Something took them.” | Pip daje ci swoją gwiazdę. Teraz na niebie świeci mysz. Pip szepcze: „Gwiazdy nie spadły. Coś je zabrało.” |
-| 36 | 🐦 | On the roof lives Skye, a fast bird. “I saw it!” she says. “A big grey cloud. It eats light.” | Na dachu mieszka Skye, szybki ptak. „Widziałam to!” — mówi. „Wielka szara chmura. Zjada światło.” |
-| 37 | 🎨 | Pip has a plan: “Light can make a bridge. We need a word for every colour.” | Pip ma plan: „Ze światła da się zrobić most. Potrzebujemy słowa na każdy kolor.” |
-| 38 | 🌈 | “Red, orange, yellow, green, blue, purple!” A rainbow bridge goes up to the clouds! | „Red, orange, yellow, green, blue, purple!” Tęczowy most prowadzi do chmur! |
-| 39 | ☁️ | On the clouds you find three stars in a nest. Skye takes them home. | Na chmurach znajdujesz trzy gwiazdy w gnieździe. Skye zabiera je do domu. |
-| 40 | 🌫️ | Now a bird shines in the sky. But far away, the sky is grey. The grey cloud is real. | Teraz na niebie świeci ptak. Ale daleko niebo jest szare. Szara chmura jest prawdziwa. |
-| 41 | 👑 | The King is angry. “Nobody takes MY stars! I will build a ship. A ship that flies!” | Król się złości. „Nikt nie zabiera MOICH gwiazd! Zbuduję statek. Statek, który lata!” |
-| 42 | 🔨 | Pip helps. Robots help. You help too. Bang, bang! Every day the ship is bigger. | Pip pomaga. Roboty pomagają. Ty też pomagasz. Bum, bum! Statek jest każdego dnia większy. |
+| 11 | 🌑 | Old, forgotten words turn into shadows. That is why the Shadow Cellar is so dark… | Stare, zapomniane słowa zamieniają się w cienie. Dlatego Piwnica Cieni jest taka ciemna… |
+| 12 | 🌋 | Lava everywhere! You see a piece of the Moon. It is warm and it glows. | Wszędzie lawa! Widzisz kawałek Księżyca. Jest ciepły i świeci. |
+| 13 | 🌙 | The Moon piece talks: “Find all my pieces. Then I can go home.” | Kawałek Księżyca mówi: „Znajdź wszystkie moje kawałki. Wtedy wrócę do domu.” |
+| 14 | ❄️ | Snow falls up, not down. In the Frozen Tower, everything is upside down. | Śnieg pada do góry, nie w dół. W Zamarzniętej Wieży wszystko jest do góry nogami. |
+| 15 | 🗺️ | A snowman gives you a map. On the map there is a crown… and your name! | Bałwan daje ci mapę. Na mapie jest korona… i twoje imię! |
+| 16 | ☁️ | In the Dream Clouds you meet a cat. It looks like you. “I am you from the future,” it says. | W Chmurach Snów spotykasz kota. Wygląda jak ty. „Jestem tobą z przyszłości” — mówi. |
+| 17 | 🐱 | Future You says: “Keep climbing. And one more thing… watch out for the Glitch.” Then it is gone. | Ty z przyszłości mówi: „Wspinaj się dalej. I jeszcze jedno… uważaj na Glitcha.” I znika. |
+| 18 | 🤖 | Star Station! Robots everywhere. One robot has the biggest Moon piece. | Stacja Gwiazd! Wszędzie roboty. Jeden robot ma największy kawałek Księżyca. |
+| 19 | 🤖 | The robot says: “Beep. Hungry is robot the.” Its sentence is broken! You fix it: “The robot is hungry.” | Robot mówi: „Bip. Głodny jest robot ten.” Jego zdanie jest zepsute! Naprawiasz je: „The robot is hungry.” |
+| 20 | 🌗 | The robot gets a snack and gives you the piece. The Moon is almost complete… but the Night King is waiting. To be continued… | Robot dostaje przekąskę i daje ci kawałek. Księżyc jest prawie cały… ale czeka Król Nocy. Ciąg dalszy nastąpi… |
+| 21 | 🌌 | The top of the tower. It is cold and dark. A big shadow sits on a throne. | Szczyt wieży. Jest zimno i ciemno. Na tronie siedzi wielki cień. |
+| 22 | 🤴 | “I am the Night King,” says the shadow. His voice is sad, not angry. | „Jestem Królem Nocy” — mówi cień. Jego głos jest smutny, nie zły. |
+| 23 | 😢 | “I took the Moon because I was alone. My sky has no stars. It is so dark.” | „Zabrałem Księżyc, bo byłem sam. Moje niebo nie ma gwiazd. Jest tak ciemno.” |
+| 24 | 🤝 | You say: “Let's be friends. Friends share the Moon.” The King smiles. Then he laughs. What a funny laugh! | Mówisz: „Bądźmy przyjaciółmi. Przyjaciele dzielą się Księżycem.” Król się uśmiecha. Potem się śmieje. Ale śmieszny śmiech! |
+| 25 | 🌕 | The last piece clicks in. The Moon is back! The King gives you a key: “A little house on the Moon. It is yours!” | Ostatni kawałek wskakuje na miejsce. Księżyc wrócił! Król daje ci klucz: „Mały domek na Księżycu. Jest twój!” |
+| 26 | 🌠 | But wait… where are the stars? The King looks down. “They fell into the tower. They are small and shy.” | Ale chwila… gdzie są gwiazdy? Król patrzy w dół. „Spadły do wieży. Są małe i nieśmiałe.” |
+| 27 | 🛏️ | You find a tiny light under a bed. It is a star! “Hi! Can I go home?” | Znajdujesz małe światełko pod łóżkiem. To gwiazda! „Cześć! Mogę wrócić do domu?” |
+| 28 | ⭐ | You throw the star up. Whoosh! It flies into the sky and shines. | Podrzucasz gwiazdę. Szuuu! Leci w niebo i świeci. |
+| 29 | 🐠 | A star is in a fish bowl. A little fish sings to it. So cute! | Gwiazda jest w akwarium. Mała rybka jej śpiewa. Słodkie! |
+| 30 | 🐟 | Five stars in the sky. Look! They make a fish! | Pięć gwiazd na niebie. Spójrz! Tworzą rybę! |
+| 31 | 📺 | Bzzt! The fish star flickers. Grey pixels eat its light. “Who did this?” you ask. | Bzzt! Rybia gwiazda migocze. Szare piksele zjadają jej światło. „Kto to zrobił?” — pytasz. |
+| 32 | 🐭 | In the kitchen you meet Pip, a mouse with big glasses. She makes gadgets. “That is a glitch,” she says. | W kuchni spotykasz Pip, mysz w dużych okularach. Robi gadżety. „To glitch” — mówi. |
+| 33 | 👾 | Pip points at the tower. “Glitch monsters! They break sentences. Listen…” A monster says: “He like cheese.” | Pip pokazuje wieżę. „Potwory Glitcha! Psują zdania. Posłuchaj…” Potwór mówi: „He like cheese.” |
+| 34 | 🔧 | You say: “He likes cheese.” Zap! The monster stops flickering. Pip claps. “Good sentences fix glitches!” | Mówisz: „He likes cheese.” Zap! Potwór przestaje migotać. Pip klaszcze. „Dobre zdania naprawiają glitche!” |
+| 35 | 🐭 | Pip gives you a star. Now a mouse shines in the sky. Pip whispers: “The stars did not fall. Something took them.” | Pip daje ci gwiazdę. Teraz na niebie świeci mysz. Pip szepcze: „Gwiazdy nie spadły. Coś je zabrało.” |
+| 36 | 🐦 | On the roof lives Skye, the fastest bird in town. “I saw it!” she says. “A big grey cloud. It buzzes and eats light.” | Na dachu mieszka Skye, najszybszy ptak w mieście. „Widziałam to!” — mówi. „Wielka szara chmura. Bzyczy i zjada światło.” |
+| 37 | 🎨 | Pip has a plan: “Light can make a bridge. Tell me the colours of the rainbow!” | Pip ma plan: „Światło może zrobić most. Powiedz mi kolory tęczy!” |
+| 38 | 🌈 | “Red, orange, yellow, green, blue, purple!” A rainbow bridge goes up to the clouds. Let's go! | „Red, orange, yellow, green, blue, purple!” Tęczowy most prowadzi do chmur. Ruszamy! |
+| 39 | ☁️ | On the clouds there is a nest with three stars. Skye takes them home. “Easy!” she says. | Na chmurach jest gniazdo z trzema gwiazdami. Skye zabiera je do domu. „Łatwizna!” — mówi. |
+| 40 | 🌫️ | A bird shines in the sky. But far away, a grey cloud buzzes: bzzzt. The Glitch is real. | Na niebie świeci ptak. Ale daleko szara chmura bzyczy: bzzzt. Glitch istnieje naprawdę. |
+| 41 | 👑 | The King is angry. “Nobody takes MY stars! I will build a ship. A ship that flies!” | Król jest zły. „Nikt nie zabiera MOICH gwiazd! Zbuduję statek. Statek, który lata!” |
+| 42 | 🔨 | Pip builds. The robots build. You build too. Bang, bang! Every day the ship is bigger. | Pip buduje. Roboty budują. Ty też budujesz. Bum, bum! Każdego dnia statek jest większy. |
 | 43 | ⛵ | The ship needs a sail. You find a paper boat with a star inside. It is the last part! | Statek potrzebuje żagla. Znajdujesz papierową łódkę z gwiazdą w środku. To ostatnia część! |
-| 44 | 🚪 | The paper boat came from the Shadow Cellar. The shadows wave. “Please remember us,” they say. | Papierowa łódka przypłynęła z Piwnicy Cieni. Cienie machają. „Proszę, pamiętaj o nas” — mówią. |
-| 45 | 🚢 | A boat shines in the sky. And the King's ship flies! “Next stop: the grey cloud!” | Na niebie świeci łódka. A statek Króla leci! „Następny przystanek: szara chmura!” |
-
-### 4. Shadow Stars (46–70)
-| # | obrazek | EN | PL |
-|---|---|---|---|
-| 46 | 🌬️ | The ship flies over the tower. The wind is cold. The King looks at a map. “The cloud has a name. It is the Grey.” | Statek leci nad wieżą. Wiatr jest zimny. Król patrzy na mapę. „Ta chmura ma imię. To Mgła.” |
-| 47 | 🎈 | A balloon comes! A cat with a big bag says: “I am Mailcat. I have a letter for you.” | Leci balon! Kot z wielką torbą mówi: „Jestem Mailcat. Mam dla ciebie list.” |
-| 48 | ✉️ | The letter is grey. It has only one word: “Why?” Who wrote it? | List jest szary. Jest w nim tylko jedno słowo: „Why?” Kto go napisał? |
-| 49 | 🗝️ | Mailcat says: “The Grey took the Key Star. Without it, the Moon cannot open the night.” | Mailcat mówi: „Mgła zabrała Gwiazdę-Klucz. Bez niej Księżyc nie może otworzyć nocy.” |
-| 50 | 🔑 | You fly into the Grey and say every word you know. The Key Star is free! A key shines in the sky. | Wlatujesz w Mgłę i mówisz każde słowo, które znasz. Gwiazda-Klucz jest wolna! Na niebie świeci klucz. |
-| 51 | 📚 | The ship stops at a library in the clouds. It is very quiet. Somebody says: “Shhh!” | Statek zatrzymuje się przy bibliotece w chmurach. Jest bardzo cicho. Ktoś mówi: „Ćśśś!” |
-| 52 | 🦉 | It is an old owl. “I keep all the words of the world,” she says. “But many books are empty now.” | To stara sowa. „Pilnuję wszystkich słów świata” — mówi. „Ale wiele książek jest teraz pustych.” |
-| 53 | 📖 | “When nobody says a word for a long time, it flies away,” says the owl. “Where to?” you ask. | „Kiedy nikt długo nie mówi jakiegoś słowa, ono odlatuje” — mówi sowa. „Dokąd?” — pytasz. |
-| 54 | 🤔 | The owl looks at the window. Outside, the Grey is bigger. “There,” she says. | Sowa patrzy w okno. Na zewnątrz Mgła jest większa. „Tam” — mówi. |
-| 55 | 🦉 | The owl gives you a star from her lamp. An owl shines in the sky. “Be careful,” she says. “The Grey is hungry.” | Sowa daje ci gwiazdę ze swojej lampy. Na niebie świeci sowa. „Uważaj” — mówi. „Mgła jest głodna.” |
-| 56 | ⛈️ | A storm! The ship shakes. Grey hands come out of the cloud. They want the stars! | Burza! Statek się trzęsie. Z chmury wychodzą szare ręce. Chcą gwiazd! |
-| 57 | 🪁 | Skye has an idea. She ties a star to a kite. “Follow the light, not the Grey!” | Skye ma pomysł. Przywiązuje gwiazdę do latawca. „Leć za światłem, nie za Mgłą!” |
-| 58 | 💪 | The King stands at the front of the ship. “Go away, Grey! I am the King of the Night!” | Król staje na dziobie statku. „Odejdź, Mgło! Jestem Królem Nocy!” |
-| 59 | 😱 | But the Grey does not go away. It opens like a big mouth… | Ale Mgła nie odchodzi. Otwiera się jak wielka paszcza… |
+| 44 | 🚪 | The paper boat came from the Shadow Cellar. The shadows wave at you. “Don't forget us!” | Papierowa łódka przypłynęła z Piwnicy Cieni. Cienie do ciebie machają. „Nie zapomnij o nas!” |
+| 45 | 🚢 | A boat shines in the sky. And the King's ship flies! It drops a gift every day. “Next stop: the Glitch!” | Na niebie świeci łódka. A statek Króla lata! Codziennie zrzuca prezent. „Następny przystanek: Glitch!” |
+| 46 | 🌬️ | The ship flies high. The King looks at the map. The Glitch is huge. It glitches clouds, birds… even sentences. | Statek leci wysoko. Król patrzy na mapę. Glitch jest ogromny. Psuje chmury, ptaki… nawet zdania. |
+| 47 | 🎈 | A balloon comes! A cat with a big bag waves. “I am Mailcat. I have a letter for you.” | Przylatuje balon! Kot z wielką torbą macha. „Jestem Kot Listonosz. Mam dla ciebie list.” |
+| 48 | ✉️ | The letter is grey. It says: “Why nobody understand me?” Who wrote it? And why is the sentence broken? | List jest szary. Jest w nim: „Why nobody understand me?” Kto to napisał? I czemu zdanie jest zepsute? |
+| 49 | 🗝️ | Mailcat says: “The Glitch has the Key Star. Without it, the night cannot open.” | Kot Listonosz mówi: „Glitch ma Gwiazdę-Klucz. Bez niej noc nie może się otworzyć.” |
+| 50 | 🔑 | You fly into the Glitch. Everything says “bzzt”! You shout good, strong sentences. The Key Star is free! A key shines in the sky. | Wlatujesz w Glitcha. Wszystko robi „bzzt”! Wykrzykujesz dobre, mocne zdania. Gwiazda-Klucz jest wolna! Na niebie świeci klucz. |
+| 51 | 📚 | The ship stops at a library in the clouds. It is very quiet. Somebody says: “Shhh!” | Statek zatrzymuje się przy bibliotece w chmurach. Jest bardzo cicho. Ktoś mówi: „Ćśś!” |
+| 52 | 🦉 | It is an old owl. “I keep all the stories of the world,” she says. “But the Glitch scrambles them.” | To stara sowa. „Pilnuję wszystkich historii świata” — mówi. „Ale Glitch je miesza.” |
+| 53 | 📖 | She opens a book. It says: “dragon a was There.” You fix it: “There was a dragon.” The book glows! | Otwiera książkę. Jest w niej: „dragon a was There.” Naprawiasz: „There was a dragon.” Książka świeci! |
+| 54 | 🤔 | “Broken sentences make the Glitch bigger,” says the owl. “Good sentences make it smaller.” | „Zepsute zdania powiększają Glitcha” — mówi sowa. „Dobre zdania go zmniejszają.” |
+| 55 | 🦉 | The owl gives you a star from her lamp. An owl shines in the sky. “Be careful. The Glitch is hungry.” | Sowa daje ci gwiazdę ze swojej lampy. Na niebie świeci sowa. „Uważaj. Glitch jest głodny.” |
+| 56 | ⛈️ | A storm! The ship shakes. Grey pixel hands come out of the cloud. They want the stars! | Burza! Statek się trzęsie. Z chmury wychodzą szare pikselowe ręce. Chcą gwiazd! |
+| 57 | 🪁 | Skye has an idea. She ties a star to a kite. “Follow the light, not the Glitch!” | Skye ma pomysł. Przywiązuje gwiazdę do latawca. „Leć za światłem, nie za Glitchem!” |
+| 58 | 💪 | The King stands at the front of the ship. “Go away, Glitch! I am the King of the Night!” | Król stoi na dziobie statku. „Odejdź, Glitchu! Jestem Królem Nocy!” |
+| 59 | 😱 | But the Glitch does not go away. It opens like a big mouth… | Ale Glitch nie odchodzi. Otwiera się jak wielka paszcza… |
 | 60 | 🌫️ | …and takes the King! Only his crown falls on the ship. A kite shines in the sky, but you are very sad. | …i zabiera Króla! Na statek spada tylko jego korona. Na niebie świeci latawiec, ale jest ci bardzo smutno. |
-| 61 | 👑 | You hold the crown. It is still warm. “The King is alive,” says Pip. “We will find him.” | Trzymasz koronę. Jest jeszcze ciepła. „Król żyje” — mówi Pip. „Znajdziemy go.” |
-| 62 | 🔔 | The owl says: “A bell can wake up words. Ring it, and the King can hear you.” | Sowa mówi: „Dzwon potrafi obudzić słowa. Zadzwoń, a Król cię usłyszy.” |
-| 63 | 🌌 | You ring the bell. Ding! The sky turns green and pink. It is the King's light! He is inside the Grey. | Dzwonisz. Dzyń! Niebo robi się zielone i różowe. To światło Króla! Jest w środku Mgły. |
-| 64 | 📡 | The lights make letters: “I… AM… OK.” The King is talking to you! | Światła układają się w litery: „I… AM… OK.” Król mówi do ciebie! |
-| 65 | 🔔 | A bell shines in the sky. Then the lights say one more word: “HELP.” | Na niebie świeci dzwon. Potem światła mówią jeszcze jedno słowo: „HELP.” |
-| 66 | 🌳 | In the clouds there is a tree. Its leaves are words. But the leaves are falling. | W chmurach rośnie drzewo. Jego liście to słowa. Ale liście spadają. |
-| 67 | 🍂 | Every leaf that falls turns grey and flies into the Grey. Hmm… | Każdy liść, który spada, robi się szary i leci do Mgły. Hmm… |
-| 68 | 💡 | “The Grey is made of forgotten words!” you say. Pip drops her glasses. “Oh no. That is why it is so big.” | „Mgła jest zrobiona z zapomnianych słów!” — mówisz. Pip upuszcza okulary. „O nie. Dlatego jest taka wielka.” |
-| 69 | 🍃 | You say the words on the leaves. They stop falling. They glow again. | Mówisz słowa z liści. Przestają spadać. Znowu świecą. |
-| 70 | 🐋 | A tree shines in the sky. Then something huge comes out of the clouds. A whale! “I can take you inside the Grey,” it says. | Na niebie świeci drzewo. Wtedy z chmur wynurza się coś ogromnego. Wieloryb! „Mogę zabrać was do środka Mgły” — mówi. |
-
-### 5. Friends in the Sky (71–95)
-| # | obrazek | EN | PL |
-|---|---|---|---|
-| 71 | 🐋 | The Cloud Whale is very old. He speaks slowly. “Inside the Grey… there are no words. You cannot talk.” | Wieloryb Chmur jest bardzo stary. Mówi powoli. „W środku Mgły… nie ma słów. Nie da się mówić.” |
-| 72 | 😶 | “How can we find the King with no words?” asks Skye. Nobody knows. | „Jak znajdziemy Króla bez słów?” — pyta Skye. Nikt nie wie. |
-| 73 | 👻 | Then a little voice says: “I know how.” It is the ghost from the Candy Forest! | Wtedy cichy głosik mówi: „Ja wiem jak.” To duszek z Cukierkowego Lasu! |
-| 74 | 🤫 | “I had no voice once,” says the ghost. “You can talk with your heart. And with light.” | „Kiedyś nie miałem głosu” — mówi duszek. „Można mówić sercem. I światłem.” |
-| 75 | 👻 | A ghost shines in the sky. You go into the whale. The whale swims into the Grey. Everything is dark. | Na niebie świeci duszek. Wchodzicie do wieloryba. Wieloryb płynie w Mgłę. Wszystko jest ciemne. |
-| 76 | 🌑 | Inside the Grey it is quiet and cold. You open your mouth, but no words come out. | W środku Mgły jest cicho i zimno. Otwierasz usta, ale nie wychodzą żadne słowa. |
-| 77 | 🐸 | A green light jumps in the dark. Ribbit! It is the frog prince. He came to help. | W ciemności skacze zielone światełko. Kum kum! To żabi książę. Przyszedł pomóc. |
-| 78 | ☄️ | Suddenly, little lights fall all around you. They are words! Forgotten words falling like rain. | Nagle wokół spadają małe światełka. To słowa! Zapomniane słowa spadają jak deszcz. |
-| 79 | 🤲 | You catch one. It says “umbrella”. You remember it! It glows in your paw. | Łapiesz jedno. To „umbrella”. Pamiętasz je! Świeci w twojej łapce. |
-| 80 | 🐸 | You catch more and more. Every word you remember lights the dark. A frog shines in the sky. | Łapiesz coraz więcej. Każde słowo, które pamiętasz, rozjaśnia ciemność. Na niebie świeci żaba. |
-| 81 | 🤖 | Beep! The robot from Star Station is here too. “I can make a word lamp,” it says. | Bip! Robot ze Star Station też tu jest. „Mogę zrobić lampę ze słów” — mówi. |
-| 82 | 🏮 | You put your words in the lamp. It shines bright. Now you can see a path. | Wkładasz swoje słowa do lampy. Świeci jasno. Teraz widać ścieżkę. |
+| 61 | 👑 | You hold the crown. It is still warm. “The King is OK,” says Pip. “We can find him.” | Trzymasz koronę. Jest jeszcze ciepła. „Król jest cały” — mówi Pip. „Znajdziemy go.” |
+| 62 | 🔔 | The owl says: “A bell can send a message. Ring it, and the King can hear you.” | Sowa mówi: „Dzwon może wysłać wiadomość. Zadzwoń, a Król cię usłyszy.” |
+| 63 | 🌌 | You ring the bell. Ding! The sky turns green and pink. It is the King's light! He is inside the Glitch. | Dzwonisz. Dzyń! Niebo robi się zielone i różowe. To światło Króla! Jest w środku Glitcha. |
+| 64 | 📡 | The lights make words: “I… IS… OK.” You smile. “It's ‘I AM OK’, Your Majesty!” The lights blink. Haha. | Światła układają słowa: „I… IS… OK.” Uśmiechasz się. „Mówi się ‘I AM OK’, Wasza Wysokość!” Światła mrugają. Haha. |
+| 65 | 🔔 | A bell shines in the sky. Then the lights send one more word: “HELP.” | Na niebie świeci dzwon. Potem światła wysyłają jeszcze jedno słowo: „HELP.” |
+| 66 | 🌳 | In the clouds there is a tree. Its leaves are sentences. But the leaves are falling. | W chmurach rośnie drzewo. Jego liście to zdania. Ale liście spadają. |
+| 67 | 🍂 | Every leaf that falls goes grey and flies into the Glitch. Bzzt. Hmm… | Każdy spadający liść szarzeje i leci do Glitcha. Bzzt. Hmm… |
+| 68 | 💡 | “The Glitch is made of broken sentences!” you say. Pip drops her glasses. “No way! That is why it is so big!” | „Glitch jest zrobiony z zepsutych zdań!” — mówisz. Pip upuszcza okulary. „Nie może być! Dlatego jest taki wielki!” |
+| 69 | 🍃 | You fix the sentences on the leaves. They stop falling. They glow again. | Naprawiasz zdania na liściach. Przestają spadać. Znowu świecą. |
+| 70 | 🐋 | A tree shines in the sky. Then something huge comes out of the clouds. A whale! “I can take you inside the Glitch,” he says. | Na niebie świeci drzewo. Potem z chmur wyłania się coś ogromnego. Wieloryb! „Mogę zabrać cię do środka Glitcha” — mówi. |
+| 71 | 🐋 | The Cloud Whale is very old. He speaks slowly. “Inside the Glitch… sentences break. Be careful what you say.” | Chmurowy Wieloryb jest bardzo stary. Mówi powoli. „W środku Glitcha… zdania się psują. Uważaj, co mówisz.” |
+| 72 | 😶 | “How can we find the King in there?” asks Skye. Nobody knows. | „Jak znajdziemy tam Króla?” — pyta Skye. Nikt nie wie. |
+| 73 | 👻 | Then a little voice says: “I know.” It is the ghost from the Candy Forest! | Wtedy cichutki głos mówi: „Ja wiem.” To duszek z Cukierkowego Lasu! |
+| 74 | 🤫 | “I had no voice once,” says the ghost. “You helped me. Now I help you.” | „Kiedyś nie miałem głosu” — mówi duszek. „Dostałem od ciebie pomoc. Teraz ja pomogę tobie.” |
+| 75 | 👻 | A ghost shines in the sky. You jump into the whale. The whale swims into the Glitch. Everything is dark. | Na niebie świeci duszek. Wskakujesz do wieloryba. Wieloryb wpływa w Glitcha. Wszędzie ciemno. |
+| 76 | 🌑 | Inside the Glitch it is cold. Everything flickers. Even your paws flicker! Bzzt. | W środku Glitcha jest zimno. Wszystko migocze. Nawet twoje łapki migoczą! Bzzt. |
+| 77 | 🐸 | A green light jumps in the dark. Ribbit! It is the frog prince. “I am here to help!” | W ciemności skacze zielone światełko. Kum! To żabi książę. „Przybywam pomóc!” |
+| 78 | ☄️ | Suddenly, little lights fall all around you. They are broken sentences! They fall like rain. | Nagle wokół ciebie spadają małe światełka. To zepsute zdania! Spadają jak deszcz. |
+| 79 | 🤲 | You catch one: “The frog are green.” Easy! “The frog is green.” It glows in your paw. | Łapiesz jedno: „The frog are green.” Łatwe! „The frog is green.” Świeci w twojej łapce. |
+| 80 | 🐸 | You catch more and more. Every sentence you fix lights the dark. A frog shines in the sky. | Łapiesz coraz więcej. Każde naprawione zdanie rozświetla ciemność. Na niebie świeci żaba. |
+| 81 | 🤖 | Beep! The robot from Star Station is here too. “Sentence lamp. Ready,” it says. No glitch! | Bip! Robot ze Stacji Gwiazd też tu jest. „Lampa zdań. Gotowa” — mówi. Bez glitcha! |
+| 82 | 🏮 | You put your fixed sentences in the lamp. It shines bright. Now you can see a path. | Wkładasz naprawione zdania do lampy. Świeci jasno. Teraz widać ścieżkę. |
 | 83 | 👣 | The path goes down, down, down. You hear something. Somebody is crying. | Ścieżka prowadzi w dół, w dół, w dół. Coś słychać. Ktoś płacze. |
-| 84 | 👑 | It is the King! He is sitting in the dark. “I am sorry,” he says. “I was proud. I shouted at the Grey.” | To Król! Siedzi w ciemności. „Przepraszam” — mówi. „Byłem dumny. Krzyczałem na Mgłę.” |
+| 84 | 👑 | It is the King! He sits in the dark. “I am sorry,” he says. “I shouted at the Glitch. That made it angry.” | To Król! Siedzi w ciemności. „Przepraszam” — mówi. „Krzyczałem na Glitcha. To go rozzłościło.” |
 | 85 | 🤖 | You give him his crown. A robot shines in the sky. But the King says: “Wait. Look behind you.” | Oddajesz mu koronę. Na niebie świeci robot. Ale Król mówi: „Czekaj. Spójrz za siebie.” |
-| 86 | 💔 | Behind you is the heart of the Grey. It is not a monster. It is a tiny grey word, all alone. | Za tobą jest serce Mgły. To nie potwór. To malutkie szare słowo, całkiem samotne. |
-| 87 | 🥺 | The tiny word says: “Why do you remember them… and not us?” Now you know who wrote the letter. | Malutkie słowo mówi: „Dlaczego pamiętasz je… a nas nie?” Teraz wiesz, kto napisał list. |
-| 88 | 🏠 | “We took the stars because we were cold,” says the word. “We just want to go home.” | „Zabieraliśmy gwiazdy, bo było nam zimno” — mówi słowo. „Chcemy tylko wrócić do domu.” |
-| 89 | 🤔 | Where is home for a word? You think and think. Then you smile. “Home is somebody who remembers you.” | Gdzie jest dom słowa? Myślisz i myślisz. Potem się uśmiechasz. „Dom to ktoś, kto o tobie pamięta.” |
-| 90 | ☄️ | You say the tiny word. It glows! A comet flies across the sky and shows the way out. A house shines in the sky. | Mówisz to malutkie słowo. Świeci! Przez niebo przelatuje kometa i pokazuje drogę na zewnątrz. Na niebie świeci dom. |
-| 91 | 🐋 | The whale swims out. The Grey is a little smaller. But there are so many words left. | Wieloryb wypływa. Mgła jest trochę mniejsza. Ale zostało tyle słów. |
-| 92 | 🧭 | “I cannot remember all of them alone,” you say. Pip smiles. “You are not alone.” | „Nie dam rady zapamiętać ich wszystkich w pojedynkę” — mówisz. Pip się uśmiecha. „Masz nas.” |
-| 93 | 🤝 | Everybody comes: Pip, Skye, the owl, the ghost, the frog, the robot, Mailcat and the King. | Przychodzą wszyscy: Pip, Skye, sowa, duszek, żaba, robot, Mailcat i Król. |
-| 94 | 📣 | Every friend takes some words. “We will say them every day,” says the King. “Then they will never be grey again.” | Każdy przyjaciel bierze trochę słów. „Będziemy je mówić codziennie” — mówi Król. „Wtedy już nigdy nie będą szare.” |
-| 95 | 🐱 | The last stars fly up and make a cat. It is you! “You are the Keeper of Words now,” says the owl. | Ostatnie gwiazdy lecą w górę i tworzą kota. To ty! „Teraz to ty strzeżesz słów” — mówi sowa. |
-
-### 6. The Full Sky (96–100)
-| # | obrazek | EN | PL |
-|---|---|---|---|
-| 96 | 🌫️ | One night, the Grey comes to the tower. It is small now. It is not scary. It looks at you. | Pewnej nocy Mgła przychodzi do wieży. Jest teraz mała. Nie jest straszna. Patrzy na ciebie. |
-| 97 | 💬 | You say a word. And another. And another. Every word you say turns into a new star. | Mówisz słowo. I kolejne. I kolejne. Każde słowo, które mówisz, zamienia się w nową gwiazdę. |
-| 98 | 🌟 | The Grey gets smaller and brighter… and brighter… and BRIGHTER! | Mgła robi się mniejsza i jaśniejsza… i jaśniejsza… i JAŚNIEJSZA! |
-| 99 | 💫 | The Grey is gone. In its place there is a new, big star. It whispers: “Thank you for remembering us.” | Mgły już nie ma. Na jej miejscu jest nowa, wielka gwiazda. Szepcze: „Dziękujemy, że o nas pamiętasz.” |
-| 100 | 🎆 | The sky is full! The King has a party in the sky, with a rainbow, the ship, the whale and fireworks. Never stop learning words. The End. | Niebo jest pełne! Król robi przyjęcie na niebie, z tęczą, statkiem, wielorybem i fajerwerkami. Nigdy nie przestawaj uczyć się słów. Koniec. |
+| 86 | 💔 | Behind you is the heart of the Glitch. It is not a monster. It is a tiny grey sentence, all alone. | Za tobą jest serce Glitcha. To nie potwór. To malutkie szare zdanie, całkiem samo. |
+| 87 | 🥺 | The tiny sentence says: “Nobody understand me.” Now you know who wrote the letter! | Malutkie zdanie mówi: „Nobody understand me.” Teraz wiesz, kto napisał list! |
+| 88 | 🏠 | “Nobody listens to broken sentences,” it says. “So I broke ALL the sentences. Now nobody understands anybody.” | „Nikt nie słucha zepsutych zdań” — mówi. „Więc zepsułem WSZYSTKIE zdania. Teraz nikt nikogo nie rozumie.” |
+| 89 | 🤔 | You think and think. Then you smile. “You are not bad. You just need some help.” | Myślisz i myślisz. Potem się uśmiechasz. „Nie jesteś złe. Potrzebujesz tylko trochę pomocy.” |
+| 90 | ☄️ | You help it: “Nobody understands me.” Then you add: “But now I do.” It glows! A comet shows the way out. A house shines in the sky. | Pomagasz mu: „Nobody understands me.” Potem dodajesz: „But now I do.” Świeci! Kometa pokazuje drogę na zewnątrz. Na niebie świeci domek. |
+| 91 | 🐋 | The whale swims out. The Glitch is a little smaller. But there are so many broken sentences left. | Wieloryb wypływa. Glitch jest trochę mniejszy. Ale zostało jeszcze mnóstwo zepsutych zdań. |
+| 92 | 🧭 | “I can't fix them all alone,” you say. Pip smiles. “You are not alone.” | „Nie naprawię ich wszystkich w pojedynkę” — mówisz. Pip się uśmiecha. „Nie musisz tego robić w pojedynkę.” |
+| 93 | 🤝 | Everybody comes: Pip, Skye, the owl, the ghost, the frog, the robot, Mailcat and the King. | Przychodzą wszyscy: Pip, Skye, sowa, duszek, żaba, robot, Kot Listonosz i Król. |
+| 94 | 📣 | Every friend fixes some sentences. “Teamwork!” shouts the King. The Glitch gets smaller and smaller. | Każdy przyjaciel naprawia trochę zdań. „Drużyna!” — woła Król. Glitch robi się coraz mniejszy. |
+| 95 | 🐱 | The last stars fly up and make a cat. It is you! “You are the Sentence Hero now,” says the owl. | Ostatnie gwiazdy lecą w górę i tworzą kota. To ty! „Teraz to ty strzeżesz zdań” — mówi sowa. |
+| 96 | 🌫️ | One night, the Glitch comes to the tower. It is small now. It isn't scary. It looks at you. | Pewnej nocy Glitch przychodzi pod wieżę. Jest teraz mały. Nie jest straszny. Patrzy na ciebie. |
+| 97 | 💬 | You say a good sentence. And another. And another. Every sentence turns into a new star. | Mówisz dobre zdanie. I kolejne. I kolejne. Każde zdanie zamienia się w nową gwiazdę. |
+| 98 | 🌟 | The Glitch gets smaller and brighter… and brighter… and BRIGHTER! | Glitch robi się mniejszy i jaśniejszy… i jaśniejszy… i JAŚNIEJSZY! |
+| 99 | 💫 | The Glitch is gone. In its place there is a new, big star. It says, perfectly: “Thank you for helping me.” | Glitcha już nie ma. Na jego miejscu jest nowa, wielka gwiazda. Mówi, bez jednego błędu: „Dziękuję za pomoc.” |
+| 100 | 🎆 | The sky is full! The King has a party in the sky, with a rainbow, the ship, the whale and fireworks. GG! The End. | Niebo jest pełne! Król robi imprezę na niebie, z tęczą, statkiem, wielorybem i fajerwerkami. GG! Koniec. |
 
 ## Nagrody za strony (bez zmian, pasują do historii)
 | Strona | Nagroda | Dlaczego tu |

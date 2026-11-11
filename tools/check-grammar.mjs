@@ -394,7 +394,9 @@ console.log("mechanics:", JSON.stringify(counts.mechs));
       if (med < 3) bad("srs", `lucja: mediana pudełka ps_3s ${med} < 3 (P1-1)`);
       if (mainStrong / Math.max(1, mainLate) < 0.25) bad("srs", `lucja: za mało zadań build/fix/type w temacie głównym (P1-1)`);
     }
-    if (share < 0.58 || share > 0.8) bad("session", `${name}: udział tematu głównego ${(share * 100).toFixed(0)}% poza 58–80%`);
+    // temat główny-słówka przy czytającym dziecku ustępuje zdaniom (engine.js GRAMMAR_SHARE: słówka to tylko ~30% zadań)
+    const [lo, hi] = name === "nina" ? [0.15, 0.45] : [0.58, 0.8];
+    if (share < lo || share > hi) bad("session", `${name}: udział tematu głównego ${(share * 100).toFixed(0)}% poza ${lo * 100}–${hi * 100}%`);
     if (prof.noReading && Object.keys(types).some((k) => !["listen2pic", "pic2listen"].includes(k))) bad("session", `${name}: nieczytający dostał tekst`, types);
     if (!prof.noReading && Object.keys(types).length < 5) bad("session", `${name}: mało różnorodności`, types);
   }

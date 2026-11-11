@@ -45,7 +45,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
   const DBG = debug ? (window.__nl = window.__nl || {}) : null;
   const setState = (s) => { if (DBG) DBG.runState = s; };
   const qp = (k) => { try { return new URLSearchParams(location.search).get(k); } catch { return null; } };
-  // ?debug&season=halloween|none forces a seasonal event, ?debug&event=golden|mimic|merchant|secret forces a run event
+  // ?debug&season=halloween|none forces a seasonal event, ?debug&event=golden|mimic|merchant|secret forces a run event (also: glitch)
   // (activeEvent itself honours ?debug&season=… — see data/events.js)
   const ev = activeEvent(undefined, EVENTS);
   const halloween = !!(ev && ev.id === "halloween" && ev.mech === "trickortreat");
@@ -152,11 +152,13 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
   // ---------- monster ----------
   let mon = null;
   const GOLD_PAL = ["#ffd23f", "#fff1a8", "#c98a12"];
+  const GLITCH_PAL = ["#8a8fa3", "#4dfff0", "#ff4fd8"];
   function spawn(f, kind = null) {
     const b = isShadow ? SHADOW_BIOME : biomeForFloor(f);
     const boss = !isShadow && f % ECON.floorsPerStage === 0;
     let pal = ev && ev.monTint && !isShadow && Math.random() < 0.4 ? ev.monTint : b.mon;
     if (kind === "golden") pal = GOLD_PAL;
+    if (kind === "glitch") pal = GLITCH_PAL;
     const m = kind === "mimic" ? makeMimic() : makeMonster(`${save.id}-${f}-${startedAt}`, pal, { boss, shadow: isShadow });
     // KING: the boss of every 25th floor wears a crown, has +2 HP and throws a 3rd shot when angry (boss.js)
     const king = boss && kind !== "mimic" && f % ECON.kingEvery === 0;
@@ -168,7 +170,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     }
     mon = { m, boss, hp, max: hp, hpShow: hp, wx: 240 - (boss ? 58 : 50), wy: floorY(f), anim: "idle", animT: 0, flash: 0,
       drop: 1, lx: 0, off: 0, sx: 1, sy: 1, dead: false, alpha: 1, phase: 1, colors: kind === "mimic" ? ["#b0703e", "#ffd23f"] : [pal[0] || "#ff6b2c", pal[1] || "#ffcf3f"],
-      golden: kind === "golden" ? { turns: RUN_EVENTS.golden.turns } : null, mimic: kind === "mimic" ? { revealed: false } : null, trick: null, fled: false,
+      golden: kind === "golden" ? { turns: RUN_EVENTS.golden.turns } : null, mimic: kind === "mimic" ? { revealed: false } : null, glitch: kind === "glitch", trick: null, fled: false,
       jumper: null, xmasHat: winter && boss && kind !== "mimic", king };
     if (mon.xmasHat) mon.colors = ["#ffffff", "#bfe8ff"]; // snowballs
     return tween(0.45, (k) => { mon.drop = 1 - ease.out(k); }, () => {
@@ -346,6 +348,15 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       const sx = Math.round(x + ((k * 37) % 40) - 20), sy = Math.round(y - ((k * 23) % monH()));
       ctx.fillStyle = "#ffffff"; ctx.fillRect(sx, sy - 2, 1, 5); ctx.fillRect(sx - 2, sy, 5, 1);
     }
+    if (mon.glitch && !mon.dead && Math.floor(t * 9) % 4 === 0) {
+      // glitch: cyan/pink slices jump over the monster
+      const k = Math.floor(t * 9);
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = i % 2 ? "#ff4fd8" : "#4dfff0"; ctx.globalAlpha = 0.7;
+        ctx.fillRect(Math.round(x - 18 + ((k * (13 + i * 7)) % 12)), Math.round(y - ((k * (17 + i * 5)) % monH())), 22 + i * 4, 1 + (i === 1 ? 1 : 0));
+      }
+      ctx.globalAlpha = 1;
+    }
     if (mon.dead || mon.fled) return;
     if (mon.mimic && !mon.mimic.revealed) return; // just a chest... right?
     // HP bar + name
@@ -365,6 +376,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       pxText(ctx, String(Math.max(0, mon.golden.turns)), tx + 11, ty + 1, { color: mon.golden.turns <= 1 ? "#ff6a5a" : "#ffcf3f" });
       pxText(ctx, "GOLDEN!", x, by - 8, { color: "#ffcf3f", align: "center" });
     }
+    if (mon.glitch) pxText(ctx, Math.floor(t * 3) % 5 ? "GLITCH!" : "GL1TCH?", x, by - 8, { color: "#4dfff0", align: "center" });
   }
   function drawHud(ctx, t) {
     const H = stage.h;
@@ -965,6 +977,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     const boss = mon.boss;
     let gain = (boss ? ECON.coinPerBoss : isShadow ? ECON.coinShadowClear : ECON.coinPerKill) * magnet();
     if (mon.golden) { gain += RUN_EVENTS.golden.fish * magnet(); S.events.push("golden"); bumpEvent("goldenCaught"); }
+    if (mon.glitch) { gain += RUN_EVENTS.glitch.fish * magnet(); S.events.push("glitch"); bumpEvent("glitchFixed"); session.forceGrammar = false; }
     if (mon.king) gain += ECON.kingFish;
     S.coins += gain; if (boss) S.xp += ECON.xpPerBoss;
     mon.dead = true; mon.anim = "die"; mon.animT = 0;
@@ -979,6 +992,7 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     fx.collect(p.x, hy, f.x, f.y, { n: Math.min(10, 3 + gain / 2), color: "#7ec4ff", onArrive: () => { fishPulse = 0.25; S_("coin"); } });
     fx.float(p.x, hy - 14, `+${gain}`, { color: "#7ec4ff", big: true });
     if (mon.golden) { showBanner("GOLDEN!", `+${gain} fish`, 1.3, "#ffd23f"); fx.burst(p.x, hy, { n: 40, colors: ["#ffd23f", "#fff1a8", "#ffffff"], speed: 150, gravity: 120, size: 2 }); S_("chest"); }
+    if (mon.glitch) { showBanner("FIXED!", `+${gain} fish`, 1.3, "#4dfff0"); S_("chest"); }
     if (mon.mimic) { S.eventChests.push(mon.mimic.chest); showBanner("CHEST!", "It is yours now!", 1.2, "#ffd23f"); S_("chest"); }
     await tween(0.5, (k) => { mon.alpha = 1 - k; mon.sy = 1 - k * 0.6; mon.sx = 1 + k * 0.4; });
     await ms2(boss ? 500 : 200);
@@ -1099,11 +1113,13 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
     if (isShadow) showBanner(`CELLAR ${i + 1}`, i === 0 ? "Beat the shadows!" : "", 1.1, "#bfb4ff");
     else showBanner(isBossFloor ? "BOSS FLOOR" : `FLOOR ${floor}`, prevBiome !== b.id ? b.label.toUpperCase() : "", 1.1, isBossFloor ? "#ff6a5a" : "#ffcf3f");
     prevBiome = b.id;
-    const startEv = !isBossFloor ? rollEvent(["golden", "mimic"]) : null;
+    const glitchOk = (save.story || 0) >= RUN_EVENTS.glitch.page && !profile.noReading;
+    const startEv = !isBossFloor ? rollEvent(glitchOk ? ["golden", "glitch", "mimic"] : ["golden", "mimic"]) : null;
     if (startEv) { S.stageEvent = startEv; bumpEvent(startEv); }
     await spawn(floor, startEv);
     if (startEv === "mimic") { const ch = RUN_EVENTS.mimic.chest; mon.mimic.chest = ch[Math.floor(Math.random() * ch.length)]; await mimicReveal(); if (S.quit) break; }
     if (startEv === "golden") { showBanner("GOLDEN!", "Quick! 3 turns!", 1.3, "#ffd23f"); S_("chest"); await ms2(600); }
+    if (startEv === "glitch") { session.forceGrammar = true; showBanner("GLITCH!", "Fix its sentences!", 1.3, "#4dfff0"); S_("chest"); await ms2(600); }
     if (isBossFloor) {
       setState("bossIntro"); runState = "bossIntro";
       try { startMusic("boss"); } catch {}

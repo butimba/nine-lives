@@ -6,8 +6,13 @@ export const enabled = () => !!(CONFIG.supabaseUrl && CONFIG.supabaseKey);
 const H = () => ({ apikey: CONFIG.supabaseKey, Authorization: `Bearer ${CONFIG.supabaseKey}`, "Content-Type": "application/json" });
 const U = (p) => `${CONFIG.supabaseUrl.replace(/\/$/, "")}/rest/v1/${p}`;
 
+// limit czasu: wolny internet / uśpiona baza nie może zawiesić logowania (wtedy gra bierze zapis z telefonu)
 async function req(path, opts = {}) {
-  const r = await fetch(U(path), { ...opts, headers: { ...H(), ...(opts.headers || {}) } });
+  const ctl = typeof AbortController === "function" ? new AbortController() : null;
+  const tm = ctl && setTimeout(() => ctl.abort(), 8000);
+  let r;
+  try { r = await fetch(U(path), { ...opts, signal: ctl && ctl.signal, headers: { ...H(), ...(opts.headers || {}) } }); }
+  finally { clearTimeout(tm); }
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   const t = await r.text();
   return t ? JSON.parse(t) : null;

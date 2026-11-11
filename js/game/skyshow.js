@@ -95,7 +95,7 @@ function aurora(ctx, w, h, t, a) {
   }
   ctx.globalAlpha = 1;
 }
-// Mgła (str. 60–98): rośnie do 85, potem maleje; w rogu nieba, powoli kłębi się
+// Glitch (szara chmura, str. 60–98): rośnie do 85, potem maleje; w rogu nieba, powoli kłębi się
 function grey(ctx, w, h, t, story) {
   if (story < SKY_AT.grey || story >= SKY_AT.greyGone) return;
   const k = story <= SKY_AT.greyPeak ? (story - SKY_AT.grey + 1) / (SKY_AT.greyPeak - SKY_AT.grey + 1) : 1 - (story - SKY_AT.greyPeak) / (SKY_AT.greyGone - SKY_AT.greyPeak);
@@ -106,6 +106,14 @@ function grey(ctx, w, h, t, story) {
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = i % 2 ? "#8a8fa3" : "#a7abbc";
     for (let yy = -r; yy <= r; yy++) { const hw = Math.sqrt(r * r - yy * yy); ctx.fillRect(Math.round(x - hw), Math.round(y + yy * 0.6), Math.round(hw * 2), 1); }
+  }
+  // to jest Glitch z fabuły: co chwilę błyskają kolorowe „zepsute piksele”
+  if (Math.floor(t * 4) % 3 === 0) {
+    const k = Math.floor(t * 4);
+    for (let i = 0; i < 4; i++) {
+      ctx.globalAlpha = 0.6; ctx.fillStyle = i % 2 ? "#ff4fd8" : "#4dfff0";
+      ctx.fillRect(Math.round(cx - R + ((k * (11 + i * 7)) % (R * 2))), Math.round(cy - R * 0.35 + ((k * (5 + i * 3)) % Math.max(1, Math.round(R * 0.7)))), 3 + (i % 3) * 2, 1);
+    }
   }
   ctx.globalAlpha = 1;
 }
