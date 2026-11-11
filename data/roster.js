@@ -7,7 +7,8 @@ export default {
    "voice": false,
    "subjects": "3s",
    "focus": [
-    "ps_3s"
+    "ps_3s",
+    "be"
    ],
    "gifts": [
     "skin:shrimp"
