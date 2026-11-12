@@ -103,20 +103,21 @@ export function eventChestItems(date = new Date()) {
   const ok = (it) => !it.retired && eventAllows(ev, it.source) && (it.chest || !it.price);
   return [...SKINS.filter(ok).map((s) => ({ ...s, kind: "skin" })), ...HATS.filter(ok).map((s) => ({ ...s, kind: "hat" }))];
 }
-// co może wypaść ze skrzyni: przedmioty "chest" + tanie (common/rare) ze sklepu.
-// Epickie i legendarne ze sklepu tylko za rybki — żeby rybki zawsze miały cel.
-const fromChest = (s) => s.source === "chest" || (s.source === "shop" && (s.rarity === "common" || s.rarity === "rare"));
+// co może wypaść ze skrzyni: przedmioty tylko-ze-skrzyń ("chest") + WSZYSTKO ze sklepu (każda rzadkość; Max 11.2026).
+const fromChest = (s) => s.source === "chest" || s.source === "shop";
 const RAR = ["common", "rare", "epic", "legendary"];
 // pula nieposiadanych przedmiotów danej rzadkości dla skrzyni `type`
 function chestPool(save, rarity, type, date) {
   const own = (it) => (it.kind === "skin" ? save.owned.skins : save.owned.hats).includes(it.id);
-  // mityczna (nagroda tygodnia) może też dać epickie/legendarne ze sklepu; skórki "mythic" tylko stąd, podwójna waga
-  const ok = (s) => !s.retired && s.rarity === rarity && (fromChest(s) || (type === "mythic" && s.source === "shop"));
+  // skórki "mythic" tylko z mitycznej, podwójna waga
+  const ok = (s) => !s.retired && s.rarity === rarity && fromChest(s);
   const all = [...SKINS.filter(ok).map((s) => ({ ...s, kind: "skin" })), ...HATS.filter(ok).map((s) => ({ ...s, kind: "hat" }))];
   const mythic = type === "mythic" && rarity === "legendary" ? SKINS.filter((s) => !s.retired && s.source === "mythic").map((s) => ({ ...s, kind: "skin" })) : [];
   // w czasie wydarzenia: przedmioty wydarzenia mają podwójną wagę (żeby skrzynie pachniały świętami)
   const ev = eventChestItems(date).filter((it) => it.rarity === rarity);
-  return [...mythic, ...mythic, ...all, ...ev, ...ev].filter((it) => !own(it));
+  // tylko-ze-skrzyń podwójna waga: sklepowe można też kupić, a tych nie
+  const only = all.filter((it) => it.source === "chest");
+  return [...mythic, ...mythic, ...all, ...only, ...ev, ...ev].filter((it) => !own(it));
 }
 // Drabinka skrzyń: każda wyższa gwarantuje lepszą rzadkość (CHESTS[type].min). Gdy wylosowana rzadkość jest
 // wyczerpana, schodzimy niżej aż do `min`; dopiero gdy nic nie zostało — zwykłe rybki tej skrzyni.

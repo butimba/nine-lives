@@ -446,6 +446,8 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
     { const sx = freshSave("myth2", {}); ok(Array.from({ length: 8 }, () => openChest(sx, "mythic")).every((r) => r.kind !== "coins"), "mythic always gives an item while some are left"); }
     for (let i = 0; i < 150; i++) openChest(sm, "mythic"); const r2 = Array.from({ length: 6 }, () => openChest(sm, "mythic")); ok(r2.every((r) => r.kind === "coins" && r.amount >= m0), "mythic with everything owned -> fish, no duplicate");
     ok(["mooncat", "phoenix", "crystal", "aurora"].every((id) => sm.owned.skins.includes(id)), "mythic gives the 4 mythic-only skins"); }
+  { const se = freshSave("shopchest", {}); const got = []; for (let i = 0; i < 300; i++) { const r = openChest(se, "epic"); if (r.item) got.push(r.item); }
+    ok(got.some((it) => it.source === "shop" && it.rarity === "legendary") && got.some((it) => it.source === "chest"), "chests drop shop items of every rarity AND chest-only items"); }
   { const sg = freshSave("gold", {}); for (let i = 0; i < 60; i++) openChest(sg, "gold"); ok(!sg.owned.skins.some((id) => SKINS.find((k) => k.id === id).source === "mythic"), "mythic-only skins never in normal chests"); }
   ok(TALENTS.length === 9 && TALENTS.every((t) => /^[\x20-\x7e]+$/.test(t.desc(1)) && t.desc(1).length < 40), "talent descs short English");
   ok(PERKS.every((p) => /^[\x20-\x7e]+$/.test(p.desc)), "perk descs English");
