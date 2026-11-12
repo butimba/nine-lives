@@ -269,7 +269,7 @@ export const weeklyScreen = {
           <div class="boss-name">${esc(m ? m.name : "???")}</div>
           <div class="hpbar"><i style="width:${(1 - p) * 100}%"></i><span>${done ? "0" : Math.max(0, w.hp - w.total)} HP</span></div>
           <div class="reward-box"><img class="px-img" src="${chestSrc("mythic", 3)}" alt="" style="width:64px;height:64px;object-fit:contain">
-            <div><b>${ECON.weeklyFishPerHit >= 1 ? `Every hit = ${ECON.weeklyFishPerHit} fish!` : `${Math.round(1 / ECON.weeklyFishPerHit)} hits = 1 fish!`}</b><small>your hits: <b>${Math.min(w.mine, need)}/${need}</b>${w.mine >= need ? " ✓" : ""}</small>
+            <div><b>${ECON.weeklyFishPerHit >= 1 ? `Every hit = ${ECON.weeklyFishPerHit} fish!` : `${Math.round(1 / ECON.weeklyFishPerHit)} hits = 1 fish!`}</b><small>your hits: <span style="font-weight:700">${Math.min(w.mine, need)}/${need}${w.mine >= need ? " ✓" : ""}</span></small>
               <br><small>Beat it and hit it ${need} times: MYTHIC chest${next ? ` + ${done ? esc(next.name) : "secret skin"}` : ""} + ${helped ? w.share : "bonus"} fish</small></div></div>
           ${done && !claimed && w.mine < need ? `<p class="wanted-info" style="margin-top:10px"><b>${need - w.mine} more hits</b> and the prize is yours!</p>` : ""}
           ${weeklyCanClaim(save, w) ? `<div style="margin-top:14px">${pxButton("Get prize!", { act: "claim", big: true, variant: "ok" })}</div>` : claimed ? `<div style="margin-top:12px">${stamp("Got it", { color: "ok" })}</div>` : ""}
