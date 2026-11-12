@@ -353,6 +353,11 @@ canvas.cat-live { display: block; image-rendering: pixelated; }
 .tab.on { background: var(--px-paper); color: var(--px-ink); transform: translateY(-4px); box-shadow: 0 0 0 3px var(--px-ink), 0 4px 0 3px var(--px-ink); }
 .tab.on small { color: var(--grey); }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 14px 12px; }
+.tabs--sub { margin: 4px 0 6px; }
+.tabs--sub .tab { padding: 8px 4px 7px; font-size: 15px; }
+.item-grid--week { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); padding: 12px; background: rgba(255, 178, 31, .08); outline: 2px dashed var(--px-gold); }
+.rar-title { font: 700 14px/1 var(--f-px); letter-spacing: .08em; color: var(--r); margin: 16px 0 8px; text-transform: uppercase; }
+.shop-extras { margin-top: 22px; }
 .item { --r: var(--px-r-common); position: relative; display: grid; justify-items: center; align-content: start; gap: 4px; padding: 10px 4px 8px; min-height: 140px;
   background: var(--px-paper); color: var(--px-ink); border: 0; cursor: pointer; font: 700 13px/1.1 var(--f-px);
   box-shadow: 0 0 0 3px var(--px-ink), inset 0 -6px 0 var(--r), 3px 4px 0 3px rgba(8, 5, 18, .45); }

@@ -503,7 +503,7 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
 {
   const { PRICE } = await import("../data/cosmetics.js");
   const { CHESTS: CH } = await import("../data/progression.js");
-  const { featuredItem, FEATURED, touchStreak: tS, openChest: oC } = await import("../js/meta.js");
+  const { featuredItems, FEATURED, FEATURED_ALL, touchStreak: tS, openChest: oC } = await import("../js/meta.js");
   ok(SKINS.filter((x) => x.price).every((x) => x.price === PRICE.skin[x.rarity]) && HATS.filter((x) => x.price).every((x) => x.price === PRICE.hat[x.rarity]), "one price per rarity (skins + hats)");
   const rank = { common: 0, rare: 1, epic: 2, legendary: 3 };
   for (const t of ["wood", "silver", "gold", "epic", "mythic"]) {
@@ -517,14 +517,18 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   { const sv = freshSave("myth0", {}); ok(Array.from({ length: 8 }, () => oC(sv, "mythic")).every((r) => r.kind !== "coins"), "mythic always gives an item while some are left"); }
   { const sv = freshSave("feat", {}); let bad = 0; for (let i = 0; i < 400; i++) { const r = oC(sv, "gold", new Date(2026, 1, 1)); if (r.item && r.item.source === "featured") bad++; } eq(bad, 0, "chests never give featured skins"); }
   const wk = (n) => new Date(2026, 0, 5 + 7 * n);
-  const ids = Array.from({ length: FEATURED.length + 1 }, (_, i) => featuredItem(wk(i)).id);
-  ok(new Set(ids.slice(0, FEATURED.length)).size === FEATURED.length && ids[0] === ids[FEATURED.length], `featured skin changes weekly and comes back (${ids})`);
-  eq(featuredItem(new Date(2026, 0, 5)).id, featuredItem(new Date(2026, 0, 11)).id, "same featured skin Mon..Sun");
-  { const sv = freshSave("featkid", {}); const d0 = new Date(2026, 0, 5), plain = featuredItem(d0).id;
-    sv.owned.skins.push(plain); const mine = featuredItem(d0, sv).id;
-    ok(mine !== plain && FEATURED.includes(mine), "featured skips a skin the kid already owns");
-    sv.owned.skins.push(mine); eq(featuredItem(new Date(2026, 0, 9), sv).id, mine, "featured stays the same all week after buying");
-    sv.owned.skins.push(...FEATURED); ok(FEATURED.includes(featuredItem(new Date(2026, 0, 12), sv).id), "featured still shown when kid owns all"); }
+  { const f0 = featuredItems(wk(0)); eq(f0.map((f) => f.rarity).join(), "common,rare,epic,legendary", "weekly shop: 1 skin of each rarity");
+    ok(f0.every((f) => f.source === "featured"), "weekly shop skins are featured-only");
+    const ids = Array.from({ length: 31 }, (_, i) => featuredItems(wk(i)).map((f) => f.id).join());
+    ok(new Set(ids.slice(0, 4)).size === 4 && ids[0] === ids[30], "weekly shop changes every week and comes back (lcm 30)");
+    eq(featuredItems(new Date(2026, 0, 5)).map((f) => f.id).join(), featuredItems(new Date(2026, 0, 11)).map((f) => f.id).join(), "same weekly shop Mon..Sun");
+    ok(FEATURED_ALL.every((id) => SKINS.some((k) => k.id === id && k.source === "featured")) && SKINS.filter((k) => k.source === "featured" && !k.retired).length === FEATURED_ALL.length, "every featured skin is in exactly one rotation");
+    const sv = freshSave("featkid", {}); const d0 = new Date(2026, 0, 5), plain = featuredItems(d0)[0].id;
+    sv.owned.skins.push(plain); const mine = featuredItems(d0, sv)[0].id;
+    ok(mine !== plain && FEATURED.common.includes(mine), "weekly shop skips a skin the kid already owns");
+    sv.owned.skins.push(mine); eq(featuredItems(new Date(2026, 0, 9), sv)[0].id, mine, "weekly shop stays the same all week after buying");
+    const sv2 = freshSave("old", {}); sv2.feat = { w: 1, id: "zapcat" }; eq(featuredItems(d0, sv2).length, 4, "old save.feat shape -> recomputed");
+    sv.owned.skins.push(...FEATURED_ALL); eq(featuredItems(new Date(2026, 0, 12), sv).length, 4, "weekly shop still shown when kid owns all"); }
   { const sv = freshSave("shopf", {}); const si = shopItems(sv, wk(0)); ok(si.featured && !si.skins.some((x) => x.source === "featured"), "shop: featured only as the weekly card"); }
   { const sv = freshSave("st28", {}); const d = new Date(Date.now() - 864e5);
     sv.streak.last = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; sv.streak.count = 27;

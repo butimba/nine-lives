@@ -8,35 +8,36 @@ import ROSTER from "../data/roster.js";
 
 export const tr = (save, id) => save.talents[id] || 0;
 
-// SKLEP TYGODNIA: co tydzień (od poniedziałku) jedna wyjątkowa skórka, do kupienia tylko w tym tygodniu.
-// Kolejka się zapętla (rzecz wraca po FEATURED.length tygodniach). Nowa skórka do rotacji = source "featured" + id tutaj.
-export const FEATURED = ["zapcat", "deepsea", "thunderking", "rockstar", "lovecat", "diamond"];
+// SKLEP TYGODNIA (Max 11.2026): co poniedziałek 4 skórki — po jednej z każdej rzadkości, do kupienia tylko w tym tygodniu.
+// Każda rzadkość ma swoją kolejkę 5–6 skórek, więc skórka wraca co ~1,5 miesiąca. Nowa skórka do rotacji = source "featured" + id tutaj.
+// Ze skrzyń nigdy (tylko za rybki) — stały sklep (source "shop") ma resztę.
+export const FEATURED = {
+  common: ["peach", "lilac", "calico", "smoky", "honey", "cloud"],
+  rare: ["panda", "bubblegum", "ocean", "bubble", "melody", "sweetie"],
+  epic: ["zapcat", "deepsea", "rockstar", "tiger", "neon"],
+  legendary: ["thunderking", "lovecat", "diamond", "sunset", "comet"],
+};
+export const FEATURED_ALL = Object.values(FEATURED).flat();
 export const weekIndex = (date = new Date()) => { const [y, w] = isoWeek(date).split("-W").map(Number); return y * 53 + w; };
-// Z zapisem (save): w danym tygodniu pokazujemy skórkę, której dziecko jeszcze NIE MA (pominięte posiadane),
-// i trzymamy ją do końca tygodnia (save.feat = { w, id }), żeby po zakupie nie wskoczyła od razu następna.
-// Dzięki temu ostatnie skórki nie czekają 6 tygodni na swoją kolej (to był główny zastój ekonomii).
-export function featuredItem(date = new Date(), save = null) {
+// Z zapisem (save): z każdej kolejki pokazujemy skórkę, której dziecko jeszcze NIE MA (posiadane pominięte),
+// i trzymamy wybór do końca tygodnia (save.feat = { w, ids }), żeby po zakupie nie wskoczyła od razu następna.
+export function featuredItems(date = new Date(), save = null) {
   const w = weekIndex(date);
-  let id = FEATURED[w % FEATURED.length];
-  if (save) {
-    if (save.feat && save.feat.w === w) id = save.feat.id;
-    else {
-      const left = FEATURED.filter((f) => !save.owned.skins.includes(f));
-      if (left.length) id = left[w % left.length];
-      save.feat = { w, id };
-    }
-  }
-  return SKINS.find((s) => s.id === id && !s.retired) || null;
+  const pick = (list) => { const left = save ? list.filter((f) => !save.owned.skins.includes(f)) : list, l = left.length ? left : list; return l[w % l.length]; };
+  let ids;
+  if (save && save.feat && save.feat.w === w && save.feat.ids) ids = save.feat.ids;
+  else { ids = Object.values(FEATURED).map(pick); if (save) save.feat = { w, ids }; }
+  return ids.map((id) => SKINS.find((s) => s.id === id && !s.retired)).filter(Boolean);
 }
 export const daysLeftInWeek = (date = new Date()) => 8 - (date.getDay() || 7); // pon = 7 … niedz = 1
 
 export function shopItems(save, date = new Date()) {
-  const ev = activeEvent(date, EVENTS), feat = featuredItem(date, save);
+  const ev = activeEvent(date, EVENTS), feat = featuredItems(date, save);
   const ok = (it) => !it.retired && !it.community && it.price && (it.source === "shop" || eventAllows(ev, it.source));
   return {
     skins: SKINS.filter(ok).map((s) => ({ ...s, kind: "skin", owned: save.owned.skins.includes(s.id) })),
     hats: HATS.filter(ok).map((s) => ({ ...s, kind: "hat", owned: save.owned.hats.includes(s.id) })),
-    featured: feat && { ...feat, kind: "skin", owned: save.owned.skins.includes(feat.id) },
+    featured: feat.map((f) => ({ ...f, kind: "skin", owned: save.owned.skins.includes(f.id) })),
     event: ev,
   };
 }

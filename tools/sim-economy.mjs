@@ -5,7 +5,7 @@
 import { pathToFileURL } from "node:url";
 globalThis.localStorage ??= { getItem: () => null, setItem() {}, removeItem() {} };
 const { freshSave, levelInfo } = await import("../js/state.js");
-const { openChest, chestForFloor, shopItems, buy, weeklyReward, weeklyNumbers, openParcel, FEATURED } = await import("../js/meta.js");
+const { openChest, chestForFloor, shopItems, buy, weeklyReward, weeklyNumbers, openParcel, FEATURED_ALL } = await import("../js/meta.js");
 const { ECON, RUN_EVENTS, CHESTS } = await import("../data/progression.js");
 const { SKINS, HATS } = await import("../data/cosmetics.js");
 const { DAILY_FISH } = await import("../js/daily.js");
@@ -72,7 +72,7 @@ export function simulate(patternName = "typical", weeks = 26, seed = 1) {
       const c0 = s.coins; openParcel(s, "d" + d, rng); src.other += s.coins - c0;
       // zakupy: najpierw skórka tygodnia, potem najtańsze ze sklepu
       const day = new Date(START.getTime() + d * 864e5), si = shopItems(s, day);
-      if (si.featured && !si.featured.owned && buy(s, si.featured)) spent.featured += si.featured.price;
+      for (const f of si.featured) if (!f.owned && buy(s, f)) spent.featured += f.price;
       for (;;) { const it = [...shopItems(s, day).skins, ...shopItems(s, day).hats].filter((q) => !q.owned).sort((a, b) => a.price - b.price)[0];
         if (!it || !buy(s, it)) break; spent.shop += it.price; }
       if (doneDay == null && !missing(s).length) { doneDay = d; fishAtDone = s.coins; }
@@ -97,7 +97,7 @@ export function simulate(patternName = "typical", weeks = 26, seed = 1) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  console.log(`do zebrania (bez wydarzeń i fabuły): ${GOAL.length} przedmiotów, sklep tygodnia: ${FEATURED.length} skórek`);
+  console.log(`do zebrania (bez wydarzeń i fabuły): ${GOAL.length} przedmiotów, sklep tygodnia: ${FEATURED_ALL.length} skórek`);
   for (const p of Object.keys(PATTERNS)) {
     const runs = [1, 2, 3, 4, 5].map((sd) => simulate(p, 40, sd));
     const r = runs[0], done = runs.map((q) => q.doneWeeks ?? ">40");

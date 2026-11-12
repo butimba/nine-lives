@@ -2,7 +2,7 @@
 import { h, esc, app, ico, catImg, pxButton, panel, pageHead, refreshFish, toast, modal, onAct, liveCat, sticker, RARITY_EN } from "./components.js";
 import { go } from "./router.js";
 import { persist } from "../state.js";
-import { shopItems, buy, ensureMySkin, MY_SKIN, SKIN_SENDING, featuredItem, daysLeftInWeek } from "../meta.js";
+import { shopItems, buy, ensureMySkin, MY_SKIN, SKIN_SENDING, featuredItems, daysLeftInWeek } from "../meta.js";
 import { registerSkin } from "../pixel/custom.js";
 import { sfx } from "../audio.js";
 import { SKINS, HATS } from "../../data/cosmetics.js";
@@ -17,18 +17,20 @@ function eventHint(it) {
   if (live) return !it.price ? "Find it in a chest now!" : "It is in the Shop now!";
   return `Only at ${when}!`;
 }
-let ev = null, feat = null;
+let ev = null, feat = [];
+const RORD = { common: 0, rare: 1, epic: 2, legendary: 3 };
+const byRar = (a, b) => (RORD[a.rarity || "common"] - RORD[b.rarity || "common"]);
 // przedmiot wydarzenia widać tylko w czasie wydarzenia (albo gdy już go masz)
 // tak samo sklep tygodnia: nieposiadaną skórkę widać tylko w jej tygodniu
-const shown = (it, own) => own.includes(it.id) || (!it.retired && (it.source === "featured" ? !!feat && feat.id === it.id : !String(it.source || "").startsWith("event:") || eventAllows(ev, it.source)));
+const shown = (it, own) => own.includes(it.id) || (!it.retired && (it.source === "featured" ? feat.some((f) => f.id === it.id) : !String(it.source || "").startsWith("event:") || eventAllows(ev, it.source)));
 const srcHint = (it) => (it.source || "").startsWith("event:") ? "event" : SOURCE_HINT[it.source] || "";
 
 export const wardrobeScreen = {
   mount(root, params = {}) {
     const save = app.save;
-    let tab = params.tab || "skins";
+    let tab = params.tab || "skins", shopTab = "skins";
     let tryOn = null; // { kind, id, price, name } — przymierzanie w sklepie
-    ev = activeEvent(new Date(), EVENTS); feat = featuredItem(new Date(), save);
+    ev = activeEvent(new Date(), EVENTS); feat = featuredItems(new Date(), save);
     const el = h(`<div class="screen page wardrobe">
       ${pageHead("Wardrobe", save)}
       <div class="preview-box"><i class="spot"></i><div class="preview-cat"></div>
@@ -84,7 +86,7 @@ export const wardrobeScreen = {
       if (tab === "skins" || tab === "hats") {
         const list = tab === "skins" ? skinsAll : hatsAll;
         const own = tab === "skins" ? save.owned.skins : save.owned.hats;
-        const sorted = [...list].sort((a, b) => (own.includes(b.id) - own.includes(a.id)));
+        const sorted = [...list].sort((a, b) => (own.includes(b.id) - own.includes(a.id)) || byRar(a, b));
         const st = mine.sent && mine.sent !== mine.pixels ? "changed" : mine.status;
         const stLabel = SKIN_SENDING && { pending: "waiting for teacher", approved: "in the game!", rejected: "try again", changed: "not sent yet" }[st];
         const diy = tab === "skins" ? `<div class="diy-row">${panel(`
@@ -97,19 +99,23 @@ export const wardrobeScreen = {
         body.innerHTML = `${diy}<div class="item-grid">${myTile}${sorted.map((it) => itemHTML(it, tab === "skins" ? "skin" : "hat", { owned: own.includes(it.id), on: (tab === "skins" ? save.equipped.skin : save.equipped.hat) === it.id })).join("")}</div>
           <div class="legend-row">${["common", "rare", "epic", "legendary"].map((r) => `<span><i style="background:var(--px-r-${r})"></i>${RARITY_EN[r]}</span>`).join("")}</div>`;
       } else {
-        const items = shopItems(save), f = items.featured, left = daysLeftInWeek();
-        const all = [...items.skins, ...items.hats].sort((a, b) => (a.owned - b.owned) || ((b.source || "").startsWith("event") - (a.source || "").startsWith("event")) || (a.price - b.price));
+        const items = shopItems(save), left = daysLeftInWeek();
+        const card = (it) => itemHTML(it, it.kind, { owned: it.owned, price: it.price, cant: !it.owned && save.coins < it.price, on: tryOn && tryOn.id === it.id });
+        const list = shopTab === "skins" ? items.skins : items.hats;
+        const groups = ["common", "rare", "epic", "legendary"].map((r) => [r, list.filter((it) => (it.rarity || "common") === r).sort((a, b) => a.owned - b.owned)]).filter(([, l]) => l.length);
+        const feat = shopTab === "skins" && items.featured.length ? `<div class="section-title">This week only! <small>${left === 1 ? "last day!" : `${left} days left`}</small></div>
+          <div class="item-grid item-grid--week">${[...items.featured].sort(byRar).map(card).join("")}</div>` : "";
         body.innerHTML = `
-          ${f ? `<div class="section-title">This week only! <small>${left === 1 ? "last day!" : `${left} days left`}</small></div>
-          <div class="item-grid item-grid--featured">${itemHTML(f, "skin", { owned: f.owned, price: f.price, cant: !f.owned && save.coins < f.price, on: tryOn && tryOn.id === f.id })}</div>` : ""}
+          <div class="tabs tabs--sub">${[["skins", "Skins"], ["hats", "Hats"]].map(([id, label]) => `<button class="tab ${shopTab === id ? "on" : ""}" data-act="shoptab" data-tab="${id}">${label}</button>`).join("")}</div>
+          ${feat}
+          <div class="section-title">Always in the shop ${ev ? `<small>${esc(ev.name)}!</small>` : ""}</div>
+          ${groups.map(([r, l]) => `<div class="rar-title" style="--r:var(--px-r-${r})">${RARITY_EN[r]}</div><div class="item-grid">${l.map(card).join("")}</div>`).join("")}
           <div class="shop-extras">
             ${panel(`<img class="px-ico big-ico" src="${iconURLsafe("snow")}" alt=""><b>Streak freeze</b><small>Miss 1 day, keep your streak. You have ${save.streak.freezes}/${ECON.freezeMax}.</small>
               ${pxButton(String(ECON.freezePrice), { icon: "fish", act: "buy-freeze", variant: save.coins >= ECON.freezePrice && save.streak.freezes < ECON.freezeMax ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: -1.5, tape: true })}
             ${panel(`<img class="px-ico big-ico" src="${chestSrc("silver", 3)}" alt="" style="object-fit:contain"><b>Silver chest</b><small>A surprise inside!</small>
               ${pxButton(String(ECON.chestPrice), { icon: "fish", act: "buy-chest", variant: save.coins >= ECON.chestPrice ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: 1.2, tape: true })}
-          </div>
-          <div class="section-title">Skins + hats ${ev ? `<small>${esc(ev.name)}!</small>` : ""}</div>
-          <div class="item-grid">${all.map((it) => itemHTML(it, it.kind, { owned: it.owned, price: it.price, cant: !it.owned && save.coins < it.price, on: tryOn && tryOn.id === it.id })).join("")}</div>`;
+          </div>`;
       }
     };
     const render = () => { renderPreview(); renderTabs(); renderBody(); refreshFish(el, save); };
@@ -125,6 +131,7 @@ export const wardrobeScreen = {
     const off = onAct(el, {
       back: () => { sfx.tap(); go("home"); },
       tab: (b) => { tab = b.dataset.tab; tryOn = null; sfx.tap(); render(); },
+      shoptab: (b) => { shopTab = b.dataset.tab; tryOn = null; sfx.tap(); render(); },
       equip: (b) => equip(b.dataset.kind, b.dataset.id),
       locked: (b) => { sfx.tap(); const it = (b.dataset.kind === "skin" ? SKINS : HATS).find((x) => x.id === b.dataset.id); const s = it && srcHint(it); toast(s === "chest" ? "Find it in a chest!" : s === "boss prize" ? "Beat the weekly boss!" : s === "event" ? eventHint(it) : s === "shop" ? "Buy it in the Shop!" : s === "this week" ? "It is in the Shop this week!" : "Not yet!"); },
       try: (b) => {
