@@ -8,11 +8,10 @@ import ROSTER from "../data/roster.js";
 
 export const tr = (save, id) => save.talents[id] || 0;
 
-// SKLEP TYGODNIA (Max 11.2026): co poniedziałek 4 skórki — po jednej z każdej rzadkości, do kupienia tylko w tym tygodniu.
+// SKLEP TYGODNIA (Max 11.2026): co poniedziałek 3 skórki — rzadka, epicka, legendarna, do kupienia tylko w tym tygodniu.
 // Każda rzadkość ma swoją kolejkę 5–6 skórek, więc skórka wraca co ~1,5 miesiąca. Nowa skórka do rotacji = source "featured" + id tutaj.
 // Ze skrzyń nigdy (tylko za rybki) — stały sklep (source "shop") ma resztę.
 export const FEATURED = {
-  common: ["peach", "lilac", "calico", "smoky", "honey", "cloud"],
   rare: ["panda", "bubblegum", "ocean", "bubble", "melody", "sweetie"],
   epic: ["zapcat", "deepsea", "rockstar", "tiger", "neon"],
   legendary: ["thunderking", "lovecat", "diamond", "sunset", "comet"],
