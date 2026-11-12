@@ -80,7 +80,7 @@ export const loginScreen = {
         if (!err.unknown) console.error(err);
         busy = false; b.disabled = false; b.querySelector("span").textContent = "Play";
         const msg = el.querySelector(".login-err");
-        msg.textContent = err.unknown ? "Hmm… I don't know this name. Ask your teacher!" : "Oops! Something went wrong. Try again!";
+        msg.textContent = err.unknown ? "Hmm… I don't know this name. Ask your teacher!" : err.cloud ? "I can't find your cat now. Check the internet and try again!" : "Oops! Something went wrong. Try again!";
         replay(inp, "shake"); sfx.wrong(); msg.hidden = false; inp.select();
       }
     };

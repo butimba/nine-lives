@@ -111,15 +111,29 @@ export function migrate(s, profile) {
 
 let current = null;
 let saveTimer = null;
+let cloudOk = false; // wolno pisać do chmury dopiero po udanym odczycie (inaczej stary/świeży zapis z telefonu nadpisze prawdziwy)
 export const getSave = () => current;
+
+// Który zapis wziąć: ten sam kot (createdAt) → wyższy rev; inny kot pod tym samym loginem
+// (np. świeży zapis z czasu, gdy chmura nie odpowiadała) → ten z większym postępem, nie ten z wyższym rev.
+export function pickSave(local, remote) {
+  if (!local || !remote) return local || remote || null;
+  if (local.createdAt !== remote.createdAt) return (local.xp || 0) > (remote.xp || 0) ? local : remote;
+  return (local.rev || 0) > (remote.rev || 0) ? local : remote;
+}
 
 export async function loadSave(id, profile) {
   let local = null;
   try { local = JSON.parse(localStorage.getItem(LS_KEY(id)) || "null"); } catch {}
-  let remote = null;
-  if (cloud.enabled()) { try { remote = await cloud.loadSave(id); } catch (e) { console.warn("cloud load", e); } }
-  let s = [local, remote].filter(Boolean).sort((a, b) => (b.rev || 0) - (a.rev || 0))[0];
+  let remote = null, failed = false;
+  if (cloud.enabled()) { try { remote = await cloud.loadSave(id); } catch (e) { failed = true; console.warn("cloud load", e); } }
+  cloudOk = cloud.enabled() && !failed;
+  // chmura nie odpowiada, a na tym urządzeniu nic nie ma → NIE zakładamy nowego kota (dziecko widziało „obce” konto,
+  // a jego zapis mógł potem nadpisać prawdziwy w chmurze); logowanie pokaże „Try again”
+  if (failed && !local) throw Object.assign(new Error("cloud unavailable"), { cloud: true });
+  let s = pickSave(local, remote);
   s = s ? migrate(s, profile) : freshSave(id, profile);
+  s.id = id; // zapis zawsze pod loginem, którym weszliśmy
   current = s;
   return s;
 }
@@ -129,7 +143,7 @@ export function persist(immediate = false) {
   current.rev = (current.rev || 0) + 1;
   current.updatedAt = Date.now();
   try { localStorage.setItem(LS_KEY(current.id), JSON.stringify(current)); } catch {}
-  if (!cloud.enabled()) return;
+  if (!cloud.enabled() || !cloudOk) return;
   clearTimeout(saveTimer);
   const push = () => cloud.saveSave(current.id, current).catch((e) => console.warn("cloud save", e));
   if (immediate) push(); else saveTimer = setTimeout(push, 1500);

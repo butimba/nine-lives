@@ -540,5 +540,30 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   ok(Array.from({ length: 30 }, () => ses2.next()).filter(Boolean).every((t) => t.kind === "vocab"), "non-readers still get only words");
 }
 
+// ---- logowanie, gdy chmura nie odpowiada (Łucja 11.2026: świeży kot zamiast jej zapisu) ----
+{
+  const ST = await import("../js/state.js");
+  const mine = { ...freshSave("7njwyk"), createdAt: 1, rev: 465, xp: 1169, catName: "Mine" };
+  const fresh = { ...freshSave("7njwyk"), createdAt: 2, rev: 30, xp: 40, catName: "New" };
+  eq(ST.pickSave(fresh, mine).catName, "Mine", "a fresh cat never beats the real save of the same login");
+  eq(ST.pickSave({ ...mine, rev: 500 }, mine).rev, 500, "same cat: higher rev wins");
+  eq(ST.pickSave(null, mine).catName, "Mine", "only cloud save -> cloud");
+  const store = {}, calls = [];
+  const oldFetch = globalThis.fetch, oldLS = globalThis.localStorage, oldWarn = console.warn; console.warn = () => {};
+  globalThis.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+  globalThis.fetch = (u) => { calls.push(u); return Promise.reject(new Error("offline")); };
+  let threw = null; try { await ST.loadSave("7njwyk", {}); } catch (e) { threw = e; }
+  ok(threw && threw.cloud, "cloud down + nothing on this device -> login fails, no new cat");
+  ok(!store["ninelives:save:7njwyk"], "no fresh save written on failed login");
+  store["ninelives:save:7njwyk"] = JSON.stringify({ ...mine, id: "other" });
+  const s = await ST.loadSave("7njwyk", {});
+  eq(s.catName, "Mine", "cloud down + local save -> plays the local save");
+  eq(s.id, "7njwyk", "save id always equals the login it was loaded for");
+  calls.length = 0; ST.persist(true); await new Promise((r) => setTimeout(r, 10));
+  eq(calls.length, 0, "no cloud write after a failed cloud load");
+  globalThis.fetch = oldFetch; console.warn = oldWarn;
+  if (oldLS === undefined) delete globalThis.localStorage; else globalThis.localStorage = oldLS;
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
