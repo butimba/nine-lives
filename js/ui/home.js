@@ -22,7 +22,7 @@ import { createStage } from "../game/stage.js";
 import { createFx, pxText } from "../game/juice.js";
 import { dayPhase, drawSky, drawTrophy, biomeForFloor, drawSnowfall, drawFireworks } from "../game/world.js";
 import { drawSkyLife, drawShip, drawParcel, drawConstellationShow, SHOW_LEN, SKY_AT } from "../game/skyshow.js";
-import { openParcel, baseUnlocked } from "../meta.js";
+import { openParcel } from "../meta.js";
 import { today } from "../util.js";
 
 // ---------- geometria sceny (logiczne px, szer. 240) ----------
@@ -370,8 +370,6 @@ export const homeScreen = {
         <button class="hot hot--door" data-act="cellar" aria-label="Shadow Cellar" style="${pos(L.door.x, L.door.y)};${size(34, 34)}">
           ${shadows ? `<span class="hot-label" style="top:88%;--tilt:-4deg">${sticker(`<span class="sticker-label sticker-label--violet">${shadows} shadow${shadows === 1 ? "" : "s"}</span>`, { tilt: 0 })}</span>` : ""}
         </button>
-        ${baseUnlocked(save) ? `<button class="hot hot--base" data-act="base" aria-label="Moon Base" style="${pos(MOON.x, MOON.y + 50)};${size(30, 16)}">
-          <span class="hot-label" style="top:0;--tilt:-5deg">${sticker(`<span class="sticker-label sticker-label--violet">Moon Base</span>`, { tilt: 0 })}</span></button>` : ""}
         ${sky.parcel && sky.parcel.landed ? `<button class="hot hot--parcel" data-act="parcel" aria-label="Open the parcel" style="${pos(PARCEL_X, L.groundY - 4)};${size(24, 22)}">
           <span class="hot-label" style="top:-60%;--tilt:6deg">${sticker(`<span class="sticker-label sticker-label--red">parcel!</span>`, { tilt: 0 })}</span></button>` : ""}
         ${nC ? `<button class="hot hot--chest ${hasGift() ? "hot--gift" : ""}" data-act="chest" aria-label="${hasGift() ? "Open your gift" : "Open chest"}" style="${pos(211, L.groundY - 10)};${size(48, 30)}">
@@ -591,15 +589,13 @@ export const homeScreen = {
       },
       pet,
       moon: () => { sfx.tap(); go("story"); },
-      base: () => { sfx.tap(); go("base"); },
       parcel: () => {
         const r = openParcel(save);
         sky.parcel = null; renderHot();
         if (!r) return;
         persist(true); sfx.coin();
         fx.burst(PARCEL_X, L.groundY - 8, { n: 12, colors: ["#ffd23f", "#e8434f", "#7ec4ff"], speed: 34, gravity: 30, life: 0.9 });
-        if (r.item) toast(`From the King's ship: ${r.item.name}! Look in your Moon Base.`, { icon: "star" });
-        else {
+        {
           const chip = fishChip(), b = chip && chip.querySelector("b");
           if (chip) flyFish(PARCEL_X, L.groundY - 10, chip, 6);
           setTimeout(() => { if (b && el.isConnected) countUp(b, save.coins - r.fish, save.coins, 600); }, 700);

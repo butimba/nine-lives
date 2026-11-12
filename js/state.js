@@ -38,7 +38,7 @@ export function freshSave(id, profile) {
     duo: freshDuo(),                       // v4: duet (prezent rybek dla przyjaciółki, wspólne wyzwanie dnia)
     pace: { catch: 1 },                    // v5: tempo spadających liter/słów dopasowane do dziecka (0.55–1.3, run.js)
     tips: {},
-    base: { owned: [], placed: {} },       // v6: Moon Base — meble (data/base.js): owned = id, placed = slot -> id                              // v5: samouczek — które podpowiedzi „HOW TO PLAY” już widział (klucz -> 1)
+    base: { owned: [], placed: {} },       // v6: Moon Base (usunięta 11.2026; pole zostaje, nic go nie używa)                              // v5: samouczek — które podpowiedzi „HOW TO PLAY” już widział (klucz -> 1)
     settings: { voice: !!(profile && profile.noReading), sfx: true, music: true, pl: true },
     log: [],          // [t, itemKey, ok(1/0), ms, chosenTag]
     stats: { runs: 0, answers: 0, correct: 0, playMs: 0, shadowRuns: 0, events: {} }, // events: liczniki wydarzeń w biegu

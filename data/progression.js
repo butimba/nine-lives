@@ -102,6 +102,7 @@ export const ECON = {
   monsterHp: (floor) => (floor < 20 ? 2 : floor < 60 ? 3 : 4),
   bossHp: (floor) => (floor < 20 ? 5 : floor < 60 ? 6 : 7),
   floorsPerStage: 5,
+  parcelFish: [5, 10], // paczka ze statku Króla (raz dziennie, od strony 45): same rybki
   kingEvery: 25, kingHp: 2, kingFish: 40, // boss co 25 pięter = Król: korona, +2 HP, 3. pocisk w fazie 2, +40 rybek
   weeklyHpPerPlayer: 250,
   weeklyLastWeek: 0.9,   // HP bossa tygodnia >= 90% obrażeń z zeszłego tygodnia (im mocniej grają, tym większy boss i pula)

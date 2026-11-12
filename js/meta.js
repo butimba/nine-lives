@@ -5,7 +5,6 @@ import EVENTS, { activeEvent, eventAllows } from "../data/events.js";
 import { today, dayDiff, isoWeek } from "./util.js";
 import * as cloud from "./cloud.js";
 import ROSTER from "../data/roster.js";
-import { FURNITURE } from "../data/base.js";
 
 export const tr = (save, id) => save.talents[id] || 0;
 
@@ -36,27 +35,12 @@ export function buy(save, item) {
   return true;
 }
 
-// ---- MOON BASE (domek kota, od strony 25) i paczka ze statku Króla (od strony 45, raz dziennie) ----
-export const BASE_PAGE = 25, SHIP_PAGE = 45;
-export const baseUnlocked = (save) => (save.story || 0) >= BASE_PAGE;
-export function buyFurniture(save, f) {
-  if (!f || !f.price || save.base.owned.includes(f.id) || save.coins < f.price) return false;
-  save.coins -= f.price; save.base.owned.push(f.id);
-  return true;
-}
-export function placeFurniture(save, slot, id) {
-  if (id && !save.base.owned.includes(id)) return false;
-  for (const k of Object.keys(save.base.placed)) if (save.base.placed[k] === id) delete save.base.placed[k];
-  if (id) save.base.placed[slot] = id; else delete save.base.placed[slot];
-  return true;
-}
-// paczka: 1/dzień (save.daily.shipDay). 1 na 4 — mebel tylko ze statku (jeśli jakiś brakuje), inaczej 15–30 rybek.
+// ---- paczka ze statku Króla (od strony 45, raz dziennie): kilka rybek ----
+export const SHIP_PAGE = 45;
 export function openParcel(save, d = today(), rng = Math.random) {
   if ((save.story || 0) < SHIP_PAGE || save.daily.shipDay === d) return null;
   save.daily.shipDay = d;
-  const left = FURNITURE.filter((f) => f.source === "ship" && !save.base.owned.includes(f.id));
-  if (left.length && rng() < 0.25) { const f = left[Math.floor(rng() * left.length)]; save.base.owned.push(f.id); return { item: f }; }
-  const fish = 15 + Math.floor(rng() * 16);
+  const fish = ECON.parcelFish[0] + Math.floor(rng() * (ECON.parcelFish[1] - ECON.parcelFish[0] + 1));
   save.coins += fish;
   return { fish };
 }

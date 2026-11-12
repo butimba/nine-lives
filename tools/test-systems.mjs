@@ -504,27 +504,16 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
     const evs = tS(sv); ok(sv.chests.includes("epic") && evs.some((e) => e.chest === "epic"), "28-day streak -> epic chest"); }
 }
 
-// ---- Moon Base + paczka ze statku ----
+// ---- paczka ze statku Króla (same rybki) ----
 {
-  const { baseUnlocked, buyFurniture, placeFurniture, openParcel } = await import("../js/meta.js");
-  const { FURNITURE } = await import("../data/base.js");
-  const { PRICE } = await import("../data/cosmetics.js");
-  ok(new Set(FURNITURE.map((f) => f.id)).size === FURNITURE.length, "furniture ids unique");
-  ok(FURNITURE.every((f) => f.source === "ship" ? f.price === 0 : f.price === PRICE.hat[f.rarity]), "furniture price = hat table");
-  const sv = freshSave("base1", {}); sv.coins = 1000;
-  sv.story = 24; ok(!baseUnlocked(sv), "base locked before page 25");
-  sv.story = 25; ok(baseUnlocked(sv), "base unlocked on page 25");
-  const lamp = FURNITURE.find((f) => f.id === "lamp");
-  ok(buyFurniture(sv, lamp) && sv.coins === 1000 - lamp.price && !buyFurniture(sv, lamp), "buy furniture once");
-  ok(!buyFurniture(sv, FURNITURE.find((f) => f.source === "ship")), "ship furniture not for sale");
-  ok(placeFurniture(sv, "top", "lamp") && sv.base.placed.top === "lamp", "place furniture");
-  ok(!placeFurniture(sv, "wall1", "planet"), "cannot place furniture you do not own");
-  placeFurniture(sv, "wall1", "lamp"); ok(!sv.base.placed.top && sv.base.placed.wall1 === "lamp", "moving furniture empties old slot");
+  const { openParcel } = await import("../js/meta.js");
+  const [lo, hi] = ECON.parcelFish;
+  const sv = freshSave("ship1", {});
   sv.story = 44; eq(openParcel(sv, "2026-11-12"), null, "no ship parcel before page 45");
-  sv.story = 45; const c0 = sv.coins; const r1 = openParcel(sv, "2026-11-12", () => 0.9);
-  ok(r1 && r1.fish >= 15 && r1.fish <= 30 && sv.coins === c0 + r1.fish, "parcel gives 15-30 fish");
+  sv.story = 45; const c0 = sv.coins; const r1 = openParcel(sv, "2026-11-12", () => 0.999);
+  ok(r1 && r1.fish === hi && sv.coins === c0 + r1.fish && !r1.item, "parcel gives only fish (max)");
   eq(openParcel(sv, "2026-11-12"), null, "ship parcel once per day");
-  const r2 = openParcel(sv, "2026-11-13", () => 0.1); ok(r2 && r2.item && r2.item.source === "ship" && sv.base.owned.includes(r2.item.id), "parcel sometimes gives ship furniture");
+  const r2 = openParcel(sv, "2026-11-13", () => 0); ok(r2 && r2.fish === lo && !r2.item, "parcel gives only fish (min)");
 }
 
 // ---- gramatyka na pierwszym planie (GRAMMAR_SHARE) ----
