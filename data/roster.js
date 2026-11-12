@@ -47,7 +47,9 @@ export default {
    "voice": false,
    "subjects": "3s",
    "focus": [
-    "ps_3s"
+    "ps_3s",
+    "ps_q",
+    "v:animals"
    ],
    "path": [
     "ps_3s",
