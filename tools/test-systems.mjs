@@ -188,7 +188,18 @@ const V1 = {
   eq(b.hp, 1800, "hp grows with last week's effort (90%)"); eq(b.share, Math.round(1800 * K * 1000 / 2000), "big helper gets big share");
   eq(weeklyNumbers({ total: 500, players: 2, mine: 0 }).share, 0, "no hits -> no share");
   eq(weeklyNumbers({ total: 5000, players: 2, mine: 1 }).share, ECON.weeklyMinShare, "tiny helper gets min share");
-  const s = freshSave("wk", {}); const r = weeklyReward(s, { share: 420 }); ok(r.coins === 420 && s.coins === 50 + 420 && r.skin && s.chests.includes("mythic") && s.chests.includes("gold"), "weekly reward = mythic + gold chest + skin + my share");
+  const s = freshSave("wk", {}); const r = weeklyReward(s, { share: 420 }); ok(r.coins === 420 && s.coins === 50 + 420 && r.skin && s.chests.includes("mythic"), "weekly reward = mythic chest + skin + my share");
+  { const { weeklyCanClaim } = await import("../js/meta.js"); const sv = freshSave("wkc", {}); const N = ECON.weeklyPrizeHits;
+    ok(!weeklyCanClaim(sv, { week: "W", total: 500, hp: 400, mine: N - 1 }), "weekly prize needs own hits");
+    ok(weeklyCanClaim(sv, { week: "W", total: 500, hp: 400, mine: N }), "weekly prize with enough hits");
+    ok(!weeklyCanClaim(sv, { week: "W", total: 300, hp: 400, mine: N }), "weekly prize only when boss is beaten");
+    sv.weekly.claimed.push("W"); ok(!weeklyCanClaim(sv, { week: "W", total: 500, hp: 400, mine: N }), "weekly prize once"); }
+  { const { touchStreak } = await import("../js/meta.js"); const sv = freshSave("grace", {}); const ago = (n) => { const d = new Date(Date.now() - n * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+    sv.streak.last = ago(2); sv.streak.count = 4; sv.streak.freezes = 0; touchStreak(sv); eq(sv.streak.count, 5, "streak survives 1 day off");
+    sv.streak.last = ago(3); sv.streak.count = 4; sv.streak.freezes = 0; touchStreak(sv); eq(sv.streak.count, 1, "streak resets after 2 days off without freeze"); }
+  { const sv = freshSave("alltal", {}); for (const t of TALENTS) sv.talents[t.id] = t.max; sv.xp = 0; let need = 0; for (let l = 1; l < 27; l++) need += ECON.levelXp(l);
+    const r = applyRunResults(sv, { mode: "tower", bossBeaten: false, floorReached: 1, coins: 0, xp: need, answers: 0 });
+    ok(r.levelChests.length >= 20 && r.levelChests.every((c) => c === "silver"), "all talents bought -> silver chest every level"); }
 }
 
 // ---------- moce ----------

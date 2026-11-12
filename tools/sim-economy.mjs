@@ -59,7 +59,7 @@ export function simulate(patternName = "typical", weeks = 26, seed = 1) {
         s.coins += st.fish; src.play += st.fish;
         const wf = Math.round(st.dmg * ECON.weeklyFishPerHit); s.coins += wf; src.weekly += wf; wDmg += st.dmg;
         const l0 = levelInfo(s.xp).lvl; s.xp += st.xp; const l1 = levelInfo(s.xp).lvl;
-        for (let l = l0 + 1; l <= l1; l++) if (l % 5 === 0) open(l % 10 === 0 ? "silver" : "wood", d);
+        for (let l = l0 + 1; l <= l1; l++) if (l > 25 || l % 5 === 0) open(l > 25 || l % 10 === 0 ? "silver" : "wood", d); // od lvl 25 wszystkie talenty → srebrna co level
         if (st.mimic) open(st.mimic, d);
         if (!st.won) continue;
         floor += 5; bosses++;
@@ -82,7 +82,7 @@ export function simulate(patternName = "typical", weeks = 26, seed = 1) {
     });
     // boss tygodnia: grupa dzieci grających podobnie → pada, gdy moje obrażenia >= HP na gracza
     const n = weeklyNumbers({ total: wDmg, players: 1, mine: wDmg });
-    if (wDmg >= n.hp) { beaten++; const r = weeklyReward(s, n); src.weekly += r.coins; for (const c of s.chests.splice(0)) open(c, w * 7 + 7); }
+    if (wDmg >= n.hp && wDmg >= ECON.weeklyPrizeHits) { beaten++; const r = weeklyReward(s, n); src.weekly += r.coins; for (const c of s.chests.splice(0)) open(c, w * 7 + 7); }
     if ((w + 1) % 4 === 0) monthly.push(s.coins);
     if (process.env.SIMDBG && w + 1 === +process.env.SIMDBG) console.log("missing", missing(s).join(" "));
     curve.push({ w: w + 1, items: GOAL.length - missing(s).length, lvl: levelInfo(s.xp).lvl, fish: Math.round(s.coins) });

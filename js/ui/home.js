@@ -5,7 +5,7 @@ import { h, esc, app, ico, iconSrc, picSrc, pxButton, sticker, toast, onAct, fmt
 import { go } from "./router.js";
 import { levelInfo, talentPoints, persist } from "../state.js";
 import { livesState, tickLives, sleepyTier, MAX_LIVES } from "../lives.js";
-import { streakAlive, weeklyStatus, weeklyBossInfo, isGift, loadPartner, receiveGifts, sendGift, canSendGift, duoChallenge } from "../meta.js";
+import { streakAlive, weeklyStatus, weeklyBossInfo, weeklyCanClaim, isGift, loadPartner, receiveGifts, sendGift, canSendGift, duoChallenge } from "../meta.js";
 import ROSTER from "../../data/roster.js";
 import { SKINS } from "../../data/cosmetics.js";
 import { dailySummary, loadDaily } from "./daily.js";
@@ -512,7 +512,7 @@ export const homeScreen = {
 
     // ---------- tygodniowy boss ----------
     weeklyStatus(save).then((w) => {
-      weekly.p = Math.min(1, w.total / w.hp); weekly.done = weekly.p >= 1; weekly.claimed = save.weekly.claimed.includes(w.week);
+      weekly.p = Math.min(1, w.total / w.hp); weekly.done = weekly.p >= 1; weekly.claimed = !weeklyCanClaim(save, w); // „claim!” tylko gdy naprawdę można odebrać
       if (el.isConnected) renderHot();
     }).catch(() => {});
 

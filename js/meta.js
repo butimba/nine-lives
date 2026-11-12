@@ -173,8 +173,9 @@ export function touchStreak(save) {
   if (!s.last) s.count = 1;
   else {
     const gap = dayDiff(s.last, d);
-    if (gap === 1) s.count++;
-    else if (gap > 1 && s.freezes >= gap - 1) { s.freezes -= gap - 1; s.count++; events.push({ type: "freezeUsed", n: gap - 1 }); }
+    const g = gap - 1 - ECON.streakGraceDays; // dni przerwy ponad darmową przerwę
+    if (g <= 0) s.count++;
+    else if (s.freezes >= g) { s.freezes -= g; s.count++; events.push({ type: "freezeUsed", n: g }); }
     else { if (s.count > 1) events.push({ type: "streakLost", was: s.count }); s.count = 1; }
   }
   s.last = d;
@@ -187,7 +188,7 @@ export function streakAlive(save) {
   const s = save.streak;
   if (!s.last) return { alive: false, count: 0 };
   const gap = dayDiff(s.last, today());
-  return { alive: gap <= 1 || s.freezes >= gap - 1, count: s.count, playedToday: gap === 0, gap };
+  return { alive: gap <= 1 + ECON.streakGraceDays || s.freezes >= gap - 1 - ECON.streakGraceDays, count: s.count, playedToday: gap === 0, gap };
 }
 
 // ---- boss tygodnia ----
@@ -226,14 +227,16 @@ export async function weeklyStatus(save) {
   }
   return { week: w, total: mine, mine, ...weeklyNumbers({ total: mine, players: 1, mine }), players: 1, cloud: false };
 }
-// nagroda za pokonanie: MITYCZNA skrzynia (jedyne źródło) + złota + następna skórka z kolejki + mój bonus z puli rybek (tylko jeśli biłem bossa).
+// nagroda za pokonanie: MITYCZNA skrzynia (jedyne źródło) + następna skórka z kolejki + mój bonus z puli rybek (tylko jeśli biłem bossa).
 // Rybki za same trafienia (ECON.weeklyFishPerHit) dostaje się od razu po biegu — rewards.applyRunResults.
+// nagroda tylko dla tych, którzy naprawdę walczyli (ECON.weeklyPrizeHits), raz na tydzień
+export const weeklyCanClaim = (save, w) => !!w && w.total >= w.hp && w.mine >= ECON.weeklyPrizeHits && !save.weekly.claimed.includes(w.week);
 export function weeklyReward(save, w) {
   const fish = (w && w.share) || ECON.weeklyMinShare;
   const queue = SKINS.filter((s) => s.source === "weekly" && !s.retired).sort((a, b) => a.order - b.order);
   const next = queue.find((s) => !save.owned.skins.includes(s.id));
   save.coins += fish;
-  save.chests.push("mythic", "gold"); // + złota: przy 2–4 sesjach w tygodniu jedna mityczna to za mało i końcówka kolekcji stała
+  save.chests.push("mythic");
   if (next) { save.owned.skins.push(next.id); save.weeklySkins++; return { skin: next, chest: "mythic", coins: fish }; }
   return { chest: "mythic", coins: fish };
 }

@@ -110,6 +110,8 @@ export const ECON = {
   weeklyFishPerHp: 1,    // pula bonusu = HP × 1, dzielona wg obrażeń, wypłacana po pokonaniu bossa (≈ 120 rybek na dziecko)
   weeklyFishPerHit: 0.5,   // + 0,5 rybki za punkt obrażeń od razu po biegu (× malejące nagrody), nawet gdy boss nie padnie
   weeklyMinShare: 30,
+  weeklyPrizeHits: 40,   // nagroda za bossa tygodnia (mityczna + skórka + pula) tylko dla dziecka, które samo trafiło go >= 40 razy (~2 krótkie sesje)
+  streakGraceDays: 1,    // seria nie pęka po 1 dniu przerwy (dzieci grają 2–4 razy w tygodniu); dłuższa przerwa = zamrożenie albo reset
   luckyCoin: 0.1,      // talent lucky: +10% rybek za rangę
   bellCoin: 1.5,       // perk bell
   magnetXp: 1.3,       // perk magnet

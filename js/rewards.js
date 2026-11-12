@@ -1,7 +1,7 @@
 // NAGRODY PO BIEGU (przeniesione z v1 battle.js).
 // run.js zwraca RunStats z coins/xp JUŻ pomnożonymi przez lives.rewardMult —
 // tutaj dokładamy tylko talenty/perki, zapisujemy postęp wieży, skrzynie, fabułę, serię dni.
-import { ECON, STORY, POWERS, MAX_EQUIPPED_POWERS, powerById, STORY_REWARDS } from "../data/progression.js";
+import { ECON, STORY, POWERS, MAX_EQUIPPED_POWERS, powerById, STORY_REWARDS, TALENTS } from "../data/progression.js";
 import { SKINS, HATS } from "../data/cosmetics.js";
 import { tr, chestForFloor, touchStreak, ensureWeek, duoAddCorrect } from "./meta.js";
 import { persist, levelInfo, getSave } from "./state.js";
@@ -54,7 +54,9 @@ export function applyRunResults(save, stats = {}) {
   save.coins += coins; save.xp += xp;
   const lvlAfter = levelInfo(save.xp).lvl;
   const levelChests = [];
-  for (let l = lvlBefore + 1; l <= lvlAfter; l++) if (l % 5 === 0) { const c = l % 10 === 0 ? "silver" : "wood"; save.chests.push(c); levelChests.push(c); }
+  // co 5 leveli skrzynia; gdy wszystkie talenty są już wykupione — srebrna za KAŻDY level (punkty nie leżą bez sensu)
+  const allTalents = TALENTS.every((t) => (save.talents[t.id] || 0) >= t.max);
+  for (let l = lvlBefore + 1; l <= lvlAfter; l++) if (allTalents || l % 5 === 0) { const c = allTalents || l % 10 === 0 ? "silver" : "wood"; save.chests.push(c); levelChests.push(c); }
   // moce odblokowane już na starcie biegu (run.js -> stats.unlockedPowers) + te z level-upu teraz
   const newPowers = [...(Array.isArray(stats.unlockedPowers) ? stats.unlockedPowers : []).map(powerById).filter(Boolean), ...syncPowers(save)];
   // linie do ekranu wyników (H: msgs.push(...r.extras)) — { cls, icon (ICONS key), text }
