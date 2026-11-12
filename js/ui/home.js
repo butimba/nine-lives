@@ -12,7 +12,7 @@ import { dailySummary, loadDaily } from "./daily.js";
 import { hasPowers, slotsHTML, powerPicker } from "./powers.js";
 import { shadowList, isCardWord } from "../engine.js";
 import { sfx, startMusic } from "../audio.js";
-import { ECON, STORY, SKY, skyStars } from "../../data/progression.js";
+import { ECON, STORY, SKY, skyDone } from "../../data/progression.js";
 import EVENTS, { activeEvent } from "../../data/events.js";
 import * as cloud from "../cloud.js";
 import { getCat } from "../pixel/cat.js";
@@ -314,7 +314,7 @@ export const homeScreen = {
     try { bossURL = makeMonster(weekInfo.seed, ["#e8434f", "#8a55d6", "#ffa04d", "#6fe3d3", "#93e04c"], { boss: true }).portraitURL(2); } catch {}
 
     // ---------- żywe niebo (skyshow.js): gwiazdozbiór ożywa + statek Króla z paczką ----------
-    const story0 = save.story || 0, doneC = Math.floor(skyStars(story0) / 5);
+    const story0 = save.story || 0, doneC = skyDone(story0);
     const showKey = `ninelives:skyShow:${save.id}`;
     let showSeen = 0; try { showSeen = +localStorage.getItem(showKey) || 0; } catch {}
     const sky = { show: null, next: doneC > showSeen ? doneC - 1 : -1, nextAt: 2.5, ship: null, parcel: null, t: 0 };
@@ -323,7 +323,7 @@ export const homeScreen = {
     if (story0 >= SKY_AT.ship && save.daily.shipDay !== today()) sky.ship = { t0: null, drop: true };
     const skyStep = (ctx, t) => {
       sky.t = t;
-      if (sky.t0 == null) { sky.t0 = t; sky.nextAt = t + 2.5; if (sky.ship) sky.ship.t0 = t + 4; } // t = czas globalny, liczymy od wejścia
+      if (sky.t0 == null) { sky.t0 = t; sky.nextAt = t + 3.5; if (sky.ship) sky.ship.t0 = t + 4; } // t = czas globalny, liczymy od wejścia
       // gwiazdozbiór: najpierw nowy (jednorazowo), potem czasem losowy w nocy (od strony 100 — zawsze)
       if (!sky.show && sky.next >= 0 && t >= sky.nextAt) { sky.show = { i: sky.next, t0: t }; sky.next = -1; }
       if (!sky.show && doneC && t >= sky.nextAt && (phase.phase === "night" || story0 >= SKY_AT.festival)) { sky.show = { i: Math.floor(Math.random() * doneC), t0: t }; }
@@ -421,7 +421,7 @@ export const homeScreen = {
         bake();
         const night = phase.phase === "night";
         const hideC = skyStep(ctx, t);
-        drawSky(ctx, W, L.H, phase, t, { moon: true, moonX: MOON.x, moonY: MOON.y, birds: !winter, fireflies: false, story: save.story || 0, hide: hideC });
+        drawSky(ctx, W, L.H, phase, t, { moon: true, moonX: MOON.x, moonY: MOON.y, birds: !winter, fireflies: false, story: save.story || 0, hide: hideC, fresh: save.daily.pageDay === today() && sky.t0 != null ? t - sky.t0 : null });
         drawSkyExtras(ctx, t);
         if (ev && ev.sky === "fireworks") drawFireworks(ctx, W, L.H * 0.45, t);
         ctx.drawImage(hillsC, 0, 0);

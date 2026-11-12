@@ -6,7 +6,7 @@
 // Screen y = worldY - camY.  Floors < 0 are the Shadow Cellar.
 import { biomeForFloor, SHADOW_BIOME, mix, shade } from "./biomes.js";
 import { pxText } from "./juice.js";
-import { SKY as CONSTELLATIONS, skyStars, MOON_PAGES } from "../../data/progression.js";
+import { SKY as CONSTELLATIONS, skyLit, MOON_PAGES, SKY_FIRST_PAGE, SKY_PAGES } from "../../data/progression.js";
 
 export { BIOMES, biomeForFloor } from "./biomes.js";
 
@@ -96,6 +96,26 @@ function skyCanvas(w, h, p) {
   return cv;
 }
 const STARS = Array.from({ length: 70 }, (_, i) => ({ x: hash(i, 1), y: hash(i, 2) * hash(i, 7), big: hash(i, 3) < 0.12, tw: hash(i, 4) * 6.28, sp: 1 + hash(i, 5) * 3 }));
+// niebo fabuły (ekran główny): gwiazdy tła tylko w pasach po bokach wieży; z każdą stroną jest ich więcej
+// (14 na starcie → ~24 przy Księżycu → ~144 na stronie 100). Kolejność stała, więc gwiazdy tylko dochodzą.
+const STRIP_STARS = Array.from({ length: 150 }, (_, i) => {
+  const r = hash(i, 31), k = hash(i, 33), c = hash(i, 36);
+  return { x: r < 0.5 ? r * 0.5 : 0.75 + (r - 0.5) * 0.5, y: 0.02 + hash(i, 32) * 0.9, tier: k < 0.07 ? 2 : k < 0.3 ? 1 : 0,
+    col: c < 0.08 ? "#ffc8ec" : c < 0.16 ? "#bff5e0" : k < 0.3 ? "#fff6d8" : "#aab6f0", tw: hash(i, 34) * 6.28, sp: 0.6 + hash(i, 35) * 2.4 };
+});
+export const bgStarCount = (story) => Math.min(STRIP_STARS.length, Math.round(14 + Math.min(story, MOON_PAGES) * 0.4 + Math.max(0, story - MOON_PAGES) * 1.6));
+function drawStoryStars(ctx, w, h, story, t, a) {
+  const n = bgStarCount(story), hs = h - 50;
+  for (let i = 0; i < n; i++) {
+    const s = STRIP_STARS[i], tw = 0.55 + 0.45 * Math.sin(t * s.sp + s.tw);
+    const x = Math.round(s.x * w), y = Math.round(s.y * hs);
+    ctx.fillStyle = s.col;
+    ctx.globalAlpha = a * (s.tier ? tw : 0.35 + 0.3 * tw);
+    ctx.fillRect(x, y, 1, 1);
+    if (s.tier === 2 || (s.tier === 1 && tw > 0.93)) { ctx.globalAlpha = a * tw * 0.45; ctx.fillRect(x - 1, y, 3, 1); ctx.fillRect(x, y - 1, 1, 3); }
+  }
+  ctx.globalAlpha = 1;
+}
 const CLOUDS = Array.from({ length: 5 }, (_, i) => ({ x: hash(i, 11), y: 0.08 + hash(i, 12) * 0.45, w: 18 + Math.floor(hash(i, 13) * 22), sp: 2 + hash(i, 14) * 4 }));
 
 function drawCloud(ctx, x, y, w, col, hi) {
@@ -111,13 +131,15 @@ function drawCloud(ctx, x, y, w, col, hi) {
 }
 
 // story = save.story (tylko ekran główny): Księżyc wypełnia się kawałkami (strony 1–25), potem gwiazdozbiory (26–95), 100 = Gwiazda Północna
-export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, birds = true, fireflies = false, story = null, hide = -1 } = {}) {
+// fresh = sekundy od wejścia na ekran, gdy dziś przybyła strona (dzisiejsza gwiazda przylatuje i pulsuje)
+export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, birds = true, fireflies = false, story = null, hide = -1, fresh = null } = {}) {
   const p = asPhase(phase);
   ctx.drawImage(skyCanvas(w, h, p), 0, 0);
   const night = p.phase === "night", day = p.phase === "day";
   // stars
   const starA = night ? 1 : p.phase === "dawn" ? Math.max(0, 1 - p.k * 2.2) : p.phase === "dusk" ? Math.max(0, p.k * 2 - 0.8) : 0;
-  if (starA > 0) {
+  if (starA > 0 && story != null) drawStoryStars(ctx, w, h, story, t, starA);
+  else if (starA > 0) {
     for (const s of STARS) {
       const tw = 0.55 + 0.45 * Math.sin(t * s.sp + s.tw);
       ctx.globalAlpha = starA * tw;
@@ -148,7 +170,7 @@ export function drawSky(ctx, w, h, phase, t = 0, { moon = true, moonX, moonY, bi
   }
   ctx.globalAlpha = 1;
   // the stolen moon: dashed outline (story!)
-  if (story != null) drawStorySky(ctx, story, t, night ? 1 : p.phase === "day" ? 0.55 : 0.8, hide);
+  if (story != null) drawStorySky(ctx, h, story, t, night ? 1 : day ? 0.7 : 0.85, hide, day, fresh);
   if (moon) {
     const mx = moonX ?? Math.round(w * 0.76), my = moonY ?? Math.round(h * 0.13);
     if (story != null && story > 0) drawMoonPieces(ctx, mx, my, t, night ? 1 : 0.75, Math.min(1, story / MOON_PAGES));
@@ -189,43 +211,82 @@ export function drawMoonPieces(ctx, x, y, t = 0, alpha = 1, k = 0) {
   ctx.globalAlpha = 1;
 }
 
-// miejsca gwiazdozbiorów na ekranie głównym (240 px; wieża zajmuje środek 62–178), na zmianę lewo/prawo
-export const SKY_SLOTS = [[4, 24], [186, 78], [34, 42], [214, 96], [4, 60], [186, 114], [34, 78], [214, 132], [4, 96], [186, 150], [34, 114], [214, 168], [4, 132], [186, 186]];
-const line = (ctx, a, b) => { const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])); for (let i = 1; i < n; i++) ctx.fillRect(Math.round(a[0] + (b[0] - a[0]) * i / n), Math.round(a[1] + (b[1] - a[1]) * i / n), 1, 1); };
-// jeden gwiazdozbiór: lit = ile gwiazd zapalonych (0–5); current = następny do ułożenia (blade kropki)
-export function drawConstellation(ctx, c, x, y, lit, t = 0, alpha = 1, current = false) {
-  const P = c.pts.map(([px, py]) => [x + px, y + py]);
-  if (lit >= 5) { ctx.globalAlpha = 0.4 * alpha; ctx.fillStyle = "#9fb4ff"; for (const [a, b] of c.lines) line(ctx, P[a], P[b]); }
+// miejsca gwiazdozbiorów na ekranie głównym: [x, y jako ułamek wysokości nieba nad wzgórzami]. Wieża zajmuje środek (62–178),
+// więc 7 po lewej (poniżej naklejek wydarzeń) i 7 po prawej (pod Księżycem). Po lewej między rybą a ptakiem = Glitch, potem gwiazda Bit.
+export const SKY_SLOTS = [[8, 0.17], [184, 0.27], [26, 0.37], [206, 0.37], [4, 0.48], [186, 0.48], [30, 0.59], [210, 0.57], [6, 0.69], [186, 0.68], [32, 0.79], [212, 0.77], [8, 0.89], [184, 0.87]];
+export const bitXY = (h) => [36, Math.round(0.3 * (h - 50))]; // Glitch (str. 36–98) i w tym samym miejscu gwiazda Bit (od 99); pod naklejkami wydarzeń
+
+export const slotXY = (i, h) => [SKY_SLOTS[i][0], Math.round(SKY_SLOTS[i][1] * (h - 50))];
+const dotted = (ctx, a, b) => { const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])); for (let i = 2; i < n - 1; i += 2) ctx.fillRect(Math.round(a[0] + (b[0] - a[0]) * i / n), Math.round(a[1] + (b[1] - a[1]) * i / n), 1, 1); };
+// gwiazdka: size 0 = punkt, 1 = mały krzyżyk, 2 = duża (głowa gwiazdozbioru)
+function starPx(ctx, x, y, size, a, col = "#fff6c8") {
+  ctx.fillStyle = col; ctx.globalAlpha = a; ctx.fillRect(x, y, 1, 1);
+  if (size >= 1) { ctx.globalAlpha = a * 0.5; ctx.fillRect(x - 1, y, 1, 1); ctx.fillRect(x + 1, y, 1, 1); ctx.fillRect(x, y - 1, 1, 1); ctx.fillRect(x, y + 1, 1, 1); }
+  if (size >= 2) { ctx.globalAlpha = a * 0.25; ctx.fillRect(x - 2, y, 1, 1); ctx.fillRect(x + 2, y, 1, 1); ctx.fillRect(x, y - 2, 1, 1); ctx.fillRect(x, y + 2, 1, 1); ctx.globalAlpha = a; ctx.fillStyle = "#ffffff"; ctx.fillRect(x, y, 1, 1); }
+}
+// jeden gwiazdozbiór: lit = ile gwiazd świeci; current = układany teraz (brakujące gwiazdy jako blade kropki)
+// opts: day (kreski białe), freshI = indeks dzisiejszej gwiazdy (puls), arrive = 0..1 przylot dzisiejszej gwiazdy z wieży
+export function drawConstellation(ctx, c, x, y, lit, t = 0, alpha = 1, current = false, { day = false, freshI = -1, arrive = 1 } = {}) {
+  const P = c.pts.map(([px, py]) => [x + px, y + py]), done = lit >= P.length;
+  // kreski między zapalonymi gwiazdami: obrazek rośnie z każdą stroną, po ukończeniu jaśniejszy
+  ctx.fillStyle = day ? "#ffffff" : "#9fb4ff"; ctx.globalAlpha = (done ? (day ? 0.45 : 0.4) : 0.22) * alpha;
+  for (const [a, b] of c.lines) if (a < lit && b < lit && (arrive >= 1 || (a !== freshI && b !== freshI))) dotted(ctx, P[a], P[b]);
+  if (done) {
+    // iskierka biegnie po kreskach — gotowy gwiazdozbiór „żyje”
+    const u = t * 0.7 + x * 0.13, L = c.lines[Math.floor(u) % c.lines.length], f = u % 1, A = P[L[0]], B = P[L[1]];
+    ctx.fillStyle = "#ffffff"; ctx.globalAlpha = alpha * 0.8 * Math.sin(f * Math.PI);
+    ctx.fillRect(Math.round(A[0] + (B[0] - A[0]) * f), Math.round(A[1] + (B[1] - A[1]) * f), 1, 1);
+  }
   P.forEach(([px, py], i) => {
     if (i < lit) {
+      if (i === freshI) return; // dzisiejsza gwiazda rysowana niżej
       const tw = 0.7 + 0.3 * Math.sin(t * 2.2 + i * 1.7 + x);
-      ctx.globalAlpha = alpha * tw; ctx.fillStyle = "#fff6c8"; ctx.fillRect(px, py, 1, 1);
-      if (tw > 0.85) { ctx.globalAlpha = alpha * 0.6; ctx.fillRect(px - 1, py, 3, 1); ctx.fillRect(px, py - 1, 1, 3); }
+      starPx(ctx, px, py, i === 0 && lit > 1 ? 2 : tw > 0.92 ? 1 : 0, alpha * tw);
     } else if (current) {
-      ctx.globalAlpha = alpha * (0.3 + 0.15 * Math.sin(t * 2 + i)); ctx.fillStyle = "#c9d4ff"; ctx.fillRect(px, py, 1, 1);
+      ctx.globalAlpha = alpha * (0.22 + 0.12 * Math.sin(t * 2 + i)); ctx.fillStyle = day ? "#ffffff" : "#c9d4ff"; ctx.fillRect(px, py, 1, 1);
     }
   });
+  if (freshI >= 0 && freshI < lit) {
+    const [px, py] = P[freshI];
+    if (arrive < 1) {
+      // przylot: z wieży po łuku na swoje miejsce, z ogonem
+      const sx = 120, sy = y + 90, e = 1 - (1 - arrive) * (1 - arrive);
+      for (let k = 0; k < 8; k++) {
+        const q = Math.max(0, e - k * 0.03), qx = sx + (px - sx) * q, qy = sy + (py - sy) * q - Math.sin(q * Math.PI) * 30;
+        starPx(ctx, Math.round(qx), Math.round(qy), k ? 0 : 2, alpha * (1 - k / 8), k ? "#ffe96b" : "#ffffff");
+      }
+    } else {
+      // dzisiejsza gwiazda: pulsujący pierścień przez cały dzień
+      const f = (t * 0.8) % 1, r = 2 + f * 5;
+      ctx.fillStyle = "#ffe96b"; ctx.globalAlpha = alpha * 0.7 * (1 - f);
+      for (let k = 0; k < 12; k++) { const an = (k / 12) * Math.PI * 2; ctx.fillRect(Math.round(px + Math.cos(an) * r), Math.round(py + Math.sin(an) * r), 1, 1); }
+      starPx(ctx, px, py, 2, alpha);
+    }
+  }
   ctx.globalAlpha = 1;
 }
+// Bit — Glitch zamieniony w gwiazdę (str. 99–100), ma oczka i mruga
 export function drawNorthStar(ctx, x, y, t = 0, alpha = 1) {
-  const p = 0.75 + 0.25 * Math.sin(t * 2);
-  ctx.globalAlpha = 0.2 * alpha * p; disc(ctx, x, y, 6, "#fff6c8"); ctx.globalAlpha = alpha;
-  ctx.fillStyle = "#fff6c8"; ctx.fillRect(x - 3, y, 7, 1); ctx.fillRect(x, y - 3, 1, 7); ctx.fillRect(x - 1, y - 1, 3, 3);
-  ctx.fillStyle = "#ffffff"; ctx.fillRect(x, y, 1, 1);
+  const p = 0.75 + 0.25 * Math.sin(t * 2), r = Math.round(4 + p * 2);
+  ctx.globalAlpha = 0.18 * alpha * p; disc(ctx, x, y, 7, "#fff6c8"); ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#fff6c8"; ctx.fillRect(x - r, y, r * 2 + 1, 1); ctx.fillRect(x, y - r, 1, r * 2 + 1); ctx.fillRect(x - 2, y - 1, 5, 3); ctx.fillRect(x - 1, y - 2, 3, 5);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(x - 1, y - 1, 3, 2);
+  if (Math.floor(t * 0.7) % 5) { ctx.fillStyle = "#4a3e60"; ctx.fillRect(x - 1, y, 1, 1); ctx.fillRect(x + 1, y, 1, 1); }
   ctx.globalAlpha = 1;
 }
 // hide = indeks gwiazdozbioru, który właśnie „ożywa” (skyshow.js rysuje go w ruchu)
-function drawStorySky(ctx, story, t, alpha, hide = -1) {
-  const lit = skyStars(story);
+function drawStorySky(ctx, h, story, t, alpha, hide = -1, day = false, fresh = null) {
+  const cur = Math.floor((story - SKY_FIRST_PAGE) / SKY_PAGES); // gwiazdozbiór z dzisiejszą stroną
+  const next = story >= MOON_PAGES ? Math.max(0, Math.floor((story - SKY_FIRST_PAGE + 1) / SKY_PAGES)) : -1; // następny do ułożenia
   CONSTELLATIONS.forEach((c, i) => {
     if (i === hide) return;
-    const n = Math.max(0, Math.min(5, lit - i * 5));
-    const cur = i === Math.floor(lit / 5) && story >= MOON_PAGES;
-    if (!n && !cur) return;
-    const [sx, sy] = SKY_SLOTS[i];
-    drawConstellation(ctx, c, sx, sy, n, t, alpha, cur);
+    const n = skyLit(story, i), isCur = i === next && n < c.pts.length;
+    if (!n && !isCur) return;
+    const [sx, sy] = slotXY(i, h);
+    const freshI = fresh != null && i === cur && story >= SKY_FIRST_PAGE ? n - 1 : -1;
+    drawConstellation(ctx, c, sx, sy, n, t, alpha, isCur, { day, freshI, arrive: fresh == null ? 1 : Math.max(0, Math.min(1, (fresh - 1.2) / 1.6)) });
   });
-  if (story >= 100) drawNorthStar(ctx, 31, 9, t, alpha);
+  if (story >= 99) { const [bx, by] = bitXY(h); drawNorthStar(ctx, bx, by, t, alpha); }
 }
 
 export function drawMoonOutline(ctx, x, y, t = 0, alpha = 1, mark = true) {

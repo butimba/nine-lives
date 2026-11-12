@@ -12,7 +12,7 @@ import { ensureDaily, progressDaily, claimDaily, makeDaily } from "../js/daily.j
 import { POWERS, RUN_EVENTS, MERCHANT_OFFERS } from "../data/progression.js";
 import EVENTS, { activeEvent } from "../data/events.js";
 import { openChest, chestForFloor, weeklyNumbers, weeklyReward } from "../js/meta.js";
-import { CHESTS, TALENTS, PERKS, ECON, STORY, SKY, skyStars, STORY_REWARDS } from "../data/progression.js";
+import { CHESTS, TALENTS, PERKS, ECON, STORY, SKY, skyStars, skyLit, skyDone, SKY_TOTAL, CHAPTERS, STORY_REWARDS } from "../data/progression.js";
 import { randomCatName } from "../data/catnames.js";
 import { today } from "../js/util.js";
 
@@ -161,8 +161,15 @@ const V1 = {
 // ---------- fabuła 100 stron, 1 strona dziennie, nagrody, niebo ----------
 {
   ok(STORY.length === 100 && STORY.every((p) => p.en && p.pl), "STORY has 100 pages");
-  ok(SKY.length === 14 && SKY.every((c) => c.pts.length === 5 && c.lines.every(([a, b]) => a < 5 && b < 5)), "14 constellations x 5 stars");
-  eq([skyStars(25), skyStars(26), skyStars(30), skyStars(95), skyStars(100)], [0, 1, 5, 70, 70], "sky stars from story pages");
+  ok(SKY.length === 14 && SKY.every((c) => c.pts.length >= 6 && c.pts.length <= 9 && c.say && c.lines.every(([a, b]) => a < c.pts.length && b < c.pts.length)), "14 constellations, 6-9 stars, each with a sentence");
+  ok(SKY.every((c) => c.pts.every(([x, y]) => x >= 0 && x <= 32 && y >= 0 && y <= 24)), "constellations fit 32x24");
+  eq([skyStars(25), skyLit(26, 0), skyLit(30, 0), skyStars(95), skyStars(100)], [0, 2, 8, SKY_TOTAL, SKY_TOTAL], "sky stars from story pages");
+  eq([skyDone(29), skyDone(30), skyDone(94), skyDone(95)], [0, 1, 13, 14], "constellations done on reward pages");
+  ok(Object.keys(STORY_REWARDS).every((pg) => +pg === 25 || +pg === 100 || (skyDone(+pg) > skyDone(+pg - 1))), "story prizes 30-95 = constellation pages");
+  ok(STORY.every((p) => p.art && [...p.art].every((ch) => ch.codePointAt(0) < 0x1fa70 || ch.codePointAt(0) === 0x1fa81)), "every page has art (Unicode <= 13 safe)");
+  ok(!STORY.some((p) => /\w+(łeś|łaś)|\(a\)|eś\/aś/.test(p.pl)), "Polish hints gender-neutral (no zrobiłeś/aś)");
+  ok(STORY.every((p) => p.en.split(/\s+/).length <= 34), "pages short (<= 34 words)");
+  ok(CHAPTERS[0].from === 1 && CHAPTERS.at(-1).to === 100 && CHAPTERS.every((c, i) => !i || c.from === CHAPTERS[i - 1].to + 1), "chapters cover 1-100");
   for (const [pg, r] of Object.entries(STORY_REWARDS)) { const id = r.skin || r.hat; const it = (r.skin ? SKINS : HATS).find((x) => x.id === id); ok(it && it.source === "story" && +pg <= 100, `story prize ${id} exists`); }
   ok(Object.keys(STORY_REWARDS).length === 16, "16 story prizes");
   const s = freshSave("st", {}); s.tower.bossesBeaten = 40; s.story = 24;

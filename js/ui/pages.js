@@ -6,7 +6,7 @@ import { persist, levelInfo, talentPoints, exportCode, freshSave } from "../stat
 import { canRaise, tr, weeklyStatus, weeklyReward, weeklyBossInfo } from "../meta.js";
 import { activeSkills, itemsForSkill, wordOf, cardTier, reportText, isCardWord, badgeTier, genOpts } from "../engine.js";
 import { sfx, setAudio, speak, canSpeak } from "../audio.js";
-import { TALENTS, ECON, STORY, CHAPTERS, SKY, skyStars, MOON_PAGES, STORY_REWARDS } from "../../data/progression.js";
+import { TALENTS, ECON, STORY, CHAPTERS, SKY, skyStars, skyLit, skyDone, SKY_TOTAL, MOON_PAGES, STORY_REWARDS } from "../../data/progression.js";
 import { drawConstellation } from "../game/world.js";
 import { syncStory } from "../rewards.js";
 import { today } from "../util.js";
@@ -168,8 +168,6 @@ export const cardsScreen = {
 
 // =================== MOON DIARY ===================
 const stripEmoji = (s) => s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]️?/gu, "").replace(/\s+/g, " ").trim();
-// ilustracja każdej strony (pikselizowane emoji, spójne z resztą gry)
-const PAGE_ART = ["🌑", "🗼", "📜", "📚", "🔑", "👻", "👋", "🤫", "🐸", "🤴", "🌑", "🌋", "🌙", "❄️", "🗺️", "☁️", "🐱", "🤖", "🤖", "🌗", "🌌", "🤴", "😢", "🤝", "🌕", "🌠", "🛏️", "⭐", "🐠", "🐟", "📺", "🐭", "👾", "🔧", "🐭", "🐦", "🎨", "🌈", "☁️", "🌫️", "👑", "🔨", "⛵", "🚪", "🚢", "🌬️", "🎈", "✉️", "🗝️", "🔑", "📚", "🦉", "📖", "🤔", "🦉", "⛈️", "🪁", "💪", "😱", "🌫️", "👑", "🔔", "🌌", "📡", "🔔", "🌳", "🍂", "💡", "🍃", "🐋", "🐋", "😶", "👻", "🤫", "👻", "🌑", "🐸", "☄️", "🤲", "🐸", "🤖", "🏮", "👣", "👑", "🤖", "💔", "🥺", "🏠", "🤔", "☄️", "🐋", "🧭", "🤝", "📣", "🐱", "🌫️", "💬", "🌟", "💫", "🎆"];
 function moonCanvas(open, total) {
   const R = 22, S = 4, c = document.createElement("canvas");
   c.width = c.height = (R * 2 + 6) * S;
@@ -202,7 +200,7 @@ export const storyScreen = {
     const page = (p, i) => panel(`
         <div class="dp-head"><span class="pn">page ${i + 1}</span><span class="hand dp-date">${["night", "later", "next day", "morning", "at night"][i % 5]}</span></div>
         <div class="dp-body">
-          <div class="dp-art" style="--tilt:${i % 2 ? 4 : -4}deg"><i class="tape tape--c"></i><img class="px-img" src="${picSrc(PAGE_ART[i] || "⭐", 4)}" alt=""></div>
+          <div class="dp-art" style="--tilt:${i % 2 ? 4 : -4}deg"><i class="tape tape--c"></i><img class="px-img" src="${picSrc(p.art || "⭐", 4)}" alt=""></div>
           <div class="dp-text"><p class="en">${esc(stripEmoji(p.en))}</p>${showPl ? `<p class="pl" hidden>${esc(p.pl)}</p>` : ""}</div>
         </div>
         <div class="row">${canSpeak() ? pxButton("Listen", { icon: "speaker", act: "say", variant: "paper", cls: "px-btn--sm", attrs: `data-i="${i}"` }) : ""}${showPl ? pxButton("PL", { act: "pl", variant: "paper", cls: "px-btn--sm" }) : ""}</div>`,
@@ -213,8 +211,8 @@ export const storyScreen = {
     const stars = skyStars(open);
     const head = open < MOON_PAGES
       ? `<div class="moon-head"><div class="moon-slot"></div><p><b>${open}/${MOON_PAGES}</b> Moon pieces</p>`
-      : `<div class="moon-head sky-head"><div class="sky-map">${SKY.map((c, i) => `<div class="sky-cell ${stars >= i * 5 + 5 ? "done" : stars > i * 5 ? "now" : ""}"><span class="sky-c" data-i="${i}"></span><small>${stars >= i * 5 + 5 ? c.name : stars > i * 5 || i === Math.floor(stars / 5) ? "?" : ""}</small></div>`).join("")}</div>
-          <p>${open >= 100 ? "<b>The sky is full!</b>" : `<b>${stars}/${SKY.length * 5}</b> stars`}</p>`;
+      : `<div class="moon-head sky-head"><div class="sky-map">${SKY.map((c, i) => { const n = skyLit(open, i), done = n >= c.pts.length; return `<div class="sky-cell ${done ? "done" : n ? "now" : ""}" ${done ? `title="${esc(c.say)}"` : ""}><span class="sky-c" data-i="${i}"></span><small>${done ? c.name : n || i === skyDone(open) ? "?" : ""}</small></div>`; }).join("")}</div>
+          <p>${open >= 100 ? "<b>The sky is full!</b>" : `<b>${stars}/${SKY_TOTAL}</b> stars`}</p>`;
     const note = open >= STORY.length ? "The End. Thank you!" : gotToday ? "Next page tomorrow!" : "Beat a boss today = new page!";
     const lockedPage = (i) => panel(`<div class="dp-locked"><img class="px-ico" src="${iconSrc("lock", 4)}" alt=""><div><span class="pn">page ${i + 1}</span><p class="en">${gotToday ? "Come back tomorrow!" : "Beat a boss today!"}</p>${prizeAt(i + 1) ? `<p class="hand">prize: ${prizeAt(i + 1)}!</p>` : ""}</div><span class="dp-q px">?</span></div>`, { cls: "diary-page locked torn", grid: false, tape: false, tilt: 0.4 });
     const el = h(`<div class="screen page story">${pageHead("Moon Diary", save, { fish: false })}
@@ -234,9 +232,10 @@ export const storyScreen = {
     renderCh();
     const ms = el.querySelector(".moon-slot"); if (ms) ms.append(moonCanvas(open, MOON_PAGES));
     el.querySelectorAll(".sky-c").forEach((s) => {
-      const i = +s.dataset.i, cv = document.createElement("canvas"); cv.width = 26; cv.height = 21; cv.className = "px-canvas";
-      const g = cv.getContext("2d"); g.fillStyle = "#14123a"; g.fillRect(0, 0, 26, 21);
-      drawConstellation(g, SKY[i], 2, 2, Math.max(0, Math.min(5, stars - i * 5)), 1, 1, i === Math.floor(stars / 5));
+      const i = +s.dataset.i, cv = document.createElement("canvas"); cv.width = 38; cv.height = 28; cv.className = "px-canvas";
+      const g = cv.getContext("2d"); g.fillStyle = "#14123a"; g.fillRect(0, 0, 38, 28);
+      const c = SKY[i], n = skyLit(open, i), ox = Math.round((38 - Math.max(...c.pts.map((p) => p[0]))) / 2), oy = Math.round((28 - Math.max(...c.pts.map((p) => p[1]))) / 2);
+      drawConstellation(g, c, ox, oy, n, 1, 1, i === skyDone(open) && n < c.pts.length);
       s.append(cv);
     });
     return onAct(el, {
