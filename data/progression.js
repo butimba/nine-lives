@@ -52,18 +52,18 @@ export const powerById = (id) => POWERS.find((p) => p.id === id) || null;
 // --- WYDARZENIA W BIEGU (etap 2): losowe, nigdy na piętrze bossa, max 1 na etap (bieg). Szansa na piętro.
 // golden/mimic zastępują potwora na początku piętra; merchant/secret pojawiają się po pokonaniu potwora.
 export const RUN_EVENTS = {
-  golden: { chance: 0.035, turns: 3, fish: 30 },          // złoty potwór: ucieka po 3 odpowiedziach, dużo rybek
+  golden: { chance: 0.035, turns: 3, fish: 15 },          // złoty potwór: ucieka po 3 odpowiedziach, dużo rybek
   mimic: { chance: 0.03, chest: ["wood", "wood", "silver"] }, // skrzynia-mimik: mini-walka, nagroda = skrzynia
   merchant: { chance: 0.04 },                              // kupiec-kot między piętrami
-  secret: { chance: 0.012, fish: [12, 36] },               // sekretne piętro: deszcz rybek
+  secret: { chance: 0.012, fish: [8, 24] },               // sekretne piętro: deszcz rybek
   // Glitch (fabuła, strony 31–34): potwór z fabuły, pyta TYLKO zdaniami; naprawiony = bonus rybek. Nie dla nieczytających.
-  glitch: { chance: 0.05, fish: 20, page: 34 },
+  glitch: { chance: 0.05, fish: 10, page: 34 },
 };
 // oferty kupca (cena w rybkach; płaci się najpierw rybkami z biegu, potem z banku)
 export const MERCHANT_OFFERS = [
-  { id: "life", name: "Catnip Tea", desc: "+1 life", icon: "heart", price: 25 },
-  { id: "shield", name: "Shield", desc: "Blocks a boss shot", icon: "shield", price: 15 },
-  { id: "perk", name: "Mystery Perk", desc: "A power for this run", icon: "star", price: 30 },
+  { id: "life", name: "Catnip Tea", desc: "+1 life", icon: "heart", price: 15 },
+  { id: "shield", name: "Shield", desc: "Blocks a boss shot", icon: "shield", price: 10 },
+  { id: "perk", name: "Mystery Perk", desc: "A power for this run", icon: "star", price: 20 },
 ];
 
 // --- skrzynie (sprite: chestSprite(type) w js/pixel/chests.js) ---
@@ -72,43 +72,44 @@ export const MERCHANT_OFFERS = [
 // (tools/sim-economy.mjs: ~800/dzień) i cały sklep był kupiony po 3 tygodniach.
 // min = najniższa rzadkość przedmiotu (drabinka: im lepsza skrzynia, tym lepsza gwarancja). Wagi 0 = nigdy.
 export const CHESTS = {
-  wood: { name: "Wooden Chest", icon: "🧰", min: "common", rolls: { coins: 60, common: 30, rare: 10, epic: 0, legendary: 0 }, coins: [20, 50] },
-  silver: { name: "Silver Chest", icon: "🎁", min: "common", rolls: { coins: 0, common: 50, rare: 40, epic: 10, legendary: 0 }, coins: [50, 100] },
-  gold: { name: "Golden Chest", icon: "👑", min: "rare", rolls: { coins: 0, common: 0, rare: 50, epic: 40, legendary: 10 }, coins: [120, 220] },
+  wood: { name: "Wooden Chest", icon: "🧰", min: "common", rolls: { coins: 60, common: 30, rare: 10, epic: 0, legendary: 0 }, coins: [5, 10] },
+  silver: { name: "Silver Chest", icon: "🎁", min: "common", rolls: { coins: 0, common: 50, rare: 40, epic: 10, legendary: 0 }, coins: [10, 20] },
+  gold: { name: "Golden Chest", icon: "👑", min: "rare", rolls: { coins: 0, common: 0, rare: 50, epic: 40, legendary: 10 }, coins: [20, 40] },
   // epicka = smaczek raz na jakiś czas: zawsze epicki albo legendarny
-  epic: { name: "Epic Chest", icon: "💎", min: "epic", rolls: { coins: 0, common: 0, rare: 0, epic: 75, legendary: 25 }, coins: [220, 380] },
+  epic: { name: "Epic Chest", icon: "💎", min: "epic", rolls: { coins: 0, common: 0, rare: 0, epic: 75, legendary: 25 }, coins: [40, 70] },
   // mityczna (tylko boss tygodnia): legendarny (skórki "mythic" ×2) → epicki; rybki dopiero gdy masz wszystko
-  mythic: { name: "Mythic Chest", icon: "🌌", min: "epic", rolls: { coins: 0, common: 0, rare: 0, epic: 0, legendary: 100 }, coins: [500, 800] },
+  mythic: { name: "Mythic Chest", icon: "🌌", min: "epic", rolls: { coins: 0, common: 0, rare: 0, epic: 0, legendary: 100 }, coins: [80, 150] },
 };
 // gwarancja do pokazania pod skrzynią (ui/chest.js)
 export const CHEST_PROMISE = { wood: "Fish or a surprise!", silver: "Always a prize!", gold: "Rare or better!", epic: "Epic or better!", mythic: "LEGENDARY!" };
 export const CHEST_ORDER = ["wood", "silver", "gold", "epic"]; // + "mythic" (tylko boss tygodnia)
 // rybki za duplikat (wszystko z danej rzadkości już posiadane)
-export const DUP_COINS = { common: 60, rare: 150, epic: 300, legendary: 600 };
+export const DUP_COINS = { common: 30, rare: 75, epic: 150, legendary: 300 };
 
 // --- ekonomia ---
 // Malejące nagrody i życia: js/lives.js (REWARD_TIERS, MAX_LIVES, REGEN_MS, COMBO_LIFE).
 export const ECON = {
-  coinPerCorrect: 2, coinPerKill: 3, coinPerBoss: 20, coinShadowClear: 4,
+  coinPerCorrect: 1, coinPerKill: 1, coinPerBoss: 5, coinShadowClear: 2,
   xpPerCorrect: 10, xpPerTry: 2, xpPerBoss: 50,
   // LEGACY (v1 battle.js) — v2 tego nie używa, zastąpione przez lives.rewardMult
   dailyFullRuns: 3, dailyMult: [1, 1, 1, 0.5, 0.5, 0.25],
-  freezePrice: 120, freezeMax: 2,
-  bossChestsPerDay: 3, // skrzynia za bossa tylko za pierwszych 3 bossów dnia (dalej same rybki) — save.daily.bossChests
-  chestPrice: 250, // sklep sprzedaje SREBRNĄ skrzynię (drewniana za 220 była warta ~115 rybek)
+  freezePrice: 60, freezeMax: 2,
+  bossChestsPerDay: 1, // skrzynia za bossa tylko za pierwszego bossa dnia (dalej same rybki) — save.daily.bossChests
+  chestPrice: 150, // sklep sprzedaje SREBRNĄ skrzynię
   // XP potrzebne na przejście z lvl do lvl+1. Do lvl 15 jak dawniej (nikomu nie spada level), od 16 coraz wolniej:
   // wszystkie talenty (lvl 25) po ok. 2 miesiącach codziennej gry zamiast ~2,5 tygodnia.
   levelXp: (lvl) => 100 + (lvl - 1) * 40 + (lvl >= 16 ? 100 * (lvl - 15) ** 2 : 0),
   monsterHp: (floor) => (floor < 20 ? 2 : floor < 60 ? 3 : 4),
   bossHp: (floor) => (floor < 20 ? 5 : floor < 60 ? 6 : 7),
   floorsPerStage: 5,
+  starFish: 3, // złota gwiazdka w walce z bossem
   parcelFish: [5, 10], // paczka ze statku Króla (raz dziennie, od strony 45): same rybki
-  kingEvery: 25, kingHp: 2, kingFish: 40, // boss co 25 pięter = Król: korona, +2 HP, 3. pocisk w fazie 2, +40 rybek
-  weeklyHpPerPlayer: 250,
+  kingEvery: 25, kingHp: 2, kingFish: 25, // boss co 25 pięter = Król: korona, +2 HP, 3. pocisk w fazie 2, +25 rybek
+  weeklyHpPerPlayer: 120,
   weeklyLastWeek: 0.9,   // HP bossa tygodnia >= 90% obrażeń z zeszłego tygodnia (im mocniej grają, tym większy boss i pula)
-  weeklyFishPerHp: 2,    // pula bonusu = HP × 2, dzielona wg obrażeń, wypłacana po pokonaniu bossa (≈ 500 rybek na dziecko)
-  weeklyFishPerHit: 1,   // + 1 rybka za każdy punkt obrażeń od razu po biegu (× malejące nagrody), nawet gdy boss nie padnie
-  weeklyMinShare: 50,
+  weeklyFishPerHp: 0.5,    // pula bonusu = HP × 0,5, dzielona wg obrażeń, wypłacana po pokonaniu bossa (≈ 60 rybek na dziecko)
+  weeklyFishPerHit: 0.2,   // + 0,2 rybki za punkt obrażeń od razu po biegu (× malejące nagrody), nawet gdy boss nie padnie
+  weeklyMinShare: 30,
   luckyCoin: 0.1,      // talent lucky: +10% rybek za rangę
   bellCoin: 1.5,       // perk bell
   magnetXp: 1.3,       // perk magnet

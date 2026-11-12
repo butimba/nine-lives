@@ -7,6 +7,8 @@
 // Slot 1 = the player's MAIN topic (first `focus` item) — learning first; slot 2 = learning; slot 3 = game.
 import { today } from "./util.js";
 import VOCAB from "../data/vocab.js";
+// rybki za wyzwania dnia (temat główny, nauka, gra). Balans: tools/sim-economy.mjs
+export const DAILY_FISH = { main: 10, learn: 10, game: 15 };
 
 // grammar skill id -> simple English name for the challenge text (grammar.js names are partly Polish)
 export const SKILL_EN = {
@@ -44,8 +46,8 @@ export function makeDaily(save, profile = {}, date = new Date()) {
   // 1) main topic
   if (main) {
     const n = young ? 10 : 12 + Math.floor(rng() * 2) * 3; // 12 or 15
-    list.push({ ev: "skill:" + main, goal: n, text: `Answer ${n} questions about ${topicName(main)}`, icon: "cards", kind: "learn", reward: { fish: 40 } });
-  } else list.push({ ev: "correct", goal: 15, text: "Get 15 right answers", icon: "check", kind: "learn", reward: { fish: 40 } });
+    list.push({ ev: "skill:" + main, goal: n, text: `Answer ${n} questions about ${topicName(main)}`, icon: "cards", kind: "learn", reward: { fish: DAILY_FISH.main } });
+  } else list.push({ ev: "correct", goal: 15, text: "Get 15 right answers", icon: "check", kind: "learn", reward: { fish: DAILY_FISH.main } });
   // 2) learning
   const learn = [
     { ev: "correct", goal: 20, text: "Get 20 right answers", icon: "check", w: 3 },
@@ -56,16 +58,16 @@ export function makeDaily(save, profile = {}, date = new Date()) {
   if (!young && spellable >= 6) learn.push({ ev: "typed", goal: 6, text: "Spell 6 words", icon: "xp", w: 2 });
   if ((save.shadows || []).length >= 3) learn.push({ ev: "cellar", goal: 1, text: "Clean the Shadow Cellar", icon: "door", w: 3 });
   if (list[0].ev === "correct") learn.shift();
-  list.push({ ...pickW(learn, rng), kind: "learn", reward: { fish: 30 } });
+  list.push({ ...pickW(learn, rng), kind: "learn", reward: { fish: DAILY_FISH.learn } });
   // 3) game
   const owned = (save.powers && save.powers.owned) || [];
   const game = [
-    { ev: "combo", goal: young ? 8 : 10, text: `Get a combo of ${young ? 8 : 10}`, icon: "flame", w: 3, reward: { fish: 60 } },
-    { ev: "boss", goal: 1, text: "Beat a boss", icon: "skull", w: 2, reward: { fish: 60 } },
-    { ev: "noLifeBoss", goal: 1, text: "Beat a boss without losing a life", icon: "heart", w: young ? 1 : 2, reward: { fish: 60, chest: "silver" } },
-    { ev: "floor", goal: 8, text: "Climb 8 floors", icon: "arrowR", w: 2, reward: { fish: 60 } },
+    { ev: "combo", goal: young ? 8 : 10, text: `Get a combo of ${young ? 8 : 10}`, icon: "flame", w: 3, reward: { fish: DAILY_FISH.game } },
+    { ev: "boss", goal: 1, text: "Beat a boss", icon: "skull", w: 2, reward: { fish: DAILY_FISH.game } },
+    { ev: "noLifeBoss", goal: 1, text: "Beat a boss without losing a life", icon: "heart", w: young ? 1 : 2, reward: { fish: DAILY_FISH.game, chest: "silver" } },
+    { ev: "floor", goal: 8, text: "Climb 8 floors", icon: "arrowR", w: 2, reward: { fish: DAILY_FISH.game } },
   ];
-  if (owned.length) game.push({ ev: "power", goal: 2, text: "Use a power 2 times", icon: "power_" + owned[0], w: 2, reward: { fish: 60 } });
+  if (owned.length) game.push({ ev: "power", goal: 2, text: "Use a power 2 times", icon: "power_" + owned[0], w: 2, reward: { fish: DAILY_FISH.game } });
   list.push({ ...pickW(game, rng), kind: "game" });
   return list.map((c, i) => ({ id: `${d}:${i}`, ev: c.ev, text: c.text, goal: c.goal, n: 0, done: false, claimed: false, reward: { ...c.reward }, icon: c.icon, kind: c.kind }));
 }

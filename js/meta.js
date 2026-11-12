@@ -134,14 +134,14 @@ export function openChest(save, type, date = new Date()) {
 }
 // Skrzynia za bossa na piętrze `floor` (wielokrotność 5). Trzy stopnie, łatwe dla dziecka:
 //   zwykły boss → drewniana albo srebrna (wyżej częściej srebrna), od piętra 40 rzadka niespodzianka: epicka (3%),
-//   Król (co 25 pięter) → złota, a co 50 pięter → epicka.
+//   Król (co 25 pięter) → srebrna, co 50 pięter → złota, co 100 pięter → epicka.
 // Mityczna NIE wypada z wieży — tylko za pokonanie bossa tygodnia (weeklyReward).
-// Symulacja (tools/sim-chests.mjs): wcześniej 3,5–5,5 skrzyni/dzień i ~1 złota/epicka dziennie → wszystkie przedmioty w 2–4 tyg.
+// Symulacja (tools/sim-chests.mjs): ~9 skrzyń/tydz. przy 4–5 sesjach (z tego ~0,5 złotej i ~0,6 epickiej).
 export function chestForFloor(floor, save, rng = Math.random) {
-  if (floor % ECON.kingEvery === 0) return floor % (ECON.kingEvery * 2) === 0 ? "epic" : "gold";
+  if (floor % ECON.kingEvery === 0) return floor % (ECON.kingEvery * 4) === 0 ? "epic" : floor % (ECON.kingEvery * 2) === 0 ? "gold" : "silver";
   const r = rng();
   if (floor >= 40 && r < 0.03) return "epic";
-  return r < (floor >= 50 ? 0.45 : floor >= 10 ? 0.3 : 0.15) ? "silver" : "wood";
+  return r < (floor >= 50 ? 0.3 : floor >= 10 ? 0.2 : 0.15) ? "silver" : "wood";
 }
 
 // ---- talenty ----
@@ -264,11 +264,11 @@ export async function syncCommunity(save) {
   return res;
 }
 
-// ---- DUET (co-op, bez rankingów): prezent 5 rybek raz dziennie + wspólne wyzwanie dnia + flaga przyjaciółki ----
+// ---- DUET (co-op, bez rankingów): prezent 3 rybki raz dziennie + wspólne wyzwanie dnia + flaga przyjaciółki ----
 // Bez nowego SQL: mój status idzie w saves.pub.duo (cloud.saveSave), partner czyta go przez cloud.loadPublic(profile.duo).
 // Wszystko offline-safe: brak chmury / brak partnera / błąd sieci → duetUI się chowa (partner = null).
 import { freshDuo } from "./state.js";
-export const DUO = { gift: 5, goal: 30, goalYoung: 20, fish: 30, chest: "wood" };
+export const DUO = { gift: 3, goal: 30, goalYoung: 20, fish: 15, chest: "wood" };
 export function ensureDuo(save, d = today()) {
   if (!save.duo || typeof save.duo !== "object") save.duo = freshDuo();
   const u = save.duo;

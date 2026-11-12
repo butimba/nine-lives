@@ -174,12 +174,13 @@ const V1 = {
 }
 // ---------- boss tygodnia: wspólna pula ----------
 {
-  const a = weeklyNumbers({ total: 300, players: 2, mine: 100 });
-  eq(a.hp, 500, "weekly hp = 250/player"); eq(a.pool, 1000, "pool = hp x 2"); eq(a.share, 200, "share by damage (100/500 of 1000)");
+  const H = ECON.weeklyHpPerPlayer, K = ECON.weeklyFishPerHp, a = weeklyNumbers({ total: 200, players: 2, mine: 200 });
+  eq(a.hp, 2 * H, "weekly hp = per player x players"); eq(a.pool, Math.round(2 * H * K), "pool = hp x weeklyFishPerHp");
+  eq(a.share, Math.max(ECON.weeklyMinShare, Math.round(a.pool * 200 / (2 * H))), "share by damage");
   const b = weeklyNumbers({ total: 2000, players: 2, lastTotal: 2000, lastPlayers: 3, mine: 1000 });
-  eq(b.hp, 1800, "hp grows with last week's effort (90%)"); eq(b.share, Math.round(3600 * 1000 / 2000), "big helper gets big share");
+  eq(b.hp, 1800, "hp grows with last week's effort (90%)"); eq(b.share, Math.round(1800 * K * 1000 / 2000), "big helper gets big share");
   eq(weeklyNumbers({ total: 500, players: 2, mine: 0 }).share, 0, "no hits -> no share");
-  eq(weeklyNumbers({ total: 5000, players: 2, mine: 1 }).share, 50, "tiny helper gets min 50");
+  eq(weeklyNumbers({ total: 5000, players: 2, mine: 1 }).share, ECON.weeklyMinShare, "tiny helper gets min share");
   const s = freshSave("wk", {}); const r = weeklyReward(s, { share: 420 }); ok(r.coins === 420 && s.coins === 50 + 420 && r.skin && s.chests.includes("mythic"), "weekly reward = mythic chest + skin + my share");
 }
 
@@ -404,7 +405,7 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   applyRunResults(s, { ...clone(baseStats), weeklyDmg: 33 });
   ok(s.weekly.week !== "1999-W01" && s.weekly.dmg === 33, "weekly reset + dmg added");
   { const sc = freshSave("cap", {}); const got = [1, 6, 11, 16, 21].map((f) => applyRunResults(sc, { mode: "tower", bossBeaten: true, startFloor: f }).chest);
-    ok(got.slice(0, 3).every(Boolean) && !got[3] && got[4] === "gold", `3 boss chests a day, King always gold (${got})`); }
+    ok(got.slice(0, ECON.bossChestsPerDay).every(Boolean) && got.slice(ECON.bossChestsPerDay, 4).every((c) => !c) && got[4] === "silver", `${ECON.bossChestsPerDay} boss chest(s) a day, King always a chest (${got})`); }
   { const s3 = freshSave("wk3", {}); const c0 = s3.coins; const r3 = applyRunResults(s3, { ...clone(baseStats), weeklyDmg: 20 }); ok(r3.weeklyFish > 0 && s3.coins === c0 + r3.coins + r3.weeklyFish, `weekly hits pay fish right away (+${r3.weeklyFish})`); }
   // pusty / dziwny stats nie wywala
   const s2 = freshSave("e", {}); const r = applyRunResults(s2, {});
@@ -421,13 +422,14 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   ok(new Set(s.owned.skins).size === s.owned.skins.length, "no duplicate skins");
   const s2 = freshSave("ch2", {}); const c = openChest(s2, "nope"); ok(c && c.kind, "unknown chest type falls back");
   const hi = () => 0.99, lo = () => 0.01;
-  eq(chestForFloor(50, null, hi), "epic", "floor 50 (big King) -> epic"); eq(chestForFloor(25, null, lo), "gold", "floor 25 (King) -> gold");
+  eq(chestForFloor(100, null, hi), "epic", "floor 100 (King) -> epic"); eq(chestForFloor(50, null, hi), "gold", "floor 50 (King) -> gold"); eq(chestForFloor(25, null, lo), "silver", "floor 25 (King) -> silver");
   eq(chestForFloor(45, null, lo), "epic", "very lucky roll from floor 40 -> epic"); eq(chestForFloor(45, null, () => 0.1), "silver", "lucky roll -> silver"); eq(chestForFloor(35, null, lo), "silver", "no random epic below floor 40"); eq(chestForFloor(45, null, hi), "wood", "normal boss -> wood");
   { const seen = new Set(); for (let i = 1; i < 4000; i++) seen.add(chestForFloor(5 * i)); ok(!seen.has("mythic") && seen.has("epic"), "tower: epic sometimes, mythic never"); }
   { const sm = freshSave("myth", {}); const res = Array.from({ length: 12 }, () => openChest(sm, "mythic"));
-    ok(res.every((r) => (r.kind === "coins" && r.amount >= 500 && r.amount <= 800) || ((r.kind === "skin" || r.kind === "hat") && ["legendary", "epic"].includes(r.item.rarity))), "mythic -> legendary item or 500-800 fish");
+    const [m0, m1] = CHESTS.mythic.coins;
+    ok(res.every((r) => (r.kind === "coins" && r.amount >= m0 && r.amount <= m1) || ((r.kind === "skin" || r.kind === "hat") && ["legendary", "epic"].includes(r.item.rarity))), "mythic -> legendary item or mythic fish");
     { const sx = freshSave("myth2", {}); ok(Array.from({ length: 8 }, () => openChest(sx, "mythic")).every((r) => r.kind !== "coins"), "mythic always gives an item while some are left"); }
-    for (let i = 0; i < 150; i++) openChest(sm, "mythic"); const r2 = Array.from({ length: 6 }, () => openChest(sm, "mythic")); ok(r2.every((r) => r.kind === "coins" && r.amount >= 500), "mythic with everything owned -> big fish, no duplicate");
+    for (let i = 0; i < 150; i++) openChest(sm, "mythic"); const r2 = Array.from({ length: 6 }, () => openChest(sm, "mythic")); ok(r2.every((r) => r.kind === "coins" && r.amount >= m0), "mythic with everything owned -> fish, no duplicate");
     ok(["mooncat", "phoenix", "crystal", "aurora"].every((id) => sm.owned.skins.includes(id)), "mythic gives the 4 mythic-only skins"); }
   { const sg = freshSave("gold", {}); for (let i = 0; i < 60; i++) openChest(sg, "gold"); ok(!sg.owned.skins.some((id) => SKINS.find((k) => k.id === id).source === "mythic"), "mythic-only skins never in normal chests"); }
   ok(TALENTS.length === 9 && TALENTS.every((t) => /^[\x20-\x7e]+$/.test(t.desc(1)) && t.desc(1).length < 40), "talent descs short English");

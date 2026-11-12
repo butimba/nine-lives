@@ -242,8 +242,8 @@ export const RARITY = {
 // JEDNA CENA NA RZADKOŚĆ (decyzja Maxa): każdy przedmiot do kupienia (sklep, wydarzenia, sklep tygodnia) kosztuje tyle,
 // ile mówi ta tabela — "price" w definicji oznacza tylko „da się kupić”. Zmiana ceny = zmiana tutaj.
 export const PRICE = {
-  skin: { common: 200, rare: 500, epic: 1500, legendary: 5000 },
-  hat: { common: 100, rare: 300, epic: 900, legendary: 2500 },
+  skin: { common: 150, rare: 400, epic: 1000, legendary: 2500 },
+  hat: { common: 80, rare: 200, epic: 500, legendary: 1200 },
 };
 for (const s of SKINS) if (s.price) s.price = PRICE.skin[s.rarity || "common"];
 for (const h of HATS) if (h.price) h.price = PRICE.hat[h.rarity || "common"];

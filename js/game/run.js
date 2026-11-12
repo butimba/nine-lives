@@ -220,9 +220,9 @@ export async function runGame(hostEl, save, profile = {}, mode = "tower", opts =
       from: () => { const p = monScreen(); return { x: p.x, y: p.y - monH() * 0.6 }; },
       to: () => ({ x: cat.wx, y: toScreenY(cat.wy) - 14 }),
       colors: mon.colors,
-      onDeflect: (p, streak = 1) => { S.coins += Math.min(2, streak); }, // 1 fish, 2 for every deflect in a row after the first
+      onDeflect: (p, streak = 1) => { S.coins += 1; }, // 1 fish per deflect
       // golden shot: fish + one charge on every power
-      onBonus: (p) => { S.coins += 5; fishPulse = 0.3; fx.float(p.x, p.y - 8, "+5", { color: "#ffd23f", big: true }); const h = HUD.fish(); fx.collect(p.x, p.y, h.x, h.y, { n: 5, color: "#ffd23f" }); chargePowers(); },
+      onBonus: (p) => { S.coins += ECON.starFish; fishPulse = 0.3; fx.float(p.x, p.y - 8, "+" + ECON.starFish, { color: "#ffd23f", big: true }); const h = HUD.fish(); fx.collect(p.x, p.y, h.x, h.y, { n: ECON.starFish, color: "#ffd23f" }); chargePowers(); },
       king: !!mon.king,
       progress: () => 1 - mon.hp / Math.max(1, mon.max), // more damage dealt = faster shots (up to 1.5x)
       guide: !save.tips.bossGuide && !save.tips._old && (save.tips.bossGuide = 1),
