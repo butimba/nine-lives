@@ -90,7 +90,8 @@ export default {
     "v:numbers",
     "v:toys",
     "v:sports",
-    "can"
+    "can",
+    "v:l_1mmih6x"
    ]
   },
   "enjd2t": {
@@ -101,7 +102,9 @@ export default {
     "v:colors",
     "v:numbers",
     "v:toys",
-    "v:food"
+    "v:food",
+    "can",
+    "v:l_1mmih6x"
    ],
    "noReading": true
   },
