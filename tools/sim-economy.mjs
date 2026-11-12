@@ -1,7 +1,7 @@
 // Symulacja ekonomii przy REALNYM graniu: dziecko gra 2–4 razy w tygodniu po 10–20 min (+ lekcje z Maxem),
 // są dni bez gry. Używa prawdziwych funkcji gry (skrzynie, sklep, sklep tygodnia, boss tygodnia, paczka).
-// node tools/sim-economy.mjs  → ile rybek z czego, kiedy dziecko ma WSZYSTKO (sklep, skrzynie, sklep tygodnia, boss tygodnia,
-// mityczne), ile rybek leży na końcu. Wydarzenia sezonowe i nagrody z fabuły nie są liczone (osobny kalendarz).
+// node tools/sim-economy.mjs  → ile rybek z czego, kiedy dziecko ma WSZYSTKO (sklep, skrzynie, sklep tygodnia, boss tygodnia),
+// ile rybek leży na końcu. Skórki mityczne (tylko za złoty zestaw słówek) są poza celem — to nagroda „dla mistrzów”. Wydarzenia sezonowe i nagrody z fabuły nie są liczone (osobny kalendarz).
 import { pathToFileURL } from "node:url";
 globalThis.localStorage ??= { getItem: () => null, setItem() {}, removeItem() {} };
 const { freshSave, levelInfo } = await import("../js/state.js");
@@ -18,7 +18,7 @@ export const PATTERNS = {
 };
 const ri = (rng, [a, b]) => a + Math.floor(rng() * (b - a + 1));
 // wszystko, co da się zebrać bez wydarzeń i bez fabuły
-const GOAL = [...SKINS.filter((s) => !s.retired && ["shop", "chest", "featured", "weekly", "mythic"].includes(s.source)).map((s) => "s:" + s.id),
+const GOAL = [...SKINS.filter((s) => !s.retired && ["shop", "chest", "featured", "weekly"].includes(s.source)).map((s) => "s:" + s.id),
   ...HATS.filter((s) => !s.retired && ["shop", "chest"].includes(s.source)).map((s) => "h:" + s.id)];
 const missing = (s) => GOAL.filter((k) => !(k[0] === "s" ? s.owned.skins : s.owned.hats).includes(k.slice(2)));
 

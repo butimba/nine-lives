@@ -7,6 +7,8 @@ import { tr, chestForFloor, touchStreak, ensureWeek, duoAddCorrect } from "./met
 import { persist, levelInfo, getSave } from "./state.js";
 import { gainLife, sleepyTier, rewardMult } from "./lives.js";
 import { today } from "./util.js";
+import { goldSets } from "./engine.js";
+import VOCAB from "../data/vocab.js";
 import * as cloud from "./cloud.js";
 
 const num = (v) => (typeof v === "number" && isFinite(v) ? v : 0);
@@ -112,6 +114,15 @@ export function applyRunResults(save, stats = {}) {
   save.stats.runs++;
   if (isShadow) save.stats.shadowRuns++;
   save.stats.playMs += Math.max(0, num(stats.ms));
+
+  // --- MITYCZNA skrzynia: tylko za ZŁOTY ZESTAW (cały temat słówek na złoto), raz na temat ---
+  save.mythicSets ??= [];
+  for (const sk of goldSets(save)) {
+    if (save.mythicSets.includes(sk)) continue;
+    save.mythicSets.push(sk); save.chests.push("mythic");
+    const name = (VOCAB[sk.slice(2)] && VOCAB[sk.slice(2)].name) || sk.slice(2);
+    extras.push({ cls: "violet", icon: "star", text: `GOLD SET: ${name}! Mythic chest!`, chest: "mythic" });
+  }
 
   const streakEvents = num(stats.answers) >= 5 ? touchStreak(save) : [];
   persist(true);

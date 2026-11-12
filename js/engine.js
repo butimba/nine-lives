@@ -598,6 +598,15 @@ export function cardTier(r) {
   return 1;                  // szara (widziana)
 }
 
+// ZŁOTE ZESTAWY: tematy słówek, w których WSZYSTKIE karty są złote (lub diamentowe) — to samo co „GOLD SET!” w albumie.
+// Za każdy nowy złoty zestaw mityczna skrzynia (rewards.applyRunResults, save.mythicSets).
+export function goldSets(save) {
+  return Object.keys(VOCAB).map((t) => "v:" + t).filter((sk) => {
+    const items = itemsForSkill(sk).filter(isCardWord);
+    return items.length > 0 && items.every((k) => cardTier(save.srs && save.srs[k]) >= 4);
+  });
+}
+
 // ---------- karty i odznaki ----------
 // Karta albumu = pojedyncze słówko albo krótka fraza (≤ 3 słowa) z obrazkiem. Gramatyka nie ma kart, tylko odznaki.
 export function isCardWord(key) {

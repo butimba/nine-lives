@@ -129,7 +129,8 @@ export const cardsScreen = {
       const st = stats[cur];
       head.innerHTML = `<div class="al-set-name px">${esc(skillLabel(cur))}</div>
         <div class="al-seg">${[5, 4, 3, 2, 1].map((t) => st.by[t] ? `<i class="t${t}" style="flex:${st.by[t]}"></i>` : "").join("")}${st.by[0] ? `<i class="t0" style="flex:${st.by[0]}"></i>` : ""}</div>
-        <div class="al-set-n">${st.found}/${st.n} found · ${st.gold} gold ${st.allGold ? sticker(`<span class="sticker-label">GOLD SET!</span>`, { tilt: -6 }) : st.complete ? sticker(`<span class="sticker-label sticker-label--green">set done!</span>`, { tilt: -6 }) : ""}</div>`;
+        <div class="al-set-n">${st.found}/${st.n} found · ${st.gold} gold ${st.allGold ? sticker(`<span class="sticker-label">GOLD SET!</span>`, { tilt: -6 }) : st.complete ? sticker(`<span class="sticker-label sticker-label--green">set done!</span>`, { tilt: -6 }) : ""}</div>
+        ${st.allGold ? "" : `<div class="al-set-n" style="opacity:.8">All gold = MYTHIC chest!</div>`}`;
       g.className = "album-grid card-grid";
       g.innerHTML = st.items.map((key, i) => {
         const tier = st.tiers[i], no = `<span class="no">#${i + 1}</span>`;
@@ -268,9 +269,9 @@ export const weeklyScreen = {
           <div class="portrait ${done ? "defeated" : ""}">${m ? `<img class="px-img" src="${m.portraitURL(4)}" alt="">` : ""}${done ? stamp("Beaten", { color: "danger" }) : ""}</div>
           <div class="boss-name">${esc(m ? m.name : "???")}</div>
           <div class="hpbar"><i style="width:${(1 - p) * 100}%"></i><span>${done ? "0" : Math.max(0, w.hp - w.total)} HP</span></div>
-          <div class="reward-box"><img class="px-img" src="${chestSrc("mythic", 3)}" alt="" style="width:64px;height:64px;object-fit:contain">
+          <div class="reward-box"><img class="px-img" src="${chestSrc("gold", 3)}" alt="" style="width:64px;height:64px;object-fit:contain">
             <div><b>${ECON.weeklyFishPerHit >= 1 ? `Every hit = ${ECON.weeklyFishPerHit} fish!` : `${Math.round(1 / ECON.weeklyFishPerHit)} hits = 1 fish!`}</b><small>your hits: <span style="font-weight:700">${Math.min(w.mine, need)}/${need}${w.mine >= need ? " ✓" : ""}</span></small>
-              <br><small>Beat it and hit it ${need} times: MYTHIC chest${next ? ` + ${done ? esc(next.name) : "secret skin"}` : ""} + ${helped ? w.share : "bonus"} fish</small></div></div>
+              <br><small>Beat it and hit it ${need} times: GOLD chest${next ? ` + ${done ? esc(next.name) : "secret skin"}` : ""} + ${helped ? w.share : "bonus"} fish</small></div></div>
           ${done && !claimed && w.mine < need ? `<p class="wanted-info" style="margin-top:10px"><b>${need - w.mine} more hits</b> and the prize is yours!</p>` : ""}
           ${weeklyCanClaim(save, w) ? `<div style="margin-top:14px">${pxButton("Get prize!", { act: "claim", big: true, variant: "ok" })}</div>` : claimed ? `<div style="margin-top:12px">${stamp("Got it", { color: "ok" })}</div>` : ""}
         `, { cls: "wanted", grid: false, tilt: -1.5 })}
@@ -279,7 +280,7 @@ export const weeklyScreen = {
     const claim = () => {
       if (!weeklyCanClaim(save, w)) return;
       const r = weeklyReward(save, w); save.weekly.claimed.push(w.week); persist(true); sfx.chest();
-      if (r.skin) { save.equipped.skin = r.skin.id; persist(); toast(`MYTHIC chest + ${r.skin.name}! +${r.coins} fish`); } else toast(`MYTHIC chest! +${r.coins} fish`);
+      if (r.skin) { save.equipped.skin = r.skin.id; persist(); toast(`GOLD chest + ${r.skin.name}! +${r.coins} fish`); } else toast(`GOLD chest! +${r.coins} fish`);
       refreshFish(el, save); render();
     };
     await render();

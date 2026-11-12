@@ -67,21 +67,19 @@ export const MERCHANT_OFFERS = [
 ];
 
 // --- skrzynie (sprite: chestSprite(type) w js/pixel/chests.js) ---
-// rolls = wagi losowania; coins = [min, max] rybek, gdy wypadnie kategoria "coins"
-// Rybki ze skrzyń celowo małe: skrzynia ma dawać PRZEDMIOTY. Wcześniej skrzynie dawały więcej rybek niż sama gra
-// (tools/sim-economy.mjs: ~800/dzień) i cały sklep był kupiony po 3 tygodniach.
-// min = najniższa rzadkość przedmiotu (drabinka: im lepsza skrzynia, tym lepsza gwarancja). Wagi 0 = nigdy.
+// Każda skrzynia losuje JEDNO: przedmiot albo rybki (rolls = szanse w %, "coins" = rybki [min, max]).
+// Im lepsza skrzynia, tym lepsze przedmioty (min = najniższa rzadkość) i tym więcej rybek. Gdy wylosowanej rzadkości
+// już nie ma, schodzimy niżej aż do `min`; gdy nic nie zostało — rybki tej skrzyni.
 export const CHESTS = {
-  wood: { name: "Wooden Chest", icon: "🧰", min: "common", rolls: { coins: 60, common: 30, rare: 10, epic: 0, legendary: 0 }, coins: [5, 10] },
-  silver: { name: "Silver Chest", icon: "🎁", min: "common", rolls: { coins: 0, common: 50, rare: 40, epic: 10, legendary: 0 }, coins: [10, 20] },
-  gold: { name: "Golden Chest", icon: "👑", min: "rare", rolls: { coins: 0, common: 0, rare: 50, epic: 40, legendary: 10 }, coins: [20, 40] },
-  // epicka = smaczek raz na jakiś czas: zawsze epicki albo legendarny
-  epic: { name: "Epic Chest", icon: "💎", min: "epic", rolls: { coins: 0, common: 0, rare: 0, epic: 75, legendary: 25 }, coins: [40, 70] },
-  // mityczna (tylko boss tygodnia): legendarny (skórki "mythic" ×2) → epicki; rybki dopiero gdy masz wszystko
-  mythic: { name: "Mythic Chest", icon: "🌌", min: "epic", rolls: { coins: 0, common: 0, rare: 0, epic: 0, legendary: 100 }, coins: [80, 150] },
+  wood: { name: "Wooden Chest", icon: "🧰", min: "common", rolls: { coins: 60, common: 30, rare: 10, epic: 0, legendary: 0 }, coins: [30, 60] },
+  silver: { name: "Silver Chest", icon: "🎁", min: "common", rolls: { coins: 35, common: 35, rare: 25, epic: 5, legendary: 0 }, coins: [60, 120] },
+  gold: { name: "Golden Chest", icon: "👑", min: "rare", rolls: { coins: 25, common: 0, rare: 40, epic: 27, legendary: 8 }, coins: [120, 220] },
+  epic: { name: "Epic Chest", icon: "💎", min: "epic", rolls: { coins: 15, common: 0, rare: 0, epic: 55, legendary: 30 }, coins: [200, 350] },
+  // mityczna (tylko boss tygodnia): zawsze przedmiot — legendarny (skórki "mythic" ×2) → epicki; rybki dopiero gdy masz wszystko
+  mythic: { name: "Mythic Chest", icon: "🌌", min: "epic", rolls: { coins: 0, common: 0, rare: 0, epic: 0, legendary: 100 }, coins: [300, 500] },
 };
-// gwarancja do pokazania pod skrzynią (ui/chest.js)
-export const CHEST_PROMISE = { wood: "Fish or a surprise!", silver: "Always a prize!", gold: "Rare or better!", epic: "Epic or better!", mythic: "LEGENDARY!" };
+// napis pod skrzynią (ui/chest.js)
+export const CHEST_PROMISE = { wood: "Fish or a surprise!", silver: "Fish or a prize!", gold: "Rare prize or lots of fish!", epic: "Epic prize or a fish pile!", mythic: "LEGENDARY!" };
 export const CHEST_ORDER = ["wood", "silver", "gold", "epic"]; // + "mythic" (tylko boss tygodnia)
 // rybki za duplikat (wszystko z danej rzadkości już posiadane)
 export const DUP_COINS = { common: 30, rare: 75, epic: 150, legendary: 300 };
@@ -111,7 +109,6 @@ export const ECON = {
   weeklyFishPerHit: 0.5,   // + 0,5 rybki za punkt obrażeń od razu po biegu (× malejące nagrody), nawet gdy boss nie padnie
   weeklyMinShare: 30,
   weeklyPrizeHits: 40,   // nagroda za bossa tygodnia (mityczna + skórka + pula) tylko dla dziecka, które samo trafiło go >= 40 razy (~2 krótkie sesje)
-  streakGraceDays: 1,    // seria nie pęka po 1 dniu przerwy (dzieci grają 2–4 razy w tygodniu); dłuższa przerwa = zamrożenie albo reset
   luckyCoin: 0.1,      // talent lucky: +10% rybek za rangę
   bellCoin: 1.5,       // perk bell
   magnetXp: 1.3,       // perk magnet
