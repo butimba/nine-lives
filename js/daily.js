@@ -8,7 +8,7 @@
 import { today } from "./util.js";
 import VOCAB from "../data/vocab.js";
 // rybki za wyzwania dnia (temat główny, nauka, gra). Balans: tools/sim-economy.mjs
-export const DAILY_FISH = { main: 10, learn: 10, game: 15 };
+export const DAILY_FISH = { main: 15, learn: 15, game: 25 };
 
 // grammar skill id -> simple English name for the challenge text (grammar.js names are partly Polish)
 export const SKILL_EN = {

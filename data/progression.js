@@ -89,16 +89,16 @@ export const DUP_COINS = { common: 30, rare: 75, epic: 150, legendary: 300 };
 // --- ekonomia ---
 // Malejące nagrody i życia: js/lives.js (REWARD_TIERS, MAX_LIVES, REGEN_MS, COMBO_LIFE).
 export const ECON = {
-  coinPerCorrect: 1, coinPerKill: 1, coinPerBoss: 5, coinShadowClear: 2,
+  coinPerCorrect: 2, coinPerKill: 2, coinPerBoss: 10, coinShadowClear: 2,
   xpPerCorrect: 10, xpPerTry: 2, xpPerBoss: 50,
   // LEGACY (v1 battle.js) — v2 tego nie używa, zastąpione przez lives.rewardMult
   dailyFullRuns: 3, dailyMult: [1, 1, 1, 0.5, 0.5, 0.25],
   freezePrice: 60, freezeMax: 2,
-  bossChestsPerDay: 1, // skrzynia za bossa tylko za pierwszego bossa dnia (dalej same rybki) — save.daily.bossChests
+  bossChestsPerDay: 2, // skrzynia za bossa tylko za 2 pierwszych bossów dnia (dalej same rybki) — save.daily.bossChests
   chestPrice: 150, // sklep sprzedaje SREBRNĄ skrzynię
-  // XP potrzebne na przejście z lvl do lvl+1. Do lvl 15 jak dawniej (nikomu nie spada level), od 16 coraz wolniej:
-  // wszystkie talenty (lvl 25) po ok. 2 miesiącach codziennej gry zamiast ~2,5 tygodnia.
-  levelXp: (lvl) => 100 + (lvl - 1) * 40 + (lvl >= 16 ? 100 * (lvl - 15) ** 2 : 0),
+  // XP potrzebne na przejście z lvl do lvl+1. Do lvl 15 jak dawniej, od 16 łagodnie wolniej (30 × (lvl−15)²; było 100 — levele stawały):
+  // wszystkie talenty (lvl 25) po ~2 mies. przy 2–4 sesjach w tygodniu, potem dalej ~1 level na 1–2 tygodnie.
+  levelXp: (lvl) => 100 + (lvl - 1) * 40 + (lvl >= 16 ? 30 * (lvl - 15) ** 2 : 0),
   monsterHp: (floor) => (floor < 20 ? 2 : floor < 60 ? 3 : 4),
   bossHp: (floor) => (floor < 20 ? 5 : floor < 60 ? 6 : 7),
   floorsPerStage: 5,
@@ -107,8 +107,8 @@ export const ECON = {
   kingEvery: 25, kingHp: 2, kingFish: 25, // boss co 25 pięter = Król: korona, +2 HP, 3. pocisk w fazie 2, +25 rybek
   weeklyHpPerPlayer: 120,
   weeklyLastWeek: 0.9,   // HP bossa tygodnia >= 90% obrażeń z zeszłego tygodnia (im mocniej grają, tym większy boss i pula)
-  weeklyFishPerHp: 0.5,    // pula bonusu = HP × 0,5, dzielona wg obrażeń, wypłacana po pokonaniu bossa (≈ 60 rybek na dziecko)
-  weeklyFishPerHit: 0.2,   // + 0,2 rybki za punkt obrażeń od razu po biegu (× malejące nagrody), nawet gdy boss nie padnie
+  weeklyFishPerHp: 1,    // pula bonusu = HP × 1, dzielona wg obrażeń, wypłacana po pokonaniu bossa (≈ 120 rybek na dziecko)
+  weeklyFishPerHit: 0.5,   // + 0,5 rybki za punkt obrażeń od razu po biegu (× malejące nagrody), nawet gdy boss nie padnie
   weeklyMinShare: 30,
   luckyCoin: 0.1,      // talent lucky: +10% rybek za rangę
   bellCoin: 1.5,       // perk bell

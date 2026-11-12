@@ -44,7 +44,7 @@ export function simulate(patternName = "typical", weeks = 26, seed = 1) {
   const P = PATTERNS[patternName], s = freshSave("sim", {});
   const src = { play: 0, weekly: 0, chests: 0, daily: 0, other: 0 }, spent = { shop: 0, featured: 0 };
   const chests = {}; let floor = 0, doneDay = null, sessions = 0, minutes = 0, beaten = 0, lastChestItemDay = 0, fishAtDone = 0;
-  const monthly = [];
+  const monthly = [], curve = []; let gap = 0, maxGap = 0, have0 = 0;
   const open = (c, d) => { chests[c] = (chests[c] || 0) + 1; const c0 = s.coins; const r = openChest(s, c, START); if (r.kind === "coins") src.chests += s.coins - c0; else lastChestItemDay = d; };
   for (let w = 0; w < weeks; w++) {
     const days = new Set(); const nHome = ri(rng, P.home), nLes = ri(rng, P.lessons);
@@ -76,11 +76,16 @@ export function simulate(patternName = "typical", weeks = 26, seed = 1) {
       for (;;) { const it = [...shopItems(s, day).skins, ...shopItems(s, day).hats].filter((q) => !q.owned).sort((a, b) => a.price - b.price)[0];
         if (!it || !buy(s, it)) break; spent.shop += it.price; }
       if (doneDay == null && !missing(s).length) { doneDay = d; fishAtDone = s.coins; }
+      // „czy dziś coś nowego?” — nowy przedmiot albo nowy level. Najdłuższa seria sesji bez niczego = zastój.
+      const have = GOAL.length - missing(s).length + levelInfo(s.xp).lvl;
+      if (doneDay == null) { gap = have > have0 ? 0 : gap + 1; maxGap = Math.max(maxGap, gap); } have0 = have;
     });
     // boss tygodnia: grupa dzieci grających podobnie → pada, gdy moje obrażenia >= HP na gracza
     const n = weeklyNumbers({ total: wDmg, players: 1, mine: wDmg });
-    if (wDmg >= n.hp) { beaten++; const r = weeklyReward(s, n); src.weekly += r.coins; s.chests = []; open("mythic", w * 7 + 7); }
+    if (wDmg >= n.hp) { beaten++; const r = weeklyReward(s, n); src.weekly += r.coins; for (const c of s.chests.splice(0)) open(c, w * 7 + 7); }
     if ((w + 1) % 4 === 0) monthly.push(s.coins);
+    if (process.env.SIMDBG && w + 1 === +process.env.SIMDBG) console.log("missing", missing(s).join(" "));
+    curve.push({ w: w + 1, items: GOAL.length - missing(s).length, lvl: levelInfo(s.xp).lvl, fish: Math.round(s.coins) });
   }
   const days = weeks * 7, per = (v) => Math.round(v / weeks);
   return { pattern: patternName, weeks, sessionsPerWeek: +(sessions / weeks).toFixed(1), minPerWeek: Math.round(minutes / weeks),
@@ -88,7 +93,7 @@ export function simulate(patternName = "typical", weeks = 26, seed = 1) {
       total: per(src.play + src.weekly + src.chests + src.daily + src.other) },
     spent, weeklyBeaten: `${beaten}/${weeks}`, chestsPerWeek: +(Object.values(chests).reduce((a, b) => a + b, 0) / weeks).toFixed(1), chests,
     lastChestItemDay, floor, level: levelInfo(s.xp).lvl,
-    doneDay, doneWeeks: doneDay && +(doneDay / 7).toFixed(1), fishAtDone, missing: missing(s).length, leftover: s.coins, bankByMonth: monthly };
+    doneDay, doneWeeks: doneDay && +(doneDay / 7).toFixed(1), fishAtDone, missing: missing(s).length, leftover: s.coins, bankByMonth: monthly, maxGapSessions: maxGap, curve };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -97,6 +102,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     const runs = [1, 2, 3, 4, 5].map((sd) => simulate(p, 40, sd));
     const r = runs[0], done = runs.map((q) => q.doneWeeks ?? ">40");
     console.log(`\n== ${p}: ${r.sessionsPerWeek} sesji/tydz., ${r.minPerWeek} min/tydz. | wszystko po tygodniach: ${done.join(", ")}`);
-    console.log(JSON.stringify({ ...r, chests: undefined }));
+    console.log(JSON.stringify({ ...r, chests: undefined, curve: undefined }));
+    console.log("tydzień: " + r.curve.filter((c) => c.w % 2 === 0 && c.w <= 24).map((c) => `${c.w}:${c.items}it/L${c.lvl}/${c.fish}f`).join("  "));
   }
 }

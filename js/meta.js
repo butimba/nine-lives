@@ -12,14 +12,26 @@ export const tr = (save, id) => save.talents[id] || 0;
 // Kolejka się zapętla (rzecz wraca po FEATURED.length tygodniach). Nowa skórka do rotacji = source "featured" + id tutaj.
 export const FEATURED = ["zapcat", "deepsea", "thunderking", "rockstar", "lovecat", "diamond"];
 export const weekIndex = (date = new Date()) => { const [y, w] = isoWeek(date).split("-W").map(Number); return y * 53 + w; };
-export function featuredItem(date = new Date()) {
-  const id = FEATURED[weekIndex(date) % FEATURED.length];
+// Z zapisem (save): w danym tygodniu pokazujemy skórkę, której dziecko jeszcze NIE MA (pominięte posiadane),
+// i trzymamy ją do końca tygodnia (save.feat = { w, id }), żeby po zakupie nie wskoczyła od razu następna.
+// Dzięki temu ostatnie skórki nie czekają 6 tygodni na swoją kolej (to był główny zastój ekonomii).
+export function featuredItem(date = new Date(), save = null) {
+  const w = weekIndex(date);
+  let id = FEATURED[w % FEATURED.length];
+  if (save) {
+    if (save.feat && save.feat.w === w) id = save.feat.id;
+    else {
+      const left = FEATURED.filter((f) => !save.owned.skins.includes(f));
+      if (left.length) id = left[w % left.length];
+      save.feat = { w, id };
+    }
+  }
   return SKINS.find((s) => s.id === id && !s.retired) || null;
 }
 export const daysLeftInWeek = (date = new Date()) => 8 - (date.getDay() || 7); // pon = 7 … niedz = 1
 
 export function shopItems(save, date = new Date()) {
-  const ev = activeEvent(date, EVENTS), feat = featuredItem(date);
+  const ev = activeEvent(date, EVENTS), feat = featuredItem(date, save);
   const ok = (it) => !it.retired && !it.community && it.price && (it.source === "shop" || eventAllows(ev, it.source));
   return {
     skins: SKINS.filter(ok).map((s) => ({ ...s, kind: "skin", owned: save.owned.skins.includes(s.id) })),
@@ -214,14 +226,14 @@ export async function weeklyStatus(save) {
   }
   return { week: w, total: mine, mine, ...weeklyNumbers({ total: mine, players: 1, mine }), players: 1, cloud: false };
 }
-// nagroda za pokonanie: MITYCZNA skrzynia (jedyne źródło) + następna skórka z kolejki + mój bonus z puli rybek (tylko jeśli biłem bossa).
+// nagroda za pokonanie: MITYCZNA skrzynia (jedyne źródło) + złota + następna skórka z kolejki + mój bonus z puli rybek (tylko jeśli biłem bossa).
 // Rybki za same trafienia (ECON.weeklyFishPerHit) dostaje się od razu po biegu — rewards.applyRunResults.
 export function weeklyReward(save, w) {
   const fish = (w && w.share) || ECON.weeklyMinShare;
   const queue = SKINS.filter((s) => s.source === "weekly" && !s.retired).sort((a, b) => a.order - b.order);
   const next = queue.find((s) => !save.owned.skins.includes(s.id));
   save.coins += fish;
-  save.chests.push("mythic");
+  save.chests.push("mythic", "gold"); // + złota: przy 2–4 sesjach w tygodniu jedna mityczna to za mało i końcówka kolekcji stała
   if (next) { save.owned.skins.push(next.id); save.weeklySkins++; return { skin: next, chest: "mythic", coins: fish }; }
   return { chest: "mythic", coins: fish };
 }

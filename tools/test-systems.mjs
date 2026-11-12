@@ -188,7 +188,7 @@ const V1 = {
   eq(b.hp, 1800, "hp grows with last week's effort (90%)"); eq(b.share, Math.round(1800 * K * 1000 / 2000), "big helper gets big share");
   eq(weeklyNumbers({ total: 500, players: 2, mine: 0 }).share, 0, "no hits -> no share");
   eq(weeklyNumbers({ total: 5000, players: 2, mine: 1 }).share, ECON.weeklyMinShare, "tiny helper gets min share");
-  const s = freshSave("wk", {}); const r = weeklyReward(s, { share: 420 }); ok(r.coins === 420 && s.coins === 50 + 420 && r.skin && s.chests.includes("mythic"), "weekly reward = mythic chest + skin + my share");
+  const s = freshSave("wk", {}); const r = weeklyReward(s, { share: 420 }); ok(r.coins === 420 && s.coins === 50 + 420 && r.skin && s.chests.includes("mythic") && s.chests.includes("gold"), "weekly reward = mythic + gold chest + skin + my share");
 }
 
 // ---------- moce ----------
@@ -507,6 +507,11 @@ const baseStats = { mode: "tower", startFloor: 16, floorReached: 20, bossBeaten:
   const ids = Array.from({ length: FEATURED.length + 1 }, (_, i) => featuredItem(wk(i)).id);
   ok(new Set(ids.slice(0, FEATURED.length)).size === FEATURED.length && ids[0] === ids[FEATURED.length], `featured skin changes weekly and comes back (${ids})`);
   eq(featuredItem(new Date(2026, 0, 5)).id, featuredItem(new Date(2026, 0, 11)).id, "same featured skin Mon..Sun");
+  { const sv = freshSave("featkid", {}); const d0 = new Date(2026, 0, 5), plain = featuredItem(d0).id;
+    sv.owned.skins.push(plain); const mine = featuredItem(d0, sv).id;
+    ok(mine !== plain && FEATURED.includes(mine), "featured skips a skin the kid already owns");
+    sv.owned.skins.push(mine); eq(featuredItem(new Date(2026, 0, 9), sv).id, mine, "featured stays the same all week after buying");
+    sv.owned.skins.push(...FEATURED); ok(FEATURED.includes(featuredItem(new Date(2026, 0, 12), sv).id), "featured still shown when kid owns all"); }
   { const sv = freshSave("shopf", {}); const si = shopItems(sv, wk(0)); ok(si.featured && !si.skins.some((x) => x.source === "featured"), "shop: featured only as the weekly card"); }
   { const sv = freshSave("st28", {}); const d = new Date(Date.now() - 864e5);
     sv.streak.last = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; sv.streak.count = 27;

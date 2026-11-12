@@ -269,8 +269,8 @@ export const weeklyScreen = {
           <div class="boss-name">${esc(m ? m.name : "???")}</div>
           <div class="hpbar"><i style="width:${(1 - p) * 100}%"></i><span>${done ? "0" : Math.max(0, w.hp - w.total)} HP</span></div>
           <div class="reward-box"><img class="px-img" src="${chestSrc("mythic", 3)}" alt="" style="width:64px;height:64px;object-fit:contain">
-            <div><b>Every hit = ${ECON.weeklyFishPerHit} fish!</b><small>${helped ? `your hits: ${w.mine}` : "hit the boss to get fish!"}</small>
-              <br><small>Beat it: MYTHIC chest${next ? ` + ${done ? esc(next.name) : "secret skin"}` : ""} + ${helped ? w.share : "bonus"} fish</small></div></div>
+            <div><b>${ECON.weeklyFishPerHit >= 1 ? `Every hit = ${ECON.weeklyFishPerHit} fish!` : `${Math.round(1 / ECON.weeklyFishPerHit)} hits = 1 fish!`}</b><small>${helped ? `your hits: ${w.mine}` : "hit the boss to get fish!"}</small>
+              <br><small>Beat it: MYTHIC + GOLD chest${next ? ` + ${done ? esc(next.name) : "secret skin"}` : ""} + ${helped ? w.share : "bonus"} fish</small></div></div>
           ${done && !claimed && helped ? `<div style="margin-top:14px">${pxButton("Get prize!", { act: "claim", big: true, variant: "ok" })}</div>` : claimed ? `<div style="margin-top:12px">${stamp("Got it", { color: "ok" })}</div>` : ""}
         `, { cls: "wanted", grid: false, tilt: -1.5 })}
         <p class="wanted-info">${w.cloud ? "Everyone fights this boss together. More hits = more fish for you!" : "Fight this boss in the tower."} Every right answer is a hit!<br>New boss every Monday.</p>`;
@@ -278,7 +278,7 @@ export const weeklyScreen = {
     const claim = () => {
       if (!w || save.weekly.claimed.includes(w.week) || !(w.mine > 0)) return;
       const r = weeklyReward(save, w); save.weekly.claimed.push(w.week); persist(true); sfx.chest();
-      if (r.skin) { save.equipped.skin = r.skin.id; persist(); toast(`MYTHIC chest + ${r.skin.name}! +${r.coins} fish`); } else toast(`MYTHIC chest! +${r.coins} fish`);
+      if (r.skin) { save.equipped.skin = r.skin.id; persist(); toast(`MYTHIC + GOLD chest + ${r.skin.name}! +${r.coins} fish`); } else toast(`MYTHIC + GOLD chest! +${r.coins} fish`);
       refreshFish(el, save); render();
     };
     await render();

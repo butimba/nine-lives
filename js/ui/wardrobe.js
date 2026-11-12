@@ -28,7 +28,7 @@ export const wardrobeScreen = {
     const save = app.save;
     let tab = params.tab || "skins";
     let tryOn = null; // { kind, id, price, name } — przymierzanie w sklepie
-    ev = activeEvent(new Date(), EVENTS); feat = featuredItem();
+    ev = activeEvent(new Date(), EVENTS); feat = featuredItem(new Date(), save);
     const el = h(`<div class="screen page wardrobe">
       ${pageHead("Wardrobe", save)}
       <div class="preview-box"><i class="spot"></i><div class="preview-cat"></div>
