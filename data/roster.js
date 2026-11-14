@@ -84,13 +84,13 @@ export default {
    "duo": "enjd2t",
    "voice": true,
    "focus": [
+    "can",
     "v:animals",
     "v:food",
     "v:colors",
     "v:numbers",
     "v:toys",
     "v:sports",
-    "can",
     "v:l_1mmih6x"
    ]
   },
@@ -98,12 +98,12 @@ export default {
    "duo": "eiihyz",
    "voice": true,
    "focus": [
+    "can",
     "v:animals",
     "v:colors",
     "v:numbers",
     "v:toys",
     "v:food",
-    "can",
     "v:l_1mmih6x"
    ],
    "noReading": true
