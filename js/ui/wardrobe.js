@@ -1,0 +1,173 @@
+// WARDROBE: skórki + czapki + sklep na jednym ekranie. Żywy podgląd kota (tańczy po założeniu).
+import { h, esc, app, ico, catImg, pxButton, panel, pageHead, refreshFish, toast, modal, onAct, liveCat, sticker, RARITY_EN } from "./components.js";
+import { go } from "./router.js";
+import { persist } from "../state.js";
+import { shopItems, buy, ensureMySkin, MY_SKIN, SKIN_SENDING, featuredItems, daysLeftInWeek } from "../meta.js";
+import { registerSkin } from "../pixel/custom.js";
+import { sfx } from "../audio.js";
+import { SKINS, HATS } from "../../data/cosmetics.js";
+import { ECON } from "../../data/progression.js";
+import EVENTS, { activeEvent, eventAllows } from "../../data/events.js";
+
+const SOURCE_HINT = { start: "", shop: "shop", chest: "chest", weekly: "boss prize", mythic: "mythic chest", story: "Moon Diary", featured: "this week" };
+const EVENT_WHEN = { halloween: "Halloween", winter: "Christmas (December)", newyear: "New Year", spring: "Spring", summer: "Summer", friendship: "Friendship Week", school: "Back to School" };
+function eventHint(it) {
+  const id = String(it.source).slice(6), when = EVENT_WHEN[id] || "special events";
+  const live = ev && (ev.id === id || (ev.also || []).includes(id));
+  if (live) return !it.price ? "Find it in a chest now!" : "It is in the Shop now!";
+  return `Only at ${when}!`;
+}
+let ev = null, feat = [];
+const RORD = { common: 0, rare: 1, epic: 2, legendary: 3 };
+const byRar = (a, b) => (RORD[a.rarity || "common"] - RORD[b.rarity || "common"]);
+// przedmiot wydarzenia widać tylko w czasie wydarzenia (albo gdy już go masz)
+// tak samo sklep tygodnia: nieposiadaną skórkę widać tylko w jej tygodniu
+const shown = (it, own) => own.includes(it.id) || (!it.retired && (it.source === "featured" ? feat.some((f) => f.id === it.id) : !String(it.source || "").startsWith("event:") || eventAllows(ev, it.source)));
+const srcHint = (it) => (it.source || "").startsWith("event:") ? "event" : SOURCE_HINT[it.source] || "";
+
+export const wardrobeScreen = {
+  mount(root, params = {}) {
+    const save = app.save;
+    let tab = params.tab || "skins", shopTab = "skins";
+    let tryOn = null; // { kind, id, price, name } — przymierzanie w sklepie
+    ev = activeEvent(new Date(), EVENTS); feat = featuredItems(new Date(), save);
+    const el = h(`<div class="screen page wardrobe">
+      ${pageHead("Wardrobe", save)}
+      <div class="preview-box"><i class="spot"></i><div class="preview-cat"></div>
+        <div class="preview-name"></div><div class="preview-actions"></div></div>
+      <div class="tabs" role="tablist"></div>
+      <div class="tab-body"></div>
+    </div>`);
+    root.append(el);
+    const $ = (s) => el.querySelector(s);
+    const cat = liveCat({ skin: save.equipped.skin, hat: save.equipped.hat, scale: 5 });
+    $(".preview-cat").append(cat.el);
+
+    let skinsAll = SKINS.filter((s) => shown(s, save.owned.skins));
+    const mine = ensureMySkin(save);
+    const hatsAll = HATS.filter((s) => s.id !== "none" && shown(s, save.owned.hats));
+
+    const renderPreview = () => {
+      const skin = tryOn && tryOn.kind === "skin" ? tryOn.id : save.equipped.skin;
+      const hat = tryOn && tryOn.kind === "hat" ? tryOn.id : save.equipped.hat;
+      cat.set({ skin, hat });
+      if (skin === MY_SKIN && mine.pixels) registerSkin(MY_SKIN, mine.pixels, { name: mine.name });
+      const sk = SKINS.find((s) => s.id === skin);
+      $(".preview-name").innerHTML = sticker(`<span class="sticker-label">${esc(tryOn ? tryOn.name : save.catName || (sk && sk.name) || "")}</span>`, { tilt: -3 });
+      let act = "";
+      if (tryOn) act = pxButton(String(tryOn.price), { icon: "fish", act: "buy", variant: save.coins >= tryOn.price ? "ok" : "dark", cls: "px-btn--sm" }) + pxButton("X", { act: "untry", variant: "paper", cls: "px-btn--sm" });
+      else if (save.equipped.hat && save.equipped.hat !== "none") act = pxButton("Take off hat", { act: "hat-off", variant: "paper", cls: "px-btn--sm" });
+      $(".preview-actions").innerHTML = act;
+    };
+
+    const renderTabs = () => {
+      skinsAll = SKINS.filter((s) => shown(s, save.owned.skins));
+      const nS = skinsAll.filter((s) => save.owned.skins.includes(s.id)).length;
+      const nH = hatsAll.filter((s) => save.owned.hats.includes(s.id)).length;
+      $(".tabs").innerHTML = [["skins", "Skins", `${nS}/${skinsAll.length}`], ["hats", "Hats", `${nH}/${hatsAll.length}`], ["shop", "Shop", ev ? "event!" : "fish"]]
+        .map(([id, label, sub]) => `<button class="tab ${tab === id ? "on" : ""}" role="tab" data-act="tab" data-tab="${id}">${label}<small>${sub}</small></button>`).join("");
+    };
+
+    const itemHTML = (it, kind, { owned, on, price, cant } = {}) => {
+      const r = it.rarity || "common";
+      const art = kind === "skin"
+        ? catImg(it.id, "none", { scale: 2, silhouette: !owned && !price })
+        : catImg(save.equipped.skin, it.id, { scale: 2, silhouette: !owned && !price });
+      const name = owned || price ? esc(it.name) : "???";
+      const evTag = (it.source || "").startsWith("event:") ? `<span class="ev">${sticker(`<span class="sticker-label sticker-label--violet">event</span>`, { tilt: -8 })}</span>`
+        : it.community ? `<span class="ev">${sticker(`<span class="sticker-label sticker-label--green">kids</span>`, { tilt: -8 })}</span>` : "";
+      const foot = price && !owned ? `<span class="price">${ico("fish", { scale: 2 })}${price}</span>` : !owned ? `<span class="price" style="color:var(--l,#b7b0c8)">${esc(srcHint(it) || "?")}</span>` : price ? `<span class="price" style="color:#93e04c">got it</span>` : "";
+      return `<button class="item ${on ? "on" : ""} ${!owned && !price ? "locked" : ""} ${cant ? "cant" : ""}" style="--r:var(--px-r-${r})" data-act="${owned ? "equip" : price ? "try" : "locked"}" data-kind="${kind}" data-id="${it.id}" title="${esc(RARITY_EN[r])}">
+        <i class="rar"></i>${evTag}${art}<span class="nm">${name}</span>${foot}</button>`;
+    };
+
+    const renderBody = () => {
+      const body = $(".tab-body");
+      if (tab === "skins" || tab === "hats") {
+        const list = tab === "skins" ? skinsAll : hatsAll;
+        const own = tab === "skins" ? save.owned.skins : save.owned.hats;
+        const sorted = [...list].sort((a, b) => (own.includes(b.id) - own.includes(a.id)) || byRar(a, b));
+        const st = mine.sent && mine.sent !== mine.pixels ? "changed" : mine.status;
+        const stLabel = SKIN_SENDING && { pending: "waiting for teacher", approved: "in the game!", rejected: "try again", changed: "not sent yet" }[st];
+        const diy = tab === "skins" ? `<div class="diy-row">${panel(`
+            <div class="diy-art">${mine.pixels ? catImg(MY_SKIN, "none", { scale: 2 }) : `<span class="diy-blank">${catImg("snowball", "none", { scale: 2, silhouette: true })}</span>`}</div>
+            <div class="diy-txt"><b class="px">Make your own cat!</b><span class="lex">${SKIN_SENDING ? "Paint it. Send it. Kids can win it!" : "Paint it. Wear it. It is only yours!"}</span>
+              ${stLabel ? sticker(`<span class="sticker-label ${st === "approved" ? "sticker-label--green" : st === "rejected" ? "sticker-label--red" : ""}">${stLabel}</span>`, { tilt: -3 }) : ""}</div>
+            ${pxButton(mine.pixels ? "Paint" : "Start", { act: "skin-editor", variant: "gold", cls: "px-btn--sm diy-go" })}`, { cls: "diy-card", tilt: -1, tape: true })}<span class="hand diy-doodle">DIY!</span></div>` : "";
+        const myTile = tab === "skins" && mine.pixels ? `<button class="item item--mine ${save.equipped.skin === MY_SKIN ? "on" : ""}" style="--r:var(--px-ok)" data-act="equip" data-kind="skin" data-id="${MY_SKIN}">
+            <span class="ev">${sticker(`<span class="sticker-label sticker-label--green">mine</span>`, { tilt: -8 })}</span>${catImg(MY_SKIN, "none", { scale: 2 })}<span class="nm">${esc(mine.name || "My Cat")}</span></button>` : "";
+        body.innerHTML = `${diy}<div class="item-grid">${myTile}${sorted.map((it) => itemHTML(it, tab === "skins" ? "skin" : "hat", { owned: own.includes(it.id), on: (tab === "skins" ? save.equipped.skin : save.equipped.hat) === it.id })).join("")}</div>
+          <div class="legend-row">${["common", "rare", "epic", "legendary"].map((r) => `<span><i style="background:var(--px-r-${r})"></i>${RARITY_EN[r]}</span>`).join("")}</div>`;
+      } else {
+        const items = shopItems(save), left = daysLeftInWeek();
+        const card = (it) => itemHTML(it, it.kind, { owned: it.owned, price: it.price, cant: !it.owned && save.coins < it.price, on: tryOn && tryOn.id === it.id });
+        const list = shopTab === "skins" ? items.skins : items.hats;
+        const groups = ["common", "rare", "epic", "legendary"].map((r) => [r, list.filter((it) => (it.rarity || "common") === r).sort((a, b) => a.owned - b.owned)]).filter(([, l]) => l.length);
+        const feat = shopTab === "skins" && items.featured.length ? `<div class="section-title">This week only! <small>${left === 1 ? "last day!" : `${left} days left`}</small></div>
+          <div class="item-grid item-grid--week">${[...items.featured].sort(byRar).map(card).join("")}</div>` : "";
+        body.innerHTML = `
+          <div class="tabs tabs--sub">${[["skins", "Skins"], ["hats", "Hats"]].map(([id, label]) => `<button class="tab ${shopTab === id ? "on" : ""}" data-act="shoptab" data-tab="${id}">${label}</button>`).join("")}</div>
+          ${feat}
+          <div class="section-title">Always in the shop ${ev ? `<small>${esc(ev.name)}!</small>` : ""}</div>
+          ${groups.map(([r, l]) => `<div class="rar-title" style="--r:var(--px-r-${r})">${RARITY_EN[r]}</div><div class="item-grid">${l.map(card).join("")}</div>`).join("")}
+          <div class="shop-extras">
+            ${panel(`<img class="px-ico big-ico" src="${iconURLsafe("snow")}" alt=""><b>Streak freeze</b><small>Miss 1 day, keep your streak. You have ${save.streak.freezes}/${ECON.freezeMax}.</small>
+              ${pxButton(String(ECON.freezePrice), { icon: "fish", act: "buy-freeze", variant: save.coins >= ECON.freezePrice && save.streak.freezes < ECON.freezeMax ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: -1.5, tape: true })}
+            ${panel(`<img class="px-ico big-ico" src="${chestSrc("silver", 3)}" alt="" style="object-fit:contain"><b>Silver chest</b><small>A surprise inside!</small>
+              ${pxButton(String(ECON.chestPrice), { icon: "fish", act: "buy-chest", variant: save.coins >= ECON.chestPrice ? "ok" : "dark", cls: "px-btn--sm" })}`, { cls: "shop-extra", tilt: 1.2, tape: true })}
+          </div>`;
+      }
+    };
+    const render = () => { renderPreview(); renderTabs(); renderBody(); refreshFish(el, save); };
+    render();
+
+    const equip = (kind, id) => {
+      if (kind === "skin") save.equipped.skin = id; else save.equipped.hat = id;
+      persist(); sfx.perk && sfx.perk(); tryOn = null;
+      cat.set({ skin: save.equipped.skin, hat: save.equipped.hat }); cat.play("dance", 1400);
+      render();
+    };
+
+    const off = onAct(el, {
+      back: () => { sfx.tap(); go("home"); },
+      tab: (b) => { tab = b.dataset.tab; tryOn = null; sfx.tap(); render(); },
+      shoptab: (b) => { shopTab = b.dataset.tab; tryOn = null; sfx.tap(); render(); },
+      equip: (b) => equip(b.dataset.kind, b.dataset.id),
+      locked: (b) => { sfx.tap(); const it = (b.dataset.kind === "skin" ? SKINS : HATS).find((x) => x.id === b.dataset.id); const s = it && srcHint(it); toast(s === "chest" ? "Find it in a chest!" : s === "boss prize" ? "Beat the weekly boss!" : s === "event" ? eventHint(it) : s === "shop" ? "Buy it in the Shop!" : s === "this week" ? "It is in the Shop this week!" : "Not yet!"); },
+      try: (b) => {
+        const kind = b.dataset.kind, it = (kind === "skin" ? SKINS : HATS).find((x) => x.id === b.dataset.id);
+        tryOn = { kind, id: it.id, price: it.price, name: it.name };
+        sfx.tap(); cat.hop(); render();
+        el.querySelector(".preview-box").scrollIntoView({ behavior: "smooth", block: "center" });
+      },
+      untry: () => { tryOn = null; sfx.tap(); render(); },
+      buy: async () => {
+        if (!tryOn) return;
+        if (save.coins < tryOn.price) { sfx.wrong(); toast(`You need ${tryOn.price - save.coins} more fish`, { icon: "fish" }); return; }
+        const yes = await modal({ title: "Buy it?", body: `<p style="margin:0;display:flex;align-items:center;gap:8px"><b>${esc(tryOn.name)}</b> for ${ico("fish", { scale: 2 })} <b>${tryOn.price}</b></p>`, actions: [{ label: "Yes!", value: true, variant: "ok" }, { label: "No", value: false }] });
+        if (!yes) return;
+        const it = { ...tryOn, owned: false };
+        if (!buy(save, it)) return;
+        sfx.chest(); toast(`New! ${tryOn.name}`);
+        equip(tryOn.kind, tryOn.id);
+      },
+      "hat-off": () => equip("hat", "none"),
+      "skin-editor": () => { sfx.tap(); go("editor"); },
+      "buy-freeze": () => {
+        if (save.streak.freezes >= ECON.freezeMax) return toast("You have the max!");
+        if (save.coins < ECON.freezePrice) { sfx.wrong(); return toast("Not enough fish"); }
+        save.coins -= ECON.freezePrice; save.streak.freezes++; persist(); sfx.coin(); toast("Streak freeze +1"); render();
+      },
+      "buy-chest": () => {
+        if (save.coins < ECON.chestPrice) { sfx.wrong(); return toast("Not enough fish"); }
+        save.coins -= ECON.chestPrice; save.chests.unshift("silver"); persist(); sfx.coin(); go("chest", { from: "wardrobe" });
+      },
+    });
+    const onSkins = () => { if (el.isConnected) render(); };
+    window.addEventListener("nl:skins", onSkins);
+    return () => { off(); window.removeEventListener("nl:skins", onSkins); };
+  },
+};
+
+import { iconSrc, chestSrc } from "./components.js";
+function iconURLsafe(name) { return iconSrc(name, 4); }

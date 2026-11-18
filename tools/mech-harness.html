@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mechanics harness</title>
+<link rel="stylesheet" href="../css/fonts.css">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/mech.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #151027; color: #f4efe2; font-family: Lexend, sans-serif; overflow: hidden; }
+  #bar { position: fixed; left: 0; right: 0; top: 0; height: 64px; display: flex; flex-wrap: wrap; gap: 3px; padding: 3px; box-sizing: border-box; z-index: 10; background: #0e0b16; overflow: auto; }
+  #bar button { font: 11px "Pixelify Sans", monospace; padding: 2px 5px; background: #463e5c; color: #fff; border: 1px solid #000; }
+  #bar button.on { background: #d9622b; }
+  #bar label { font-size: 11px; display: flex; align-items: center; gap: 2px; }
+  #host { position: fixed; left: 0; right: 0; top: 64px; bottom: 0; }
+  #log { position: fixed; right: 4px; bottom: 4px; font: 10px monospace; background: #0008; padding: 3px; z-index: 11; max-width: 60%; pointer-events: none; white-space: pre; }
+  .hprompt { position: absolute; left: 0; right: 0; top: calc(var(--u) * 46); text-align: center; pointer-events: none; }
+  .hprompt .t { font: 700 calc(var(--u) * 9) "Pixelify Sans"; color: #ffd23f; text-shadow: 0 calc(var(--u)) 0 #0e0b16; }
+  .hprompt .pl { font: calc(var(--u) * 6) Lexend; color: #b7b0c8; }
+  .hprompt .x { font: 600 calc(var(--u) * 11) Lexend; color: #f4efe2; margin-top: calc(var(--u) * 1); padding: 0 calc(var(--u)*8); }
+  .hprompt img { width: calc(var(--u) * 30); image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="host"></div>
+<div id="log"></div>
+<script type="module">
+import { createStage } from "../js/game/stage.js";
+import { createFx } from "../js/game/juice.js";
+import { planTask, MECHANICS } from "../js/game/mechanics/index.js";
+import { gfxReady, picURL } from "../js/game/mechanics/common.js";
+import { Session } from "../js/engine.js";
+import { sfx, speak } from "../js/audio.js";
+
+const qs = new URLSearchParams(location.search);
+await gfxReady;
+let getCat = null; try { ({ getCat } = await import("../js/pixel/cat.js")); } catch {}
+await document.fonts.load("600 11px Lexend"); await document.fonts.load("700 11px 'Pixelify Sans'");
+
+const TYPES = ["word2pic", "pic2word", "pl2en", "match", "listen2pic", "pic2listen", "spell", "type", "cloze", "fix", "judge", "build"];
+const VOCAB_BOX = { word2pic: 0, pic2word: 1, listen2pic: 0, pic2listen: 1, pl2en: 2, match: 2, spell: 3, type: 4 };
+const GRAM_BOX = { cloze: 0, fix: 2, judge: 2, build: 4 };
+const profile = { focus: ["ps_3s", "pc", "be", "can", "v:animals", "v:food", "v:colors", "v:numbers", "v:actions"], noReading: qs.has("noread") };
+const save = { srs: {}, skills: {}, confusions: {}, shadows: [], settings: { voice: false, pl: !qs.has("nopl") }, log: [], stats: { answers: 0, correct: 0 } };
+// seen some words so match works
+for (const k of ["v:animals:dog", "v:animals:cat", "v:food:apple", "v:food:bread", "v:colors:red"]) save.srs[k] = { b: 2, due: 0, n: 1, ok: 1, last: 0 };
+const ses = new Session(save, profile, "tower", 12345);
+function makeTask(type) {
+  ses.profile = type === "pic2listen" ? { ...profile, noReading: true } : profile;
+  for (let i = 0; i < 400; i++) {
+    let t;
+    if (type in VOCAB_BOX) { const key = ses.pool.filter((k) => k.startsWith("v:"))[Math.floor(Math.random() * 40) % ses.pool.filter((k) => k.startsWith("v:")).length]; t = ses.vocabTask(key, { b: VOCAB_BOX[type] }); }
+    else { const keys = ses.pool.filter((k) => k.startsWith("g:")); t = ses.grammarTask(keys[Math.floor(Math.random() * keys.length)], { b: GRAM_BOX[type] }); }
+    if (t.type === type) return t;
+  }
+}
+
+const stage = createStage(document.getElementById("host"));
+const fx = createFx();
+let diff = +(qs.get("d") || 0.3);
+const cat = { x: 40, y: 0, tx: 0, ty: 0, anim: "idle", t: 0, home: null, flip: false };
+const catSprite = getCat ? getCat(qs.get("skin") || "ginger", qs.get("hat") || "none") : null;
+cat.jumpTo = (x, y) => new Promise((res) => { cat.from = { x: cat.x, y: cat.y }; cat.to = { x, y }; cat.jk = 0; cat.anim = "jump"; cat.flip = x < cat.x; cat.onLand = res; });
+cat.attack = () => new Promise((res) => { cat.anim = "attack"; sfx.hit && sfx.hit(); setTimeout(() => { cat.jumpTo(cat.home.x, cat.home.y).then(() => (cat.anim = "idle")); res(); }, 180); });
+
+let inst = null, planned = null, curType = qs.get("type") || "word2pic";
+const arena = () => ({ x: 8, y: 92, w: 224, h: stage.h - 92 - 44 });
+const logEl = document.getElementById("log");
+const log = (s) => { logEl.textContent = (s + "\n" + logEl.textContent).slice(0, 600); };
+
+function scene() {
+  return {
+    update(dt, t) {
+      cat.t += dt;
+      if (cat.to) { cat.jk = Math.min(1, cat.jk + dt * 4); const k = cat.jk; cat.x = cat.from.x + (cat.to.x - cat.from.x) * k; cat.y = cat.from.y + (cat.to.y - cat.from.y) * k - Math.sin(k * Math.PI) * 26; if (k >= 1) { const f = cat.onLand; cat.to = null; f && f(); } }
+      inst && inst.update(dt, t); fx.update(dt);
+    },
+    draw(g, t) {
+      // backdrop: tower wall
+      g.fillStyle = "#1c1630"; g.fillRect(0, 0, 240, stage.h);
+      g.fillStyle = "#272036"; for (let y = 0; y < stage.h; y += 8) for (let x = (y / 8) % 2 ? 0 : 8; x < 240; x += 16) g.fillRect(x, y, 15, 7);
+      g.fillStyle = "#0e0b16"; g.fillRect(0, 0, 240, 40); g.fillStyle = "#e8434f"; for (let i = 0; i < 9; i++) g.fillRect(6 + i * 9, 6, 7, 6);
+      const A = arena(); g.strokeStyle = "#ffffff22"; g.lineWidth = 1 / stage.scale; g.strokeRect(A.x, A.y, A.w, A.h);
+      g.fillStyle = "#463e5c"; g.fillRect(0, stage.h - 40, 240, 40); g.fillStyle = "#7a7290"; g.fillRect(0, stage.h - 40, 240, 2);
+      // monster
+      g.fillStyle = "#93e04c"; g.fillRect(180, stage.h - 70, 30, 30); g.fillStyle = "#0e0b16"; g.fillRect(186, stage.h - 62, 4, 4); g.fillRect(198, stage.h - 62, 4, 4);
+      if (catSprite) catSprite.draw(g, Math.round(cat.x), Math.round(cat.y), { anim: cat.anim, t: cat.t, flip: cat.flip });
+      else { g.fillStyle = "#ffa04d"; g.fillRect(cat.x - 10, cat.y - 18, 20, 18); }
+      inst && inst.draw(g, t); fx.draw(g);
+    },
+  };
+}
+stage.setScene(scene());
+
+function promptHTML(p) {
+  const el = document.createElement("div"); el.className = "hprompt";
+  el.innerHTML = `<div class="t">${p.title}</div>${p.pl ? `<div class="pl">${p.pl}</div>` : ""}${p.img ? `<img src="${picURL(p.img, 3)}">` : ""}${p.text ? `<div class="x">${p.text}</div>` : ""}`;
+  return el;
+}
+
+async function run(type) {
+  curType = type;
+  [...document.querySelectorAll("#bar button[data-t]")].forEach((b) => b.classList.toggle("on", b.dataset.t === type));
+  if (inst) { inst.destroy(); inst = null; }
+  stage.overlay.querySelectorAll(".hprompt").forEach((e) => e.remove());
+  cat.home = { x: 40, y: stage.h - 40 }; cat.x = cat.home.x; cat.y = cat.home.y; cat.to = null; cat.anim = "idle"; cat.flip = false;
+  const task = makeTask(type);
+  planned = planTask(task, profile, save.settings);
+  stage.overlay.append(promptHTML(planned.prompt));
+  if (planned.prompt.autoSay && planned.prompt.say) speak(planned.prompt.say);
+  const M = MECHANICS[planned.mech];
+  const me = inst = M.create({ stage, fx, arena: arena(), task: planned.task, prompt: planned.prompt, rng: Math.random, difficulty: diff, sfx, speak, cat, hints: { left: 2 } });
+  window.__h.inst = inst; window.__h.task = task; window.__h.plan = planned;
+  log(`${type} -> ${planned.mech} (${task.type})`);
+  const res = await me.result;
+  log(JSON.stringify({ ok: res.ok, ms: Math.round(res.ms), tag: res.tag, hinted: res.hinted }));
+  window.__h.last = res;
+  if (!res.ok && me === inst) await me.reveal();
+  if (me === inst && !qs.has("noauto")) setTimeout(() => me === inst && run(curType), 900);
+}
+window.__h = { run, stage, setD: (d) => (diff = d) };
+
+const bar = document.getElementById("bar");
+for (const t of TYPES) { const b = document.createElement("button"); b.textContent = t; b.dataset.t = t; b.onclick = () => run(t); bar.append(b); }
+const hb = document.createElement("button"); hb.textContent = "hint"; hb.onclick = () => log("hint: " + (inst && inst.hint())); bar.append(hb);
+const lb = document.createElement("label"); lb.innerHTML = `d <input type="range" min="0" max="1" step="0.1" value="${diff}">`; lb.querySelector("input").oninput = (e) => (diff = +e.target.value); bar.append(lb);
+run(curType);
+</script>
+</body>
+</html>

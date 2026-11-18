@@ -1,0 +1,17 @@
+# Darmowy Supabase usypia projekt po ~7 dniach bez ruchu (wakacje, ferie).
+# Ten automat co 3 dni robi jedno małe zapytanie (publiczny klucz z config.js), żeby baza nie zasnęła.
+# Uwaga: GitHub wyłącza zaplanowane automaty po 60 dniach bez commitów w repo (wtedy: Actions → Enable).
+name: supabase-keepalive
+on:
+  schedule: [{ cron: "17 6 */3 * *" }]
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ping Supabase
+        run: |
+          URL=$(grep -o 'https://[a-z0-9]*\.supabase\.co' config.js)
+          KEY=$(grep -o 'sb_publishable_[A-Za-z0-9_-]*' config.js)
+          curl -fsS "$URL/rest/v1/saves?select=id&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -o /dev/null -w "HTTP %{http_code}\n"

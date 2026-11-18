@@ -1,0 +1,1207 @@
+// RUN — the cat climbs the tower. 5 floors = a stage, boss on floor 5. Replaces v1 battle.js.
+// Per answer: Session task -> planTask (C) -> mechanic -> record() -> juice. Lives (D) only lost on wrong English.
+import { createStage } from "./stage.js";
+import { createFx, pxText, pxTextWidth } from "./juice.js";
+import { drawTower, floorY, CAT_X, HATCH, climbPath, dayPhase, approach } from "./world.js";
+import { biomeForFloor, SHADOW_BIOME } from "./biomes.js";
+import { bossIntro, createBossFight } from "./boss.js";
+import { createRunUI } from "./runui.js";
+import { planTask, MECHANICS } from "./mechanics/index.js";
+import { Session, record, isDiamondCheck } from "../engine.js";
+import { SKILLS } from "../../data/grammar.js";
+import { PERKS, ECON, powerById, RUN_EVENTS, MERCHANT_OFFERS } from "../../data/progression.js";
+import { ensureDaily, progressDaily } from "../daily.js";
+import { syncPowers } from "../rewards.js";
+import EVENTS, { activeEvent } from "../../data/events.js";
+import { sfx, speak, startMusic, stopMusic } from "../audio.js";
+import { persist } from "../state.js";
+import * as lives from "../lives.js";
+import { getCat, catURL } from "../pixel/cat.js";
+import { chestSprite } from "../pixel/chests.js";
+import { makeMonster } from "../pixel/monsters.js";
+import { ICONS, iconURL } from "../pixel/icons.js";
+import { drawSprite } from "../pixel/sprite.js";
+import { pixelURL } from "../pixel/pixelizer.js";
+
+const tr = (save, id) => (save.talents && save.talents[id]) || 0;
+const S_ = (k, ...a) => { try { sfx[k] && sfx[k](...a); } catch {} };
+const say = (txt) => { try { if (txt) speak(txt); } catch {} };
+const AS = 2; // actors (cat, monsters) are drawn at 2x so 7-year-olds can see them on a phone
+const isStub = (spr) => !spr || !spr.w || !spr.anchor;
+const ease = { out: (k) => 1 - (1 - k) ** 3, inQ: (k) => k * k, back: (k) => 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2 };
+const HEART = [".##.##.", "#######", "#######", ".#####.", "..###..", "...#..."];
+const FISH = ["...##...", ".######.#", "#.#######", "########.", ".######.#", "...##...."];
+
+function pix(ctx, rows, x, y, col, out = "#0e0b16", s = 1) {
+  x = Math.round(x); y = Math.round(y);
+  if (out) { ctx.fillStyle = out; rows.forEach((r, j) => [...r].forEach((c, i) => { if (c === "#") ctx.fillRect(x + i * s - 1, y + j * s - 1, s + 2, s + 2); })); }
+  ctx.fillStyle = col; rows.forEach((r, j) => [...r].forEach((c, i) => { if (c === "#") ctx.fillRect(x + i * s, y + j * s, s, s); }));
+}
+
+export async function runGame(hostEl, save, profile = {}, mode = "tower", opts = {}) {
+  const isShadow = mode === "shadow";
+  const startedAt = Date.now();
+  const debug = (() => { try { return new URLSearchParams(location.search).has("debug"); } catch { return false; } })();
+  const DBG = debug ? (window.__nl = window.__nl || {}) : null;
+  const setState = (s) => { if (DBG) DBG.runState = s; };
+  const qp = (k) => { try { return new URLSearchParams(location.search).get(k); } catch { return null; } };
+  // ?debug&season=halloween|none forces a seasonal event, ?debug&event=golden|mimic|merchant|secret forces a run event (also: glitch)
+  // (activeEvent itself honours ?debug&season=… — see data/events.js)
+  const ev = activeEvent(undefined, EVENTS);
+  const halloween = !!(ev && ev.id === "halloween" && ev.mech === "trickortreat");
+  const winter = !!(ev && ev.mech === "presents");
+  const forceEvent = debug ? qp("event") : null;
+
+  const blank = (extra = {}) => ({ mode, startFloor: save.tower.checkpoint + 1, floorReached: save.tower.checkpoint, bossBeaten: false, quit: false,
+    asleep: false, answers: 0, correct: 0, bestCombo: 0, kills: 0, coins: 0, xp: 0, weeklyDmg: 0, ms: 0, perks: [], ...extra });
+
+  lives.tickLives(save);
+  try { ensureDaily(save, profile); } catch (e) { console.warn("daily", e); }
+  let unlockedPowers = [];
+  try { unlockedPowers = syncPowers(save).map((p) => p.id); } catch (e) { console.warn("powers", e); }
+  save.stats = save.stats || {}; save.stats.events = save.stats.events || {};
+  const bumpEvent = (k) => { save.stats.events[k] = (save.stats.events[k] || 0) + 1; };
+  const startLives = lives.livesState(save).n;
+  if (!isShadow && startLives <= 0) return blank({ asleep: true });
+  const session = new Session(save, profile, mode);
+  if (!session.pool.length) return blank({ empty: true });
+
+  // ---------- run state ----------
+  const S = {
+    combo: 0, bestCombo: 0, coins: 0, xp: 0, perks: [], answers: 0, correct: 0, kills: 0, weeklyDmg: 0,
+    shields: tr(save, "nine_lives"), hints: { left: tr(save, "sixth_sense") > 0 ? tr(save, "sixth_sense") + 1 : 1 },
+    startFloor: isShadow ? -1 : save.tower.checkpoint + 1, bossBeaten: false, quit: false, asleep: false,
+    livesN: startLives, dream: isShadow && startLives <= 0, cellarErrors: 0, dreamErrors: 0,
+    livesLost: 0, failedKeys: new Set(), freezeTasks: 0, noShots: 0, clawHits: 0, magnetFloor: null, powersUsed: 0,
+    stageEvent: null, events: [], eventChests: [],
+  };
+  const has = (id) => S.perks.includes(id);
+  // first-time tips (tutorial): each mechanic once per account; accounts from before v5 skip them (migration)
+  save.tips = save.tips || {};
+  async function tip(key, en) {
+    if (save.tips._old || save.tips[key]) return;
+    save.tips[key] = 1; persist();
+    const was = runState; setState("intro"); runState = "intro";
+    await untilQuit(ui.tipCard(key, en));
+    runState = was;
+  }
+  let floor = isShadow ? 0 : S.startFloor - 1; // the cat starts on the ledge below and climbs in
+  const floorFrom = isShadow ? -8 : 0;
+  const nFloors = isShadow ? Math.min(6, Math.max(3, session.pool.length)) : ECON.floorsPerStage;
+
+  // ---------- DOM + stage ----------
+  hostEl.innerHTML = "";
+  const screen = document.createElement("div");
+  screen.className = `run-screen ${isShadow ? "is-shadow" : ""}`;
+  hostEl.append(screen);
+  const stage = createStage(screen, { lw: 240, minH: 360, maxH: 600 });
+  const fx = createFx();
+  const imgURL = (img) => pixelURL(img, 4);
+  const ui = createRunUI(stage.overlay, { showPl: save.settings.pl !== false, speak: say, sfx, imgURL, iconURL: (n, s) => (isStub(ICONS[n]) ? "" : iconURL(n, s)) });
+  let quitRes;
+  const quitP = new Promise((r) => (quitRes = r));
+  ui.onQuit = () => { S.quit = true; quitRes("quit"); };
+  ui.onModal = (open) => { stage.paused = open; };
+  const untilQuit = (p) => Promise.race([p, quitP]);
+
+  const footY = () => stage.h - 46;           // screen y of the current ledge
+  let camY = floorY(floor) - footY(), camFollow = null;
+  const toScreenY = (wy) => wy - camY;
+
+  // ---------- cat ----------
+  const catSpr = getCat(save.equipped.skin, save.equipped.hat);
+  const cat = { wx: CAT_X, wy: floorY(floor), anim: "idle", animT: 0, flip: false, sx: 1, sy: 1, flash: 0 };
+  const tweens = [];
+  const tween = (dur, fn, done) => new Promise((res) => tweens.push({ t: 0, dur: Math.max(0.01, dur), fn, res: () => { done && done(); res(); } }));
+  const dust = (x, sy, n = 6) => fx.burst(x, sy, { n, colors: ["#d8ccb4", "#a89c86"], speed: 30, gravity: -20, life: 0.4, spread: Math.PI, angle: -Math.PI / 2 });
+  const land = () => {
+    cat.anim = "idle"; cat.sx = 1.25; cat.sy = 0.75;
+    dust(cat.wx, toScreenY(cat.wy));
+    S_("tap");
+  };
+  function jumpWorld(x, y, dur = 0.3, hgt = 22, { quiet = false } = {}) {
+    const x0 = cat.wx, y0 = cat.wy;
+    if (Math.abs(x - x0) > 1) cat.flip = x < x0;
+    cat.anim = "jump"; cat.sx = 0.85; cat.sy = 1.2;
+    if (!quiet) S_("jump");
+    const top = Math.min(y0, y) - hgt;
+    return tween(dur, (k) => {
+      cat.wx = x0 + (x - x0) * k;
+      // parabola through y0 -> top -> y
+      const a = y0 + (top - y0) * (1 - (1 - 2 * Math.min(k, 0.5)) ** 2);
+      const b = top + (y - top) * ((Math.max(k, 0.5) - 0.5) * 2) ** 2;
+      cat.wy = k < 0.5 ? a : b;
+      cat.sx += (1 - cat.sx) * 0.2; cat.sy += (1 - cat.sy) * 0.2;
+    }, land);
+  }
+  function fallWorld(x, y, dur = 0.35) {
+    const y0 = cat.wy; cat.wx = x; cat.anim = "jump";
+    return tween(dur, (k) => { cat.wy = y0 + (y - y0) * ease.inQ(k); }, () => { land(); stage.shake(1.5, 120); });
+  }
+  const atHome = () => Math.abs(cat.wx - CAT_X) < 2 && Math.abs(cat.wy - floorY(floor)) < 2;
+  const goHome = async () => { if (!atHome()) await jumpWorld(CAT_X, floorY(floor), 0.26, 10, { quiet: true }); cat.flip = false; };
+  const catApi = {
+    get x() { return cat.wx; }, set x(v) { cat.wx = v; },
+    get y() { return toScreenY(cat.wy); }, set y(v) { cat.wy = v + camY; },
+    jumpTo(x, y) { return jumpWorld(x, y + camY, 0.24, 14); },
+    attack() { cat.anim = "attack"; cat.animT = 0; return tween(0.2, () => {}, () => { if (cat.anim === "attack") cat.anim = "idle"; }); },
+    setAnim(a) { if (cat.anim === "attack" && a !== "attack") return; if (cat.anim !== a) { cat.anim = a; cat.animT = 0; } },
+    setFlip(f) { cat.flip = !!f; },
+  };
+
+  // ---------- monster ----------
+  let mon = null;
+  const GOLD_PAL = ["#ffd23f", "#fff1a8", "#c98a12"];
+  const GLITCH_PAL = ["#8a8fa3", "#4dfff0", "#ff4fd8"];
+  function spawn(f, kind = null) {
+    const b = isShadow ? SHADOW_BIOME : biomeForFloor(f);
+    const boss = !isShadow && f % ECON.floorsPerStage === 0;
+    let pal = ev && ev.monTint && !isShadow && Math.random() < 0.4 ? ev.monTint : b.mon;
+    if (kind === "golden") pal = GOLD_PAL;
+    if (kind === "glitch") pal = GLITCH_PAL;
+    const m = kind === "mimic" ? makeMimic() : makeMonster(`${save.id}-${f}-${startedAt}`, pal, { boss, shadow: isShadow });
+    // KING: the boss of every 25th floor wears a crown, has +2 HP and throws a 3rd shot when angry (boss.js)
+    const king = boss && kind !== "mimic" && f % ECON.kingEvery === 0;
+    // profil easy: boss −1 HP, potwory od piętra 20 −1 HP (2 / 2 / 3 zamiast 2 / 3 / 4)
+    const soft = profile.easy && !isShadow ? (boss || f >= 20 ? 1 : 0) : 0;
+    const hp = isShadow ? 1 : (boss ? ECON.bossHp(f) + (king ? ECON.kingHp : 0) : ECON.monsterHp(f)) - soft;
+    if (king) m.name = "King " + String(m.name || "Boss").split(" ").pop();
+    if (winter && boss && kind !== "mimic") {
+      // winter boss: a frosty name, snowball shots, a Santa hat (drawn in drawMonster)
+      m.name = "Frosty " + (king ? "King " : "") + String(m.name || "Boss").split(" ").pop();
+    }
+    mon = { m, boss, hp, max: hp, hpShow: hp, wx: 240 - (boss ? 58 : 50), wy: floorY(f), anim: "idle", animT: 0, flash: 0,
+      drop: 1, lx: 0, off: 0, sx: 1, sy: 1, dead: false, alpha: 1, phase: 1, colors: kind === "mimic" ? ["#b0703e", "#ffd23f"] : [pal[0] || "#ff6b2c", pal[1] || "#ffcf3f"],
+      golden: kind === "golden" ? { turns: RUN_EVENTS.golden.turns } : null, mimic: kind === "mimic" ? { revealed: false } : null, glitch: kind === "glitch", trick: null, fled: false,
+      jumper: null, xmasHat: winter && boss && kind !== "mimic", king };
+    if (mon.xmasHat) mon.colors = ["#ffffff", "#bfe8ff"]; // snowballs
+    return tween(0.45, (k) => { mon.drop = 1 - ease.out(k); }, () => {
+      mon.sx = 1.3; mon.sy = 0.7; stage.shake(boss ? 3 : 1, 150);
+      fx.burst(mon.wx, toScreenY(mon.wy), { n: 10, colors: ["#d8ccb4", "#a89c86"], speed: 40, gravity: -10, spread: Math.PI, angle: -Math.PI / 2 });
+      S_(boss ? "bossIntro" : "pop");
+    });
+  }
+  const monW = () => (mon.m.w || 22) * AS, monH = () => (mon.m.h || 22) * AS;
+  const monScreen = () => ({ x: mon.wx + mon.lx + (mon.off || 0), y: toScreenY(mon.wy) });
+
+  // ---------- mimic: a chest with teeth ----------
+  function makeMimic() {
+    const ch = chestSprite("wood");
+    const m = {
+      name: "Mimic", w: 20, h: 16, boss: false,
+      draw(ctx, x, y, { anim = "idle", t = 0, flash = false, scale = 1 } = {}) {
+        const rev = mon && mon.mimic && mon.mimic.revealed;
+        const chomp = rev && (anim === "lunge" || (anim === "idle" && Math.floor(t * 3) % 2 === 0));
+        const open = rev ? chomp || anim === "die" : false;
+        const peek = !rev && Math.floor(t * 0.8) % 4 === 3;
+        ch.draw(ctx, x, y, { open, shake: rev ? 0 : peek ? 1 : 0, scale, t, flash });
+        const px = (dx, dy, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x + dx * scale), Math.round(y + dy * scale), w * scale, h * scale); };
+        if (open) {
+          // eyes in the dark, tongue, teeth
+          px(-6, -15, 3, 2, "#ffd23f"); px(3, -15, 3, 2, "#ffd23f"); px(-5, -15, 1, 2, "#0e0b16"); px(4, -15, 1, 2, "#0e0b16");
+          px(-4, -11, 8, 2, "#e8434f"); px(-2, -11, 3, 1, "#ff9aa8");
+          for (let i = 0; i < 6; i++) { px(-9 + i * 3, -12, 2, 1, "#ffffff"); px(-8 + i * 3, -11, 1, 1, "#ffffff"); }
+        } else if (rev || peek) {
+          // eyes peeking from under the lid
+          px(-6, -11, 2, 1, "#ffd23f"); px(4, -11, 2, 1, "#ffd23f");
+          if (rev) for (let i = 0; i < 6; i++) px(-9 + i * 3, -10, 1, 1, "#ffffff");
+        }
+      },
+      portraitURL: () => "",
+    };
+    return m;
+  }
+
+  // ---------- boss fight ----------
+  let fight = null;
+  // ?debug: live boss shots in client px (bot / tests tap them)
+  if (DBG) DBG.shots = () => (fight ? fight.projectiles.filter((p) => p.state === "fly").map((p) => ({ ...stage.toClient(p.x, p.y), gold: !!p.gold })) : []);
+  function startFight() {
+    fight = createBossFight({
+      stage, fx, sfx,
+      from: () => { const p = monScreen(); return { x: p.x, y: p.y - monH() * 0.6 }; },
+      to: () => ({ x: cat.wx, y: toScreenY(cat.wy) - 14 }),
+      colors: mon.colors,
+      onDeflect: (p, streak = 1) => { S.coins += 1; }, // 1 fish per deflect
+      // golden shot: fish + one charge on every power
+      onBonus: (p) => { S.coins += ECON.starFish; fishPulse = 0.3; fx.float(p.x, p.y - 8, "+" + ECON.starFish, { color: "#ffd23f", big: true }); const h = HUD.fish(); fx.collect(p.x, p.y, h.x, h.y, { n: ECON.starFish, color: "#ffd23f" }); chargePowers(); },
+      king: !!mon.king,
+      easy: !!profile.easy,
+      progress: () => 1 - mon.hp / Math.max(1, mon.max), // more damage dealt = faster shots (up to 1.5x)
+      guide: !save.tips.bossGuide && !save.tips._old && (save.tips.bossGuide = 1),
+      onMiss: () => {
+        const c = { x: cat.wx, y: toScreenY(cat.wy) - 24 };
+        if (S.shields > 0) {
+          S.shields--; S_("pop");
+          fx.ring(c.x, c.y, "#7ec4ff", { r: 6 }); fx.float(c.x, c.y - 10, "SHIELD!", { color: "#7ec4ff" });
+        } else {
+          if (S.combo >= 2) fx.float(c.x, c.y - 10, "COMBO LOST", { color: "#ff9a8a" });
+          S.combo = 0; cat.anim = "hurt"; cat.flash = 0.2; S_("hurt");
+          setTimeout(() => { if (cat.anim === "hurt") cat.anim = "idle"; }, 350);
+        }
+      },
+    });
+  }
+
+  // ---------- banners ----------
+  let banner = null;
+  const showBanner = (text, sub = "", dur = 1.3, color = "#ffcf3f") => { banner = { text, sub, t: 0, dur, color }; };
+
+  // ---------- HUD geometry ----------
+  const HUD = { fish: () => ({ x: 204, y: 10 }), heart: (i) => ({ x: 4 + i * 15 + 7, y: 9 }) };
+  let heartPulse = new Array(9).fill(0);
+  let fishPulse = 0;
+
+  // ---------- mechanic in play ----------
+  let mech = null;
+  let runState = "idle";
+  const typing = () => { const ae = document.activeElement; return !!(ae && stage.overlay.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)); };
+
+  // ---------- scene ----------
+  const scene = {
+    update(dt, t) {
+      for (let i = tweens.length - 1; i >= 0; i--) {
+        const tw = tweens[i]; tw.t += dt; const k = Math.min(1, tw.t / tw.dur);
+        tw.fn(k);
+        if (k >= 1) { tweens.splice(i, 1); tw.res(); }
+      }
+      const target = camFollow ? camFollow() : floorY(floor) - footY();
+      camY = approach(camY, target, dt, camFollow ? 9 : 6);
+      cat.animT += dt;
+      cat.sx += (1 - cat.sx) * Math.min(1, dt * 14); cat.sy += (1 - cat.sy) * Math.min(1, dt * 14);
+      if (cat.flash > 0) cat.flash -= dt;
+      if (mon) {
+        mon.animT += dt;
+        if (mon.flash > 0) mon.flash -= dt;
+        mon.sx += (1 - mon.sx) * Math.min(1, dt * 12); mon.sy += (1 - mon.sy) * Math.min(1, dt * 12);
+        mon.hpShow += (mon.hp - mon.hpShow) * Math.min(1, dt * 5);
+      }
+      if (fight) { fight.paused = runState !== "task" || typing() || !!(mech && mech.typing) || ui.modalOpen || S.freezeTasks > 0 || S.noShots > 0; fight.update(dt, t); }
+      if (mech && mech.update) mech.update(dt, t);
+      updateExtras(dt, t);
+      fx.update(dt);
+      for (let i = 0; i < 9; i++) if (heartPulse[i] > 0) heartPulse[i] -= dt;
+      if (fishPulse > 0) fishPulse -= dt;
+      if (banner) { banner.t += dt; if (banner.t > banner.dur) banner = null; }
+    },
+    draw(ctx, t) {
+      const w = 240, h = stage.h;
+      drawTower(ctx, { w, h, camY, floorFrom, t, phase: dayPhase(), trophies: trophies(), season: winter && !isShadow ? "winter" : null });
+      if (merchantNPC) drawMerchant(ctx, t);
+      if (mon && !(mon.dead && mon.alpha <= 0)) drawMonster(ctx, t);
+      drawCat(ctx, t);
+      if (mech && mech.draw) { ctx.save(); try { mech.draw(ctx, t); } finally { ctx.restore(); } }
+      if (fight) fight.draw(ctx, t);
+      if (bonus) drawBonus(ctx, t);
+      if (gifts.length) drawGifts(ctx);
+      fx.draw(ctx);
+      if (S.freezeTasks > 0) drawFrost(ctx, t);
+      drawHud(ctx, t);
+      if (powerFx) drawPowerFx(ctx, t);
+      if (banner) drawBanner(ctx, t);
+    },
+  };
+  const trophies = () => {
+    const out = [];
+    if (isShadow) return out;
+    for (let f = ECON.floorsPerStage; f <= save.tower.checkpoint; f += ECON.floorsPerStage) out.push(f);
+    if (S.bossBeaten) out.push(S.startFloor + ECON.floorsPerStage - 1);
+    return out;
+  };
+
+  function drawCat(ctx, t) {
+    const x = Math.round(cat.wx), y = Math.round(toScreenY(cat.wy));
+    // shadow on the ledge when in the air
+    const ly = Math.round(toScreenY(floorY(floor)));
+    if (Math.abs(cat.wy - floorY(floor)) > 3 && cat.wy < floorY(floor) && cat.wx > HATCH.x1) {
+      ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(x - 14, ly - 2, 28, 2);
+    }
+    const o = { anim: cat.anim, t: cat.animT, flip: cat.flip, flash: cat.flash > 0, scale: AS };
+    if (cat.sx !== 1 || cat.sy !== 1) { ctx.save(); ctx.translate(x, y); ctx.scale(cat.sx, cat.sy); catSpr.draw(ctx, 0, 0, o); ctx.restore(); }
+    else catSpr.draw(ctx, x, y, o);
+    if (cat.anim === "sleep") {
+      const k = (t * 0.6) % 1, zx = Math.round(x + 18 + k * 10), zy = Math.round(y - 44 - k * 18);
+      ctx.globalAlpha = Math.min(1, (1 - k) * 2);
+      if (!isStub(ICONS.zzz)) drawSprite(ctx, ICONS.zzz, 0, zx, zy, {});
+      else pxText(ctx, "Z", zx, zy, { color: "#dfe6ff", scale: 2 });
+      ctx.globalAlpha = 1;
+    }
+  }
+  function drawMonster(ctx, t) {
+    const p = monScreen();
+    const x = Math.round(p.x), y = Math.round(p.y - mon.drop * 160);
+    ctx.save();
+    ctx.globalAlpha = mon.alpha;
+    // ground shadow
+    ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(x - Math.round(monW() * 0.4), Math.round(p.y) - 2, Math.round(monW() * 0.8), 2);
+    const bob = mon.anim === "idle" ? Math.round(Math.sin(t * 3) * 1.5) : 0;
+    const o = { anim: mon.anim, t: mon.animT, flash: mon.flash > 0, scale: AS };
+    if (mon.phase === 2 && Math.floor(t * 6) % 2 === 0 && mon.flash <= 0) o.flash = false;
+    ctx.translate(x, y + bob);
+    if (mon.sx !== 1 || mon.sy !== 1) ctx.scale(mon.sx, mon.sy);
+    if (mon.trick) drawTrick(ctx, mon.trick, t);
+    else if (mon.jumper) drawJumper(ctx, o, t);
+    else mon.m.draw(ctx, 0, 0, o);
+    if (!mon.trick && (mon.xmasHat || mon.jumper) && !mon.dead) drawXmasHat(ctx, t);
+    else if (mon.king && !mon.trick && !mon.dead) drawHat(ctx, t, CROWN, { G: "#ffd23f", g: "#c98a1c", R: "#e8434f" });
+    ctx.restore();
+    if (mon.golden && !mon.dead && Math.floor(t * 7) % 3 === 0) {
+      // twinkles on the golden monster
+      const k = Math.floor(t * 7);
+      const sx = Math.round(x + ((k * 37) % 40) - 20), sy = Math.round(y - ((k * 23) % monH()));
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(sx, sy - 2, 1, 5); ctx.fillRect(sx - 2, sy, 5, 1);
+    }
+    if (mon.glitch && !mon.dead && Math.floor(t * 9) % 4 === 0) {
+      // glitch: cyan/pink slices jump over the monster
+      const k = Math.floor(t * 9);
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = i % 2 ? "#ff4fd8" : "#4dfff0"; ctx.globalAlpha = 0.7;
+        ctx.fillRect(Math.round(x - 18 + ((k * (13 + i * 7)) % 12)), Math.round(y - ((k * (17 + i * 5)) % monH())), 22 + i * 4, 1 + (i === 1 ? 1 : 0));
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (mon.dead || mon.fled) return;
+    if (mon.mimic && !mon.mimic.revealed) return; // just a chest... right?
+    // HP bar + name
+    const bw = mon.boss ? 56 : 36, bx = Math.round(x - bw / 2), by = Math.round(y - monH() - 10);
+    ctx.fillStyle = "#0e0b16"; ctx.fillRect(bx - 1, by - 1, bw + 2, 7);
+    ctx.fillStyle = "#3a1a24"; ctx.fillRect(bx, by, bw, 5);
+    ctx.fillStyle = "#fff2a8"; ctx.fillRect(bx, by, Math.round(bw * Math.max(0, mon.hpShow) / mon.max), 5);
+    const hpC = mon.hp / mon.max > 0.5 ? "#5ccb5f" : mon.hp / mon.max > 0.25 ? "#ffcf3f" : "#e8434f";
+    ctx.fillStyle = hpC; ctx.fillRect(bx, by, Math.round(bw * Math.max(0, mon.hp) / mon.max), 5);
+    ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(bx, by, bw, 1);
+    for (let i = 1; i < mon.max; i++) { ctx.fillStyle = "#0e0b16"; ctx.fillRect(bx + Math.round(bw * i / mon.max), by, 1, 5); }
+    if (mon.boss) pxText(ctx, (mon.m.name || "BOSS").toUpperCase().slice(0, 18), x, by - 8, { color: "#ffcf3f", align: "center" });
+    if (mon.golden) {
+      // turns left before it runs away: clock + number
+      const tx = bx + bw + 3, ty = by - 2;
+      if (!isStub(ICONS.clock)) drawSprite(ctx, ICONS.clock, 0, tx + ICONS.clock.anchor.x, ty + ICONS.clock.anchor.y, {});
+      pxText(ctx, String(Math.max(0, mon.golden.turns)), tx + 11, ty + 1, { color: mon.golden.turns <= 1 ? "#ff6a5a" : "#ffcf3f" });
+      pxText(ctx, "GOLDEN!", x, by - 8, { color: "#ffcf3f", align: "center" });
+    }
+    if (mon.glitch) pxText(ctx, Math.floor(t * 3) % 5 ? "GLITCH!" : "GL1TCH?", x, by - 8, { color: "#4dfff0", align: "center" });
+  }
+  function drawHud(ctx, t) {
+    const H = stage.h;
+    // top bar
+    ctx.fillStyle = "rgba(14,11,22,0.72)"; ctx.fillRect(0, 0, 240, 20);
+    ctx.fillStyle = "#0e0b16"; ctx.fillRect(0, 20, 240, 1);
+    // hearts (9 lives) at 2x
+    const n = S.livesN;
+    const useIco = !isStub(ICONS.heart);
+    for (let i = 0; i < 9; i++) {
+      const full = i < n;
+      const p = heartPulse[i] > 0 ? Math.round(Math.sin(heartPulse[i] * 30) * 2) : 0;
+      const hx = 4 + i * 15, hy = 4 - p;
+      if (useIco) { const sp = full ? ICONS.heart : ICONS.heartEmpty; drawSprite(ctx, sp, 0, hx + 1 + sp.anchor.x, hy + 1 + sp.anchor.y, { silhouette: false, alpha: full && S.dream ? 0.6 : 1 }); }
+      else {
+        pix(ctx, HEART, hx, hy, full ? (S.dream ? "#9a8cff" : "#e8434f") : "#3a2f4e", "#0e0b16", 2);
+        if (full) { ctx.fillStyle = S.dream ? "#d8d0ff" : "#ffb0b8"; ctx.fillRect(hx + 2, hy + 2, 2, 2); }
+      }
+    }
+    // fish (run coins), 2x
+    const fp = fishPulse > 0 ? 1 : 0;
+    const fishX = 196, fishY = 5 - fp;
+    if (!isStub(ICONS.fish)) drawSprite(ctx, ICONS.fish, 0, fishX + 2 + ICONS.fish.anchor.x * 1, fishY + ICONS.fish.anchor.y, {});
+    else pix(ctx, FISH, fishX, fishY, "#7ec4ff", "#0e0b16", 2);
+    pxText(ctx, String(Math.round(S.coins)), fishX - 3, fishY + 1, { color: fp ? "#ffffff" : "#ffcf3f", align: "right", scale: 2 });
+    HUD.fish = () => ({ x: fishX + 8, y: 10 });
+    if (magnet() > 1) pxText(ctx, "x2", fishX + 6, fishY + 13, { color: Math.floor(t * 6) % 2 ? "#6fe3d3" : "#ffffff" });
+    // shields float over the cat's head
+    if (S.shields > 0) {
+      const cx = cat.wx, cy = toScreenY(cat.wy) - 62;
+      for (let i = 0; i < Math.min(S.shields, 5); i++) {
+        const sx = Math.round(cx - (Math.min(S.shields, 5) * 8) / 2 + i * 8), sy = Math.round(cy + Math.sin(t * 3 + i) * 1.5);
+        ctx.fillStyle = "#0e0b16"; ctx.fillRect(sx - 1, sy - 1, 7, 8);
+        ctx.fillStyle = "#3b78d8"; ctx.fillRect(sx, sy, 5, 5); ctx.fillRect(sx + 1, sy + 5, 3, 1);
+        ctx.fillStyle = "#bfe8ff"; ctx.fillRect(sx + 1, sy + 1, 1, 2);
+      }
+    }
+    // bottom bar: combo meter (left) + floor plaque (middle)
+    const by = H - 25;
+    const cm = S.combo % 8, full = S.combo > 0 && S.combo % 8 === 0;
+    ctx.fillStyle = "#0e0b16"; ctx.fillRect(3, by - 3, 106, 22);
+    ctx.fillStyle = "#1d1530"; ctx.fillRect(4, by - 2, 104, 20);
+    pxText(ctx, "COMBO", 8, by + 1, { color: S.combo >= 3 ? "#ffcf3f" : "#8a7aa8", outline: null });
+    if (S.combo >= 2) pxText(ctx, `x${S.combo}`, 8, by + 8, { color: "#ffcf3f", outline: null, scale: 1 });
+    for (let i = 0; i < 8; i++) {
+      const on = full || i < cm;
+      const hot = S.combo >= 6 && Math.floor(t * 10) % 2;
+      ctx.fillStyle = on ? (hot ? "#ff6b2c" : "#ffcf3f") : "#3a2f4e";
+      ctx.fillRect(30 + i * 8, by + 1, 6, 12);
+      if (on) { ctx.fillStyle = "#fff2a8"; ctx.fillRect(30 + i * 8, by + 1, 6, 2); }
+    }
+    pix(ctx, HEART, 96, by + 2, cm >= 6 || full ? "#e8434f" : "#5a3a4e", "#0e0b16", 1);
+    if (cm >= 6) pxText(ctx, "+1", 97, by + 10, { color: "#ffb0b8", outline: null });
+    // floor plaque
+    const label = isShadow ? (S.dream ? "DREAM" : `CELLAR ${Math.max(1, -floor)}`) : mon && mon.boss ? `BOSS ${floor}` : `FLOOR ${Math.max(1, floor)}`;
+    const lw = Math.max(pxTextWidth(label) + 8, 30), lx = 112;
+    ctx.fillStyle = "#0e0b16"; ctx.fillRect(lx - 1, by - 3, lw + 2, 22);
+    ctx.fillStyle = mon && mon.boss ? "#b8323a" : "#2a2238"; ctx.fillRect(lx, by - 2, lw, 20);
+    ctx.fillStyle = mon && mon.boss ? "#ff6a5a" : "#4a3e60"; ctx.fillRect(lx, by - 2, lw, 1);
+    pxText(ctx, label, lx + 4, by + 1, { color: "#f4efe2", outline: null });
+    const steps = isShadow ? nFloors : ECON.floorsPerStage;
+    for (let i = 0; i < steps; i++) {
+      const f = isShadow ? -(i + 1) : S.startFloor + i;
+      const cur = f === floor, done = isShadow ? i < -floor - 1 || (cur && mon && mon.dead) : f < floor || (cur && mon && mon.dead) || S.bossBeaten;
+      const px = lx + 4 + i * 5;
+      ctx.fillStyle = done ? "#ffcf3f" : cur ? "#f4efe2" : i === steps - 1 && !isShadow ? "#b8323a" : "#4a3e60";
+      ctx.fillRect(px, by + 10, 3, 3);
+    }
+  }
+  function drawBanner(ctx, t) {
+    const b = banner, k = b.t / b.dur;
+    const inK = Math.min(1, b.t / 0.18), outK = Math.max(0, (b.t - (b.dur - 0.2)) / 0.2);
+    const off = (1 - ease.out(inK)) * -260 + ease.inQ(outK) * 260;
+    const y = Math.round(stage.h * 0.36);
+    const hh = b.sub ? 34 : 26;
+    ctx.fillStyle = "#0e0b16"; ctx.fillRect(Math.round(off), y - 2, 240, hh + 4);
+    ctx.fillStyle = "#1d1530"; ctx.fillRect(Math.round(off), y, 240, hh);
+    ctx.fillStyle = b.color; ctx.fillRect(Math.round(off), y, 240, 1); ctx.fillRect(Math.round(off), y + hh - 1, 240, 1);
+    pxText(ctx, b.text, 120 + off, y + 5, { color: b.color, scale: 3, align: "center", shadow: "#0e0b16" });
+    if (b.sub) pxText(ctx, b.sub, 120 + off * 1.2, y + 25, { color: "#f4efe2", align: "center" });
+    void k;
+  }
+  // ---------- stage 2 extras: powers fx, frost, halloween tricks, merchant, secret floor ----------
+  let powerFx = null, merchantNPC = null, bonus = null, extraT = 0;
+  function updateExtras(dt, t) {
+    extraT += dt;
+    if (powerFx) { powerFx.t += dt; if (powerFx.t > 0.9) powerFx = null; }
+    if (mon && mon.jumper) { mon.jumper.t += dt; if (mon.jumper.t > mon.jumper.dur) mon.jumper = null; }
+    if (mon && mon.trick) {
+      mon.trick.t += dt;
+      if (mon.trick.t > mon.trick.dur) {
+        const p = monScreen();
+        fx.burst(p.x, p.y - monH() / 2, { n: 16, colors: ["#8a55d6", "#d867d0", "#ffffff"], speed: 50, gravity: -30, size: 2 });
+        S_("pop"); mon.trick = null;
+      }
+    }
+    // frost: snow drifting while Freeze is on
+    if (S.freezeTasks > 0 && Math.random() < dt * 14) fx.burst(Math.random() * 240, 24, { n: 1, colors: ["#ffffff", "#bfe8ff"], speed: 8, gravity: 18, life: 2.2, size: 1 });
+    // claw storm: red sparks around the cat
+    if (S.clawHits > 0 && Math.random() < dt * 10) fx.burst(cat.wx + (Math.random() - 0.5) * 24, toScreenY(cat.wy) - 10 - Math.random() * 30, { n: 1, colors: ["#ff5d5d", "#ffcf3f"], speed: 20, gravity: -40, life: 0.5, size: 1 });
+    if (mon && mon.golden && !mon.dead && Math.random() < dt * 6) { const p = monScreen(); fx.burst(p.x + (Math.random() - 0.5) * monW(), p.y - Math.random() * monH(), { n: 1, colors: ["#fff1a8", "#ffd23f"], speed: 10, gravity: -20, life: 0.6, size: 1 }); }
+    if (merchantNPC) merchantNPC.t += dt;
+    if (bonus) updateBonus(dt);
+    if (gifts.length) updateGifts(dt);
+  }
+  function drawPowerFx(ctx) {
+    const k = powerFx.t / 0.9, d = powerFx.def;
+    const spr = ICONS[d.icon];
+    if (isStub(spr)) return;
+    const sc = Math.round(2 + ease.out(Math.min(1, k * 1.6)) * 3);
+    const cv = spr.canvas(0);
+    ctx.save();
+    ctx.globalAlpha = k < 0.6 ? 1 : Math.max(0, 1 - (k - 0.6) / 0.4);
+    const cx = Math.round(cat.wx), cy = Math.round(toScreenY(cat.wy) - 64 - k * 20); // the icon bursts out of the cat
+    // rays
+    ctx.fillStyle = d.color;
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + k * 2; for (let r = 18; r < 18 + 40 * k; r += 3) ctx.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 2, 2); }
+    ctx.drawImage(cv, Math.round(cx - (cv.width * sc) / 2), Math.round(cy - (cv.height * sc) / 2), cv.width * sc, cv.height * sc);
+    ctx.restore();
+  }
+  function drawFrost(ctx, t) {
+    // pixel ice crystals along the screen edges
+    const H = stage.h;
+    ctx.save();
+    ctx.globalAlpha = 0.75 + 0.1 * Math.sin(t * 3);
+    for (let y = 22; y < H - 28; y += 6) {
+      const a = 3 + ((y * 7) % 5), b = 3 + ((y * 13) % 5);
+      ctx.fillStyle = "#bfe8ff"; ctx.fillRect(0, y, a, 3); ctx.fillRect(240 - b, y, b, 3);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(0, y, Math.max(1, a - 2), 1); ctx.fillRect(240 - b, y, Math.max(1, b - 2), 1);
+    }
+    ctx.globalAlpha = 0.08; ctx.fillStyle = "#7ec4ff"; ctx.fillRect(0, 21, 240, H - 48);
+    ctx.restore();
+  }
+  // Halloween "trick": the monster becomes something silly for a moment (no extra penalty)
+  const TRICKS = {
+    pumpkin: { rows: [".....kk.....", "....kgk.....", "..kkkkkkkk..", ".koOOoOOOok.", "koOkkOOkkOok", "kOOkkOOkkOOk", "kOOOOOOOOOOk", "kOkOkOkOkOOk", "koOkkkkkkOok", ".koOOOOOOok.", "..kkkkkkkk.."], map: { k: "#0e0b16", g: "#3aa34f", O: "#ff8a1f", o: "#c85a10" } },
+    duck: { rows: ["...kkkk.....", "..kYYYYk....", "..kYkYYk....", "kkkYYYYkk...", "kOOkYYYYYk..", ".kkYYYYYYYkk", "..kYYYYYYYYk", "..kYYYYYYYk.", "...kYYYYYk..", "....kkkkk..."], map: { k: "#0e0b16", Y: "#ffd23f", O: "#ff8a1f" } },
+    ghost: { rows: ["...kkkkkk...", "..kWWWWWWk..", ".kWWWWWWWWk.", ".kkkkWkkkkk.", ".kkkkWkkkkk.", ".kWWWWWWWWk.", ".kWWWkkWWWk.", ".kWWWWWWWWk.", ".kWWWWWWWWk.", ".kWkWWkWWkWk", "..k.kk.kk.k."], map: { k: "#0e0b16", W: "#f4efe2" } },
+  };
+  function drawTrick(ctx, tr, t) {
+    const T = TRICKS[tr.kind] || TRICKS.pumpkin;
+    const s = 3, w = T.rows[0].length * s, h = T.rows.length * s;
+    const hop = Math.round(Math.abs(Math.sin(t * 9)) * 3);
+    T.rows.forEach((r, j) => [...r].forEach((c, i) => { if (c === ".") return; ctx.fillStyle = T.map[c]; ctx.fillRect(i * s - w / 2, j * s - h - hop, s, s); }));
+  }
+  // Winter: presents that pop out and bounce on the ledge
+  const gifts = [];
+  function updateGifts(dt) {
+    const ground = toScreenY(floorY(floor)) - 1;
+    for (let i = gifts.length - 1; i >= 0; i--) {
+      const g = gifts[i]; g.t += dt; g.vy += 260 * dt; g.x += g.vx * dt; g.y += g.vy * dt;
+      if (g.y > ground) { g.y = ground; g.vy *= -0.35; g.vx *= 0.6; }
+      if (g.t > 1.6) gifts.splice(i, 1);
+    }
+  }
+  function drawGifts(ctx) {
+    for (const g of gifts) {
+      const x = Math.round(g.x), y = Math.round(g.y);
+      ctx.globalAlpha = g.t > 1.3 ? (1.6 - g.t) / 0.3 : 1;
+      ctx.fillStyle = "#0e0b16"; ctx.fillRect(x - 5, y - 9, 11, 10);
+      ctx.fillStyle = g.c; ctx.fillRect(x - 4, y - 8, 9, 8);
+      ctx.fillStyle = "#ffd23f"; ctx.fillRect(x, y - 8, 1, 8); ctx.fillRect(x - 4, y - 5, 9, 1);
+      ctx.fillStyle = "#ffd23f"; ctx.fillRect(x - 2, y - 11, 2, 2); ctx.fillRect(x + 1, y - 11, 2, 2);
+      ctx.globalAlpha = 1;
+    }
+  }
+  // Winter "trick": the monster wears a silly Christmas jumper (pattern painted only over its own pixels)
+  let jumperCv = null;
+  function drawJumper(ctx, o, t) {
+    const w = Math.ceil((mon.m.w || 22) * AS) + 8, hh = Math.ceil((mon.m.h || 22) * AS) + 8;
+    if (!jumperCv || jumperCv.width !== w || jumperCv.height !== hh) { jumperCv = document.createElement("canvas"); jumperCv.width = w; jumperCv.height = hh; }
+    const x = jumperCv.getContext("2d"); x.imageSmoothingEnabled = false;
+    x.globalCompositeOperation = "source-over"; x.clearRect(0, 0, w, hh);
+    mon.m.draw(x, Math.round(w / 2), hh - 4, o);
+    x.globalCompositeOperation = "source-atop";
+    const top = Math.round((hh - 4) - (mon.m.h || 22) * AS * 0.62), bot = Math.round((hh - 4) - (mon.m.h || 22) * AS * 0.12);
+    const base = ["#e8434f", "#3aa34f", "#3b78d8"][mon.jumper.pat];
+    x.fillStyle = base; x.fillRect(0, top, w, bot - top);
+    x.fillStyle = "#ffffff";
+    for (let i = 0; i < w; i += 4) { x.fillRect(i, top + 2 + ((i / 4) % 2) * 2, 2, 2); x.fillRect(i + 2, bot - 4 - ((i / 4) % 2) * 2, 2, 2); }
+    // a little tree + a snowflake on the front
+    const cx = Math.round(w / 2);
+    x.fillStyle = mon.jumper.pat === 1 ? "#ffd23f" : "#3aa34f";
+    x.fillRect(cx - 1, top + 6, 2, 2); x.fillRect(cx - 3, top + 8, 6, 2); x.fillRect(cx - 5, top + 10, 10, 2);
+    x.fillStyle = "#7a4a22"; x.fillRect(cx - 1, top + 12, 2, 2);
+    x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(0, bot - 2, w, 2);
+    x.globalCompositeOperation = "source-over";
+    const hop = Math.round(Math.abs(Math.sin(t * 7)) * 2);
+    ctx.drawImage(jumperCv, -Math.round(w / 2), -(hh - 4) - hop);
+  }
+  const CROWN = ["G..G..G", "G.GGG.G", "GGGRGGG", "GGGGGGG", "ggggggg"];
+  function drawXmasHat(ctx, t) {
+    drawHat(ctx, t, ["......WW", ".....RRW", "...RRRR.", "..RRRrRR", ".RRRRRRR", "WWWWWWWWW", "WWWWWWWWW"], { R: "#e8434f", r: "#a82848", W: "#f4efe2" });
+  }
+  function drawHat(ctx, t, rows, map) {
+    const s = 2, hy = -Math.round((mon.m.h || 22) * AS) + 3, sway = Math.round(Math.sin(t * 3) * 1);
+    const w = rows[0].length * s + 2;
+    ctx.fillStyle = "#0e0b16";
+    rows.forEach((r, j) => [...r].forEach((c, i) => { if (c !== ".") ctx.fillRect(i * s - w / 2 - 1 + sway, hy + j * s - rows.length * s - 1, s + 2, s + 2); }));
+    rows.forEach((r, j) => [...r].forEach((c, i) => { if (c === ".") return; ctx.fillStyle = map[c]; ctx.fillRect(i * s - w / 2 + sway, hy + j * s - rows.length * s, s, s); }));
+  }
+  function drawMerchant(ctx, t) {
+    const x = Math.round(merchantNPC.x), y = Math.round(toScreenY(floorY(floor)));
+    const k = Math.min(1, merchantNPC.t * 4);
+    ctx.save(); ctx.globalAlpha = k;
+    // stall: awning + counter
+    const ax = x - 26, ay = y - 62;
+    for (let i = 0; i < 9; i++) { ctx.fillStyle = "#0e0b16"; ctx.fillRect(ax + i * 6 - 1, ay - 1, 8, 9); }
+    for (let i = 0; i < 9; i++) { ctx.fillStyle = i % 2 ? "#f4efe2" : "#e8434f"; ctx.fillRect(ax + i * 6, ay, 6, 7); ctx.fillRect(ax + i * 6 + 1, ay + 7, 4, 2); }
+    ctx.fillStyle = "#5a3324"; ctx.fillRect(ax + 1, ay + 9, 2, 44); ctx.fillRect(ax + 51, ay + 9, 2, 44);
+    ctx.fillStyle = "#0e0b16"; ctx.fillRect(ax - 1, y - 17, 56, 17);
+    ctx.fillStyle = "#8e5434"; ctx.fillRect(ax, y - 16, 54, 15); ctx.fillStyle = "#c98a52"; ctx.fillRect(ax, y - 16, 54, 2);
+    merchantNPC.spr.draw(ctx, x, y - 12, { anim: "idle", t: merchantNPC.t, scale: AS, flip: true });
+    // fish sign
+    if (!isStub(ICONS.fish)) drawSprite(ctx, ICONS.fish, 0, ax + 12, y - 6, {});
+    ctx.restore();
+  }
+  // secret floor: fish rain, tap them (+3) or let them land (+1)
+  function updateBonus(dt) {
+    const b = bonus; b.t += dt;
+    if (b.n < b.total && b.t > b.next) { b.n++; b.next = b.t + 0.32; b.fish.push({ x: 24 + Math.random() * 192, y: 26, vy: 26 + Math.random() * 18, ph: Math.random() * 6, st: "fall" }); }
+    const ground = footY() - 6;
+    for (const f of b.fish) {
+      if (f.st !== "fall") continue;
+      f.y += f.vy * dt;
+      if (f.y >= ground) { f.st = "land"; b.got += 1; const h = HUD.fish(); fx.collect(f.x, f.y, h.x, h.y, { n: 1, color: "#7ec4ff", onArrive: () => { fishPulse = 0.2; } }); S.coins += 1; }
+    }
+  }
+  function drawBonus(ctx, t) {
+    ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = "#ffd23f"; ctx.fillRect(0, 21, 240, stage.h - 48); ctx.restore();
+    for (const f of bonus.fish) {
+      if (f.st !== "fall") continue;
+      const x = Math.round(f.x + Math.sin(t * 3 + f.ph) * 4), y = Math.round(f.y);
+      if (!isStub(ICONS.fish)) drawSprite(ctx, ICONS.fish, 0, x, y, { scale: 2 }); else pix(ctx, FISH, x - 8, y - 6, "#7ec4ff", "#0e0b16", 2);
+    }
+  }
+  function bonusTap(e) {
+    if (!bonus) return false;
+    let best = null, bd = 18;
+    for (const f of bonus.fish) { if (f.st !== "fall") continue; const d = Math.hypot(e.x - f.x, e.y - (f.y - 6)); if (d < bd) { bd = d; best = f; } }
+    if (!best) return false;
+    best.st = "got"; bonus.got += 3; S.coins += 3;
+    const h = HUD.fish();
+    fx.burst(best.x, best.y, { n: 10, colors: ["#7ec4ff", "#ffffff", "#ffd23f"], speed: 60, gravity: 60 });
+    fx.float(best.x, best.y - 10, "+3", { color: "#7ec4ff" });
+    fx.collect(best.x, best.y, h.x, h.y, { n: 3, color: "#7ec4ff", onArrive: () => { fishPulse = 0.25; } });
+    S_("coin");
+    return true;
+  }
+
+  // ---------- powers ----------
+  const PW = ((save.powers && save.powers.equipped) || []).map(powerById).filter(Boolean).slice(0, 2)
+    .map((def) => ({ id: def.id, def, n: 0, charge: def.charge, ready: false }));
+  ui.setPowers(PW.map((p) => ({ id: p.id, name: p.def.name, icon: p.def.icon, color: p.def.color, charge: p.def.charge })));
+  const pwSync = () => ui.updatePowers(PW.map((p) => ({ id: p.id, n: p.n, charge: p.charge, ready: p.ready })));
+  pwSync();
+  const chargePowers = () => {
+    for (const p of PW) {
+      if (p.ready) continue;
+      p.n = Math.min(p.charge, p.n + 1);
+      if (p.n >= p.charge) { p.ready = true; S_("perk"); fx.float(200, stage.h - 44, "READY!", { color: p.def.color }); }
+    }
+    pwSync();
+  };
+  ui.onPower = (id) => firePower(id);
+  function firePower(id) {
+    const p = PW.find((x) => x.id === id);
+    if (!p) return;
+    const c = { x: cat.wx, y: toScreenY(cat.wy) - 30 };
+    if (!p.ready || runState !== "task" || ui.modalOpen || !mech) { ui.powerFeedback(id, "no"); S_("tap"); return; }
+    let ok = true, why = "NOT NOW";
+    if (id === "owl_eye") { let r = false; try { r = !!(mech.hint && mech.hint()); } catch {} ok = r; }
+    else if (id === "freeze") { S.freezeTasks = 3; try { mech.freeze && mech.freeze(true); } catch {} }
+    else if (id === "claw_storm") S.clawHits = 3;
+    else if (id === "fish_magnet") S.magnetFloor = floor;
+    else if (id === "ball_buster") { if (!fight) { ok = false; why = "NO BOSS"; } else { fight.clear(); S.noShots = 3; } }
+    else if (id === "catnip") { if (S.livesN >= lives.MAX_LIVES) { ok = false; why = "FULL!"; } else { lives.gainLife(save, "catnip"); refreshLives(); heartFly(c); } }
+    if (!ok) { ui.powerFeedback(id, "no"); fx.float(c.x, c.y - 10, why, { color: "#ff9a8a" }); S_("tap"); return; }
+    p.n = 0; p.ready = false; pwSync(); ui.powerFeedback(id, "fire");
+    S.powersUsed++;
+    powerFx = { def: p.def, t: 0 };
+    fx.flash(p.def.color, 160); stage.shake(3, 300); stage.hitstop(70);
+    showBanner(p.def.name.toUpperCase() + "!", p.def.desc, 0.9, p.def.color);
+    fx.ring(c.x, c.y, p.def.color, { r: 4, vr: 160 });
+    fx.burst(c.x, c.y, { n: 30, colors: [p.def.color, "#ffffff"], speed: 110, gravity: 30, size: 2 });
+    if (id === "fish_magnet") { const h = HUD.fish(); fx.collect(c.x, c.y, h.x, h.y, { n: 8, color: "#6fe3d3" }); }
+    S_("cast"); S_("level");
+    dailyEv("power");
+    persist();
+  }
+  // daily challenges: progress + toast when one is done
+  const dailyEv = (e, amt = 1) => {
+    try { for (const c of progressDaily(save, e, amt)) { ui.toast("CHALLENGE DONE!", c.text, c.icon || "daily"); S_("level"); } } catch (err) { console.warn("daily", err); }
+  };
+  const magnet = () => (S.magnetFloor !== null && S.magnetFloor === floor ? 2 : 1);
+
+  stage.setScene(scene);
+  stage.input.on("down", (e) => bonusTap(e), { priority: 20 });
+
+  // ---------- helpers ----------
+  const ms2 = (ms) => untilQuit(stage.sleep(ms));
+  let lastPlay = Date.now();
+  const tickPlay = () => { const now = Date.now(); lives.addPlayTime(save, Math.min(60000, now - lastPlay)); lastPlay = now; };
+  const refreshLives = () => { S.livesN = lives.livesState(save).n; };
+  const heartFly = (from) => {
+    const i = Math.min(8, S.livesN - 1), hp = HUD.heart(Math.max(0, i));
+    fx.collect(from.x, from.y, hp.x, hp.y, { n: 5, color: "#e8434f", onArrive: () => { heartPulse[Math.max(0, i)] = 0.4; } });
+  };
+
+  async function climbTo(next) {
+    setState("idle"); runState = "idle";
+    if (next > floor) {
+      camFollow = () => Math.min(floorY(floor) - footY(), cat.wy - footY() + 30);
+      await goHome();
+      const path = climbPath(floor);
+      for (let i = 0; i < path.length; i++) {
+        const p = path[i];
+        await jumpWorld(p.x, p.y, i === path.length - 1 ? 0.3 : 0.21, i === path.length - 1 ? 26 : 16);
+        if (S.quit) break;
+      }
+    } else {
+      camFollow = () => cat.wy - footY();
+      await jumpWorld((HATCH.x0 + HATCH.x1) / 2, floorY(floor) - 2, 0.26, 12);
+      await fallWorld((HATCH.x0 + HATCH.x1) / 2, floorY(next), 0.42);
+      cat.wy = floorY(next);
+    }
+    floor = next;
+    camFollow = null;
+    if (next < floor + 1) await goHome();
+    cat.flip = false;
+  }
+
+  // phase 2 of a boss prefers a different mechanic than the one used most in phase 1
+  const mechCount = {};
+  function nextTask(avoid) {
+    const t = session.next();
+    if (!t || !avoid) return t;
+    const requeued = session.requeue && session.requeue.some((r) => r.at <= session.i);
+    let cur = t;
+    for (let tries = 0; tries < 2; tries++) {
+      if (cur.intro || requeued) return cur;
+      const m = planTask({ ...cur }, profile, save.settings).mech;
+      if (m !== avoid) return cur;
+      // undo the pick and try again
+      session.recent.pop(); session.i--;
+      if (!save.srs[cur.key]) session.newCount[cur.kind === "vocab" ? "vocab" : "grammar"]--;
+      const again = session.next();
+      if (!again) return cur;
+      cur = again;
+    }
+    return cur;
+  }
+
+  // ---------- one answer ----------
+  async function playTask(task) {
+    // bot helpers: the answer is always reachable on the task object
+    if (task.answer === undefined) task.answer = task.kind === "vocab" ? task.word.en : task.q && (task.type === "build" ? task.q.full : task.q.answer);
+    if (DBG) { DBG.task = task; DBG.mech = null; }
+    if (task.intro) {
+      setState("intro"); runState = "intro";
+      await untilQuit(ui.introCard(task, { autoSay: !!(save.settings.voice || profile.noReading) }));
+      if (S.quit) return null;
+    }
+    if (task.kind === "grammar" && task.firstTry && !profile.noReading && !S._rulesShown?.has(task.key)) {
+      (S._rulesShown ||= new Set()).add(task.key);
+      const [, sk, pat] = task.key.split(":");
+      let ex = null;
+      try { for (let i = 0; i < 8 && (!ex || ex.full === task.q.full); i++) ex = SKILLS[sk].patterns[pat](Math.random); } catch {}
+      if (ex && ex.full !== task.q.full) {
+        setState("intro"); runState = "intro";
+        await untilQuit(ui.ruleCard(ex));
+        if (S.quit) return null;
+      }
+    }
+    const plan = planTask(task, profile, save.settings);
+    const prompt = plan.prompt || {};
+    const pb = ui.prompt(prompt, { onSay: () => say(prompt.say) });
+    const ty = (plan.task || task).type;
+    await tip(plan.mech === "spell" ? (ty === "spell" ? "tiles" : "type")
+      : plan.mech === "catch" ? (ty === "build" ? "catchWords" : "catch")
+      : plan.mech === "fixline" ? (ty === "build" ? "build" : "fix")
+      : plan.mech === "bubbles" ? (ty === "judge" ? "judge" : ty === "pic2listen" ? "listen" : "bubbles") : "signs");
+    if (S.quit) { ui.clearPrompt(); return null; }
+    if (prompt.autoSay && prompt.say) say(prompt.say);
+    const cs = stage.cssScale || 1;
+    const top = Math.max(34, Math.round(pb / cs) + 6), bot = footY() - 64;
+    const ay = Math.max(top, bot - 250);
+    const arena = { x: 6, y: ay, w: 228, h: Math.max(80, bot - ay) };
+    const Mech = MECHANICS[plan.mech] || MECHANICS.signs;
+    const difficulty = isShadow ? 0.15 : Math.min(1, 0.12 + (Math.max(1, floor) - 1) / 50 + (mon && mon.phase === 2 ? 0.15 : 0));
+    const m = Mech.create({
+      stage, fx, arena, task: plan.task || task, prompt, rng: Math.random, difficulty, sfx, speak: say,
+      sprites: { getCat, ICONS, iconURL, drawSprite, pixelURL }, cat: catApi, hints: S.hints, revealCard: false, ground: footY(),
+      target: mon ? { x: mon.wx, y: toScreenY(mon.wy) - monH() / 2 } : { x: 190, y: footY() - 20 },
+      pace: save.pace && save.pace.catch,
+    });
+    mech = m;
+    if (S.freezeTasks > 0) { try { m.freeze && m.freeze(true); } catch {} }
+    if (plan.mech === "catch" && mon) tween(0.25, (k) => { mon.off = 18 * ease.out(k); }); // make room for the lanes
+    mechCount[plan.mech] = (mechCount[plan.mech] || 0) + 1;
+    if (DBG) DBG.mech = { name: plan.mech, targets: () => (m.debug && m.debug.targets ? m.debug.targets() : []), answer: (g) => m.debug && m.debug.answer && m.debug.answer(g) };
+    ui.setHints(S.hints.left, typeof m.hint === "function");
+    ui.onHint = () => {
+      if (S.hints.left <= 0 || runState !== "task") return;
+      let ok = false; try { ok = m.hint(); } catch {}
+      if (ok) { S.hints.left--; ui.setHints(S.hints.left, true); } else S_("wrong");
+    };
+    setState("task"); runState = "task";
+    const res = await untilQuit(m.result);
+    ui.setHints(0, false);
+    if (S.quit || res === "quit") { m.destroy && m.destroy(); mech = null; ui.clearPrompt(); return null; }
+    const tt = plan.task || task;
+    S.answers++;
+    const prev = save.srs[tt.key];
+    const info = { wasNew: !prev || !prev.n, repeat: S.failedKeys.has(tt.key), diamond: isDiamondCheck(prev) };
+    const wasDia = !!(prev && prev.dia); // prev to ten sam obiekt, który record() zmienia
+    record(save, tt, res.ok, res.ms, res.tag, { hinted: res.hinted, shadowMode: isShadow });
+    if (plan.mech === "catch" && m.stats) adaptCatchPace(m.stats(), res.ok, prev);
+    const nowR = save.srs[tt.key];
+    if (nowR && nowR.dia && !wasDia && tt.word) { ui.toast("DIAMOND CARD!", tt.word.en, "gem"); S_("perk"); }
+    tickPlay();
+    if (mon && mon.off) mon.off = 0;
+    if (S.freezeTasks > 0) S.freezeTasks--;
+    if (S.noShots > 0) S.noShots--;
+    if (res.ok) {
+      dailyEv("correct"); if (tt.skill) dailyEv("skill:" + tt.skill);
+      if (["spell", "type"].includes(tt.type)) dailyEv("typed");
+      if (task.intro) dailyEv("new");
+      await onRight(tt, res);
+    } else { await onWrong(tt, m, info); S.failedKeys.add(tt.key); }
+    try { m.destroy && m.destroy(); } catch {}
+    if (mech === m) mech = null;
+    ui.clearPrompt();
+    persist();
+    return res;
+  }
+
+  // spadające litery/słowa: tempo na następny raz. Zna słowo (pudełko 3+), a i tak przegrał albo zgubił 2+ potrzebne
+  // klocki = nie nadąża zręcznościowo → wyraźnie wolniej; zwykła pomyłka → trochę wolniej; czysto = trochę szybciej.
+  function adaptCatchPace(st, ok, prev) {
+    save.pace = save.pace || { catch: 1 };
+    const knows = !!(prev && prev.b >= 3);
+    let f = 1;
+    if (!ok || st.drops >= 2) f = knows || st.drops >= 2 ? 0.82 : 0.92;
+    else if (!st.wrong && !st.drops) f = 1.06;
+    save.pace.catch = Math.round(Math.max(0.55, Math.min(1.3, (save.pace.catch || 1) * f)) * 100) / 100;
+  }
+
+  async function onRight(task, res) {
+    try {
+      if (!profile.noReading) {
+        if (task.kind === "grammar" && task.q) ui.echo(task.q.full, task.q.answer);
+        else if (task.kind === "vocab" && task.word) ui.echo(task.word.en, task.word.en);
+      } else if (task.kind === "grammar" && task.q) say(task.q.full); // tryb słuchania: po dobrej ocenie lektor czyta poprawne zdanie
+    } catch {}
+    S.correct++; S.combo++; S.bestCombo = Math.max(S.bestCombo, S.combo);
+    const quick = res.ms < 700 && task.type !== "match";
+    let dmg = 1, crit = false;
+    if (!quick && !res.hinted) {
+      const critCh = 0.05 + tr(save, "sharp_claws") * 0.06 + (has("clover") ? 0.15 : 0);
+      if (Math.random() < critCh) { crit = true; dmg = 2 + (has("fishbone") ? 1 : 0); }
+      const cr = tr(save, "combo"); if (cr && S.combo >= Math.max(2, 5 - cr)) dmg += 1;
+      if (has("fire_combo") && S.combo >= 3) dmg *= 2;
+      if (has("lightning") && res.ms < 5000 && !["type", "spell", "build", "match"].includes(task.type)) dmg += 1;
+      if (mon.firstHit !== false && tr(save, "pounce")) dmg *= tr(save, "pounce") + 1;
+    }
+    let storm = false;
+    if (S.clawHits > 0) { dmg *= 2; S.clawHits--; storm = true; }
+    mon.firstHit = false;
+    S.weeklyDmg += dmg;
+    S.coins += ECON.coinPerCorrect * magnet(); S.xp += ECON.xpPerCorrect;
+    chargePowers();
+    dailyEv("combo", S.combo);
+    if (S.combo > 0 && S.combo % lives.COMBO_LIFE === 0) {
+      lives.gainLife(save, "combo"); refreshLives();
+      const c = { x: cat.wx, y: toScreenY(cat.wy) - 40 };
+      fx.float(c.x, c.y - 8, "+1 LIFE", { color: "#ff8a9a", big: true });
+      heartFly(c); S_("lifeGain");
+    }
+    // pounce! the cat leaps at the monster and swipes
+    runState = "hit"; setState("idle");
+    const ly = floorY(floor);
+    await jumpWorld(mon.wx - monW() / 2 - 22, ly, 0.22, cat.wy < ly - 10 ? 4 : 18, { quiet: true });
+    cat.flip = false; cat.anim = "attack"; cat.animT = 0;
+    const p = monScreen(), hy = p.y - monH() / 2;
+    stage.hitstop(crit ? 90 : 65); stage.shake(crit ? 4 : 2, crit ? 260 : 160);
+    mon.flash = 0.14; mon.anim = "hurt"; mon.animT = 0; mon.sx = 0.75; mon.sy = 1.25; mon.lx = 6;
+    mon.hp = Math.max(0, mon.hp - dmg);
+    crit ? S_("crit") : S_("hit");
+    fx.burst(p.x - 4, hy, { n: crit ? 26 : 14, colors: crit ? ["#ffcf3f", "#ffffff", "#ff6b2c"] : ["#ffffff", mon.colors[0], "#f4efe2"], speed: crit ? 110 : 80, gravity: 140, size: crit ? 2 : 1 });
+    fx.ring(p.x - 4, hy, crit ? "#ffcf3f" : "#ffffff");
+    // claw slash marks
+    fx.burst(p.x - 2, hy, { n: 6, colors: ["#ffffff"], speed: 120, gravity: 0, life: 0.18, spread: 0.4, angle: Math.PI * 0.25 });
+    fx.float(p.x, hy - 12, crit ? `-${dmg}!` : `-${dmg}`, { color: crit ? "#ffcf3f" : "#ffffff", big: crit });
+    if (crit) { fx.flash("#ffffff", 70); fx.float(p.x, hy - 28, "CRIT", { color: "#ff6b2c" }); }
+    if (storm) { fx.float(p.x, hy - (crit ? 40 : 28), "CLAW x2", { color: "#ff5d5d" }); fx.burst(p.x, hy, { n: 10, colors: ["#ff5d5d", "#ffffff"], speed: 130, gravity: 0, life: 0.2, spread: 0.5, angle: -Math.PI * 0.25 }); }
+    if (halloween) {
+      // trick or treat: a right answer = a treat (+1 fish) and candy
+      S.coins += 1;
+      const f = HUD.fish(), cc = ["#ff8a1f", "#d867d0", "#93e04c", "#ffd23f"];
+      fx.burst(p.x, hy, { n: 12, colors: cc, speed: 70, gravity: 120, size: 2 });
+      for (let i = 0; i < 3; i++) fx.collect(p.x, hy, f.x, f.y, { n: 1, color: cc[i], size: 2, onArrive: () => { fishPulse = 0.2; } });
+      if (S.correct % 3 === 1) fx.float(p.x - 20, hy - 20, "TREAT!", { color: "#ff8a1f" });
+    }
+    if (winter) {
+      // a present pops out of the monster (+1 fish) with a puff of snowflakes
+      S.coins += 1;
+      const f = HUD.fish(), cc = ["#e8434f", "#3aa34f", "#ffd23f", "#ffffff"];
+      fx.burst(p.x, hy, { n: 14, colors: ["#ffffff", "#dff6ff", "#bfe8ff"], speed: 60, gravity: 30, size: 2 });
+      gifts.push({ x: p.x, y: hy - 6, vx: -30 - Math.random() * 30, vy: -70, t: 0, c: cc[S.correct % 2] });
+      fx.collect(p.x, hy, f.x, f.y, { n: 1, color: "#ffd23f", size: 2, onArrive: () => { fishPulse = 0.2; } });
+      if (S.correct % 3 === 1) fx.float(p.x - 20, hy - 20, "PRESENT!", { color: "#ff6a7a" });
+    }
+    if (S.combo === 3 || S.combo === 5 || S.combo >= 10 && S.combo % 5 === 0) { fx.float(cat.wx + 10, toScreenY(cat.wy) - 70, `COMBO x${S.combo}`, { color: "#ff9a3d", big: true, life: 1.1 }); S_("perk"); }
+    await ms2(160);
+    mon.lx = 0; mon.anim = "idle";
+    // phase 2 for bosses
+    if (mon.boss && mon.phase === 1 && mon.hp > 0 && mon.hp <= mon.max / 2) {
+      mon.phase = 2; if (fight) fight.setPhase(2);
+      showBanner("ANGRY!", "Faster now!", 1.2, "#ff5a4a"); stage.shake(4, 400); fx.flash("#ff3a3a", 120); S_("bossIntro");
+      try { startMusic("boss"); } catch {}
+    }
+    await jumpWorld(CAT_X, ly, 0.3, 20, { quiet: true });
+    cat.flip = false;
+  }
+
+  async function onWrong(task, m, info = {}) {
+    S.combo = 0; S.xp += ECON.xpPerTry;
+    session.failed(task.key);
+    S_("wrong");
+    runState = "hit"; setState("idle");
+    await goHome();
+    // monster strikes back
+    const reach = mon.wx - cat.wx - monW() / 2 - 26;
+    await tween(0.16, (k) => { mon.lx = -reach * ease.inQ(k); mon.anim = "lunge"; });
+    stage.hitstop(70); stage.shake(3, 220);
+    cat.anim = "hurt"; cat.flash = 0.18; cat.sx = 0.8; cat.sy = 1.15;
+    const c = { x: cat.wx, y: toScreenY(cat.wy) - 24 };
+    fx.burst(c.x, c.y, { n: 12, colors: ["#e8434f", "#ffffff"], speed: 70 });
+    // life rules
+    let msg = null, lost = false;
+    if (info.diamond) msg = ["BACK TO GOLD", "#ffd23f"]; // sprawdzian diamentu: bez kary (engine.DIAMOND)
+    else if (isShadow && S.dream) { S.dreamErrors++; msg = ["DREAM", "#bfb4ff"]; }
+    else if (isShadow && S.cellarErrors < 2) { S.cellarErrors++; msg = ["FREE TRY", "#9ae86a"]; }
+    else {
+      if (isShadow) S.cellarErrors++;
+      // gentle lives (lives.mistakeCost): warm-up mistakes, brand-new items and repeats in a run are free
+      const cost = isShadow ? { free: null } : lives.mistakeCost(save, { newItem: !!info.wasNew, repeat: !!info.repeat, free: profile.easy ? 8 : undefined });
+      if (cost.free) {
+        msg = [cost.free === "new" ? "NEW - FREE" : "FREE TRY", "#9ae86a"];
+        const hp = HUD.heart(Math.max(0, S.livesN - 1));
+        fx.ring(hp.x, hp.y, "#9ae86a", { r: 3 });
+      } else if (Math.random() < tr(save, "thick_fur") * 0.1) msg = ["THICK FUR!", "#7ec4ff"];
+      else {
+        const before = S.livesN;
+        lives.loseLife(save); refreshLives(); lost = true; S.livesLost++;
+        const hp = HUD.heart(Math.max(0, before - 1));
+        heartPulse[Math.max(0, before - 1)] = 0.5;
+        fx.burst(hp.x, hp.y, { n: 10, colors: ["#e8434f", "#ffb0b8"], speed: 50, gravity: 120 });
+        S_("lifeLost"); S_("hurt");
+        fx.float(c.x, c.y - 8, "-1", { color: "#e8434f", big: true });
+        if (isShadow && S.livesN <= 0) S.dream = true;
+      }
+    }
+    if (msg) fx.float(c.x, c.y - 8, msg[0], { color: msg[1] });
+    if (lost) await tip("life");
+    await tween(0.22, (k) => { mon.lx = -reach * (1 - ease.out(k)); }, () => { mon.anim = "idle"; mon.lx = 0; });
+    if (halloween && !mon.mimic) {
+      // trick! the monster turns into something silly for a moment (no extra penalty)
+      const kinds = Object.keys(TRICKS);
+      mon.trick = { kind: kinds[Math.floor(Math.random() * kinds.length)], t: 0, dur: 1.8 };
+      const p = monScreen();
+      fx.burst(p.x, p.y - monH() / 2, { n: 18, colors: ["#8a55d6", "#d867d0", "#ffffff"], speed: 60, gravity: -30, size: 2 });
+      fx.float(p.x, p.y - monH() - 14, "TRICK!", { color: "#d867d0", big: true });
+      S_("pop");
+    }
+    if (winter && !mon.mimic && !mon.trick) {
+      // the monster gets a silly Christmas jumper for a moment (no extra penalty)
+      mon.jumper = { t: 0, dur: 2.2, pat: Math.floor(Math.random() * 3) };
+      const p = monScreen();
+      fx.burst(p.x, p.y - monH() / 2, { n: 18, colors: ["#e8434f", "#3aa34f", "#ffffff"], speed: 60, gravity: -20, size: 2 });
+      fx.float(p.x, p.y - monH() - 14, "NICE JUMPER!", { color: "#ff6a7a", big: true });
+      S_("pop");
+    }
+    if (mon.trick || mon.jumper) await ms2(750); // let them see the silly monster before the card covers it
+    if (cat.anim === "hurt") cat.anim = "idle";
+    void lost;
+    // reveal: our card ([data-act=next]); the mechanic highlights the right answer in-world
+    setState("reveal"); runState = "reveal";
+    try { const r = m.reveal && m.reveal(); if (r && r.catch) r.catch(() => {}); } catch {}
+    if (task.kind === "vocab" && (save.settings.voice || profile.noReading)) say(task.word.en);
+    ui.clearPrompt();
+    await untilQuit(ui.revealCard(task));
+  }
+
+  async function killMonster() {
+    S.kills++;
+    const boss = mon.boss;
+    let gain = (boss ? ECON.coinPerBoss : isShadow ? ECON.coinShadowClear : ECON.coinPerKill) * magnet();
+    if (mon.golden) { gain += RUN_EVENTS.golden.fish * magnet(); S.events.push("golden"); bumpEvent("goldenCaught"); }
+    if (mon.glitch) { gain += RUN_EVENTS.glitch.fish * magnet(); S.events.push("glitch"); bumpEvent("glitchFixed"); session.forceGrammar = false; }
+    if (mon.king) gain += ECON.kingFish;
+    S.coins += gain; if (boss) S.xp += ECON.xpPerBoss;
+    mon.dead = true; mon.anim = "die"; mon.animT = 0;
+    if (fight) { fight.clear(); fight.destroy(); fight = null; }
+    const p = monScreen(), hy = p.y - monH() / 2;
+    stage.hitstop(boss ? 140 : 80); stage.shake(boss ? 6 : 3, boss ? 500 : 250);
+    fx.flash("#ffffff", boss ? 160 : 80);
+    fx.burst(p.x, hy, { n: boss ? 60 : 30, colors: [...mon.colors, "#ffffff", "#0e0b16"], speed: boss ? 140 : 100, gravity: 160, size: 2 });
+    fx.ring(p.x, hy, "#ffcf3f", { r: 4, vr: 140 });
+    S_(boss ? "win" : "coin");
+    const f = HUD.fish();
+    fx.collect(p.x, hy, f.x, f.y, { n: Math.min(10, 3 + gain / 2), color: "#7ec4ff", onArrive: () => { fishPulse = 0.25; S_("coin"); } });
+    fx.float(p.x, hy - 14, `+${gain}`, { color: "#7ec4ff", big: true });
+    if (mon.golden) { showBanner("GOLDEN!", `+${gain} fish`, 1.3, "#ffd23f"); fx.burst(p.x, hy, { n: 40, colors: ["#ffd23f", "#fff1a8", "#ffffff"], speed: 150, gravity: 120, size: 2 }); S_("chest"); }
+    if (mon.glitch) { showBanner("FIXED!", `+${gain} fish`, 1.3, "#4dfff0"); S_("chest"); }
+    if (mon.mimic) { S.eventChests.push(mon.mimic.chest); showBanner("CHEST!", "It is yours now!", 1.2, "#ffd23f"); S_("chest"); }
+    await tween(0.5, (k) => { mon.alpha = 1 - k; mon.sy = 1 - k * 0.6; mon.sx = 1 + k * 0.4; });
+    await ms2(boss ? 500 : 200);
+  }
+
+  async function choosePerk() {
+    setState("perk"); runState = "perk";
+    const owned = new Set(S.perks);
+    const pool = PERKS.filter((p) => p.instant || !owned.has(p.id));
+    const choice = [];
+    while (choice.length < 3 && pool.length) {
+      const tot = pool.reduce((a, p) => a + p.w, 0); let r = Math.random() * tot;
+      const i = pool.findIndex((p) => (r -= p.w) <= 0); choice.push(pool.splice(i < 0 ? 0 : i, 1)[0]);
+    }
+    const p = await untilQuit(ui.perkCards(choice));
+    if (S.quit || !p || p === "quit") return;
+    S_("perk");
+    const c = { x: cat.wx, y: toScreenY(cat.wy) - 40 };
+    if (p.id === "big_heart") { lives.gainLife(save, "perk"); refreshLives(); S.shields++; heartFly(c); fx.float(c.x, c.y, "+1 LIFE", { color: "#ff8a9a" }); }
+    else S.perks.push(p.id);
+    fx.burst(c.x, c.y, { n: 16, colors: ["#ffcf3f", "#ffffff"], speed: 60, gravity: 40 });
+    cat.anim = "dance"; cat.animT = 0;
+    await ms2(500);
+    cat.anim = "idle";
+  }
+
+  // ---------- run events (golden / mimic / merchant / secret): never on a boss floor, max 1 per stage ----------
+  function rollEvent(kinds) {
+    if (isShadow || S.stageEvent) return null;
+    if (forceEvent) return kinds.includes(forceEvent) ? forceEvent : null;
+    for (const k of kinds) if (Math.random() < RUN_EVENTS[k].chance) return k;
+    return null;
+  }
+  async function mimicReveal() {
+    showBanner("A CHEST!", "Free stuff?", 1.0, "#ffcf3f");
+    await ms2(900);
+    if (S.quit) return;
+    await jumpWorld(CAT_X + 34, floorY(floor), 0.3, 14);
+    await ms2(250);
+    mon.mimic.revealed = true; mon.anim = "lunge"; mon.sx = 1.3; mon.sy = 0.7;
+    stage.shake(4, 350); stage.hitstop(90); fx.flash("#ff3a3a", 120);
+    S_("bossIntro"); S_("hurt");
+    const p = monScreen();
+    fx.burst(p.x, p.y - 20, { n: 20, colors: ["#b0703e", "#ffd23f", "#ffffff"], speed: 90, gravity: 120, size: 2 });
+    showBanner("MIMIC!", "It bites!", 1.2, "#ff5a4a");
+    await jumpWorld(CAT_X, floorY(floor), 0.3, 16);
+    mon.anim = "idle";
+    await ms2(500);
+  }
+  async function goldenFlee() {
+    mon.fled = true;
+    showBanner("IT RAN AWAY!", "So fast!", 1.2, "#ffcf3f");
+    S_("jump");
+    const x0 = mon.wx;
+    await tween(0.6, (k) => { mon.wx = x0 + k * 90; mon.lx = 0; mon.drop = -Math.sin(k * Math.PI) * 0.1; }, () => { mon.alpha = 0; });
+    fx.burst(240, toScreenY(mon.wy) - 10, { n: 10, colors: ["#d8ccb4", "#ffd23f"], speed: 40, gravity: -10 });
+    await ms2(500);
+  }
+  async function merchantEvent() {
+    S.stageEvent = "merchant"; bumpEvent("merchant");
+    setState("merchant"); runState = "merchant";
+    merchantNPC = { spr: getCat("tux", "tophat"), x: 184, t: 0 };
+    fx.burst(184, toScreenY(floorY(floor)) - 20, { n: 20, colors: ["#ffffff", "#d8ccb4"], speed: 50, gravity: -20, size: 2 });
+    S_("pop"); showBanner("SHOP!", "A cat is selling things", 1.0, "#6fe3d3");
+    await ms2(900);
+    if (S.quit) { merchantNPC = null; return; }
+    let portrait = ""; try { portrait = catURL("tux", "tophat", 4); } catch {}
+    const wallet = Math.round(S.coins) + Math.round(save.coins || 0);
+    const offer = await untilQuit(ui.merchantCard({ portrait, offers: MERCHANT_OFFERS, wallet }));
+    if (offer && offer !== "quit" && !S.quit) {
+      const fromRun = Math.min(S.coins, offer.price);
+      S.coins -= fromRun; save.coins = Math.max(0, (save.coins || 0) - (offer.price - fromRun));
+      bumpEvent("merchantBuy");
+      const c = { x: cat.wx, y: toScreenY(cat.wy) - 40 };
+      S_("coin"); S_("perk");
+      if (offer.id === "life") { lives.gainLife(save, "merchant"); refreshLives(); heartFly(c); fx.float(c.x, c.y, "+1 LIFE", { color: "#ff8a9a" }); }
+      else if (offer.id === "shield") { S.shields++; fx.float(c.x, c.y, "+1 SHIELD", { color: "#7ec4ff" }); }
+      else {
+        const pool = PERKS.filter((p) => !p.instant && !S.perks.includes(p.id));
+        const pk = pool[Math.floor(Math.random() * pool.length)];
+        if (pk) { S.perks.push(pk.id); fx.float(c.x, c.y, pk.name.toUpperCase(), { color: "#ffcf3f" }); }
+      }
+      fx.burst(c.x, c.y, { n: 16, colors: ["#ffcf3f", "#ffffff"], speed: 60, gravity: 40 });
+      cat.anim = "dance"; cat.animT = 0;
+      await ms2(600);
+      cat.anim = "idle";
+      persist();
+    } else await ms2(200);
+    fx.burst(merchantNPC.x, toScreenY(floorY(floor)) - 20, { n: 16, colors: ["#ffffff", "#d8ccb4"], speed: 50, gravity: -20, size: 2 });
+    merchantNPC = null;
+    setState("idle"); runState = "idle";
+  }
+  async function secretFloor() {
+    S.stageEvent = "secret"; bumpEvent("secret"); S.events.push("secret");
+    setState("bonus"); runState = "bonus";
+    fx.flash("#ffd23f", 200); stage.shake(3, 300); S_("chest");
+    showBanner("SECRET FLOOR!", "Tap the fish!", 1.6, "#ffd23f");
+    await ms2(1000);
+    const [lo, hi] = RUN_EVENTS.secret.fish;
+    bonus = { fish: [], t: 0, next: 0, n: 0, total: lo, got: 0, max: hi };
+    while (bonus.n < bonus.total || bonus.fish.some((f) => f.st === "fall")) { await ms2(200); if (S.quit) break; }
+    const got = bonus.got; bonus = null;
+    showBanner(`+${got} FISH`, "", 1.2, "#7ec4ff"); S_("win");
+    await ms2(1000);
+    setState("idle"); runState = "idle";
+  }
+
+  // ---------- main loop ----------
+  try { startMusic(isShadow ? "shadow" : "tower"); } catch {}
+  await ms2(250);
+  let prevBiome = null;
+  outer: for (let i = 0; i < nFloors; i++) {
+    const next = isShadow ? -(i + 1) : S.startFloor + i;
+    await climbTo(next);
+    if (S.quit) break;
+    const b = isShadow ? SHADOW_BIOME : biomeForFloor(floor);
+    const isBossFloor = !isShadow && floor % ECON.floorsPerStage === 0;
+    if (isShadow) showBanner(`CELLAR ${i + 1}`, i === 0 ? "Beat the shadows!" : "", 1.1, "#bfb4ff");
+    else showBanner(isBossFloor ? "BOSS FLOOR" : `FLOOR ${floor}`, prevBiome !== b.id ? b.label.toUpperCase() : "", 1.1, isBossFloor ? "#ff6a5a" : "#ffcf3f");
+    prevBiome = b.id;
+    const glitchOk = (save.story || 0) >= RUN_EVENTS.glitch.page && !profile.noReading;
+    const startEv = !isBossFloor ? rollEvent(glitchOk ? ["golden", "glitch", "mimic"] : ["golden", "mimic"]) : null;
+    if (startEv) { S.stageEvent = startEv; bumpEvent(startEv); }
+    await spawn(floor, startEv);
+    if (startEv === "mimic") { const ch = RUN_EVENTS.mimic.chest; mon.mimic.chest = ch[Math.floor(Math.random() * ch.length)]; await mimicReveal(); if (S.quit) break; }
+    if (startEv === "golden") { showBanner("GOLDEN!", "Quick! 3 turns!", 1.3, "#ffd23f"); S_("chest"); await ms2(600); }
+    if (startEv === "glitch") { session.forceGrammar = true; showBanner("GLITCH!", "Fix its sentences!", 1.3, "#4dfff0"); S_("chest"); await ms2(600); }
+    if (isBossFloor) {
+      setState("bossIntro"); runState = "bossIntro";
+      try { startMusic("boss"); } catch {}
+      await untilQuit(bossIntro({ ui, stage, fx, monster: mon.m, sfx, king: mon.king }));
+      if (S.quit) break;
+      await tip("boss", /^Frosty /.test(String(mon.m && mon.m.name)) ? "Tap the snowballs!" : null);
+      if (S.quit) break;
+      startFight();
+    } else await ms2(250);
+    while (mon.hp > 0) {
+      if (S.quit) break outer;
+      const avoid = mon.boss && mon.phase === 2 ? Object.entries(mechCount).sort((a, b2) => b2[1] - a[1])[0]?.[0] : null;
+      const task = nextTask(avoid);
+      if (!task) break outer;
+      const res = await playTask(task);
+      if (S.quit || !res) break outer;
+      if (!isShadow && S.livesN <= 0) { S.asleep = true; break outer; }
+      if (isShadow && S.dream && S.dreamErrors >= 3) break outer;
+      if (mon.golden && mon.hp > 0) {
+        mon.golden.turns--;
+        if (mon.golden.turns <= 0) { await goldenFlee(); break; }
+        fx.float(monScreen().x, toScreenY(mon.wy) - monH() - 18, `${mon.golden.turns} LEFT`, { color: "#ffcf3f" });
+      }
+    }
+    if (mon.hp <= 0 || mon.fled) {
+      if (mon.hp <= 0) await killMonster();
+      if (mon.boss) {
+        S.bossBeaten = true;
+        dailyEv("boss");
+        if (S.livesLost === 0) dailyEv("noLifeBoss");
+      }
+      if (!isShadow) dailyEv("floor");
+      if (!isShadow && !mon.boss && (i === 1 || i === 3)) { await choosePerk(); if (S.quit) break; }
+      if (!isShadow && !mon.boss && i < nFloors - 1) {
+        const after = rollEvent(["merchant", "secret"]);
+        if (after === "merchant") { await merchantEvent(); if (S.quit) break; }
+        else if (after === "secret") { await secretFloor(); if (S.quit) break; }
+      }
+    }
+  }
+
+  // ---------- ending ----------
+  runState = "idle"; setState("idle");
+  if (fight) { fight.destroy(); fight = null; }
+  if (mech) { try { mech.destroy(); } catch {} mech = null; }
+  ui.clearPrompt(); ui.hideTop(true);
+  try { stopMusic(); } catch {}
+  if (!S.quit) {
+    if (S.bossBeaten) {
+      cat.anim = "dance"; cat.animT = 0; S_("win");
+      showBanner("STAGE CLEAR!", "", 1.8, "#ffcf3f");
+      for (let k = 0; k < 4; k++) { fx.burst(30 + Math.random() * 180, 60 + Math.random() * 80, { n: 18, colors: ["#ffcf3f", "#e8434f", "#7ec4ff", "#93e04c", "#ffffff"], speed: 90, gravity: 90, size: 2 }); await stage.sleep(260); }
+      await stage.sleep(700);
+    } else if (S.asleep) {
+      cat.anim = "sleep"; S_("snore");
+      await stage.sleep(600);
+      setState("reveal");
+      await ui.messageCard({ title: "Zzz...", sub: "No lives left. Come back later!", btn: "OK" });
+      setState("idle");
+    } else if (isShadow) {
+      const won = !(S.dream && S.dreamErrors >= 3);
+      if (won) dailyEv("cellar");
+      cat.anim = won ? "dance" : "sleep";
+      showBanner(won ? "CELLAR CLEAN!" : "WAKE UP!", "", 1.4, "#bfb4ff");
+      await stage.sleep(1400);
+    }
+  }
+  const mult = lives.rewardMult(save, mode);
+  const stats = {
+    mode, startFloor: S.startFloor, floorReached: floor, bossBeaten: S.bossBeaten, quit: S.quit, asleep: S.asleep,
+    answers: S.answers, correct: S.correct, bestCombo: S.bestCombo, kills: S.kills,
+    coins: Math.round(S.coins * mult), xp: Math.round(S.xp * mult), weeklyDmg: S.weeklyDmg, ms: Date.now() - startedAt, perks: [...S.perks],
+    rewardMult: mult, dream: isShadow && S.dream,
+    events: [...S.events], eventChests: [...S.eventChests], unlockedPowers, powersUsed: S.powersUsed, livesLost: S.livesLost,
+  };
+  persist();
+  if (DBG) { DBG.runState = "idle"; DBG.task = null; DBG.mech = null; }
+  ui.destroy();
+  stage.destroy();
+  screen.remove();
+  return stats;
+}

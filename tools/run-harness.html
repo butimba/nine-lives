@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Run harness (agent B)</title>
+<link rel="stylesheet" href="../css/fonts.css"><link rel="stylesheet" href="../css/style.css"><link rel="stylesheet" href="../css/run.css"><link rel="stylesheet" href="../css/mech.css">
+<style>html,body{margin:0;height:100%;background:#0e0b16;overflow:hidden}#host{position:fixed;inset:0}#out{position:fixed;left:4px;bottom:4px;color:#fff;font:10px monospace;z-index:9;white-space:pre;pointer-events:none}</style>
+</head><body><div id="host"></div><div id="out"></div>
+<script type="module">
+import { freshSave } from "../js/state.js";
+import { runGame } from "../js/game/run.js";
+const q = new URLSearchParams(location.search);
+const profile = { focus: (q.get("focus") || "v:animals,ps_3s").split(","), noReading: q.has("noread") };
+const save = freshSave("harness", profile);
+save.tower.checkpoint = +(q.get("cp") || 0);
+if (q.get("lives")) save.lives.n = +q.get("lives");
+if (q.has("talents")) save.talents = { nine_lives: 2, thick_fur: 1, sixth_sense: 2 };
+if (q.get("mode") === "shadow") { save.shadows = ["v:animals:cat","v:animals:dog","v:animals:cow","v:animals:pig"]; for (const k of save.shadows) save.srs[k] = { b: 1, due: 0, n: 2, ok: 1, last: 0 }; }
+window.__save = save;
+const stats = await runGame(document.getElementById("host"), save, profile, q.get("mode") || "tower");
+window.__stats = stats;
+document.getElementById("out").textContent = "DONE " + JSON.stringify(stats);
+</script></body></html>
