@@ -46,6 +46,47 @@ export default {
    ]
   ]
  },
+ "l_ipk3tp": {
+  "name": "My words",
+  "icon": "⭐",
+  "words": [
+   [
+    "kangaroo",
+    "kangur",
+    "🦘"
+   ],
+   [
+    "whale",
+    "wieloryb",
+    "🐳"
+   ],
+   [
+    "firefighter",
+    "strażak",
+    "🚒"
+   ],
+   [
+    "vet",
+    "weterynarz",
+    "🩺"
+   ],
+   [
+    "uncle",
+    "wujek",
+    "👨"
+   ],
+   [
+    "aunt",
+    "ciocia",
+    "👩"
+   ],
+   [
+    "get dressed",
+    "ubierać się",
+    "👕"
+   ]
+  ]
+ },
  "l_1mmih6x": {
   "name": "My words",
   "icon": "⭐",
