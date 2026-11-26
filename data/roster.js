@@ -49,9 +49,11 @@ export default {
    "voice": false,
    "subjects": "3s",
    "focus": [
+    "ps3_routine",
     "ps_3s",
     "ps_q",
-    "v:animals"
+    "v:animals",
+    "v:l_ipk3tp"
    ],
    "path": [
     "ps_3s",
@@ -201,9 +203,11 @@ export default {
    "voice": false,
    "subjects": "3s",
    "focus": [
+    "ps3_routine",
     "ps_3s",
     "ps_q",
-    "v:animals"
+    "v:animals",
+    "v:l_ipk3tp"
    ],
    "path": [
     "ps_3s",
